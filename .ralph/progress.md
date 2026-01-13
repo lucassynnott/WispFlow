@@ -1389,3 +1389,59 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-it
   - Sample text previews are effective for demonstrating text transformation
 ---
 
+
+## [2026-01-13 21:25] - US-409: Toast Notification System
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 9)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-9.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-9.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 8a6758c feat(US-409): add toast notification system with frosted glass design
+- Post-commit status: clean
+- Verification:
+  - Command: swift build -> PASS
+- Files changed:
+  - Sources/WispFlow/ToastView.swift (new)
+  - Sources/WispFlow/AppDelegate.swift
+  - .agents/tasks/prd-v5.md
+  - .ralph/IMPLEMENTATION_PLAN.md
+- What was implemented:
+  - Created comprehensive ToastView.swift (~450 lines) with full toast notification system
+  - ToastType enum with three variants:
+    - success: sage green (#81B29A) background
+    - error: coral (#E07A5F) background
+    - info: gray (#636E72) background
+  - ToastItem struct containing all toast configuration:
+    - type, title, message (optional), icon (optional)
+    - actionTitle and action closure (optional)
+    - duration (configurable, defaults vary by type)
+  - ToastManager singleton (ObservableObject) features:
+    - Queue system for multiple toasts (max 3 visible, overflow queued)
+    - Auto-dismiss timers with hover-pause functionality
+    - Convenience methods: showSuccess, showError, showInfo
+    - App-specific helpers: showTranscriptionSuccess, showTranscriptionError, showModelDownloadComplete, etc.
+  - WispflowToast SwiftUI view component:
+    - Frosted glass effect using .ultraThinMaterial with warm tint overlay
+    - Icon + message + optional action button layout
+    - Auto-dismiss progress bar at bottom of toast
+    - Dismiss button with hover state
+    - 280-380px width for consistent sizing
+  - ToastContainerView for displaying all active toasts:
+    - VStack aligned to top-right of screen
+    - Slide-in/out animations using WispflowAnimation.slide
+  - ToastWindowController (NSWindow-based):
+    - Borderless, transparent floating window above all other windows
+    - Proper click-through except for toast content
+    - Singleton pattern for app-wide access
+  - AppDelegate integration:
+    - Added toastWindowController property
+    - setupToastSystem() method initializes toast system
+    - NotificationCenter observer for .openSettings action from toast buttons
+- **Learnings for future iterations:**
+  - NSWindow with .borderless style mask and transparent background works well for overlay UI
+  - Using .ultraThinMaterial provides native frosted glass effect
+  - Hover-pause on auto-dismiss timers improves UX for reading long messages
+  - Singleton pattern with ObservableObject enables app-wide toast access
+  - Progress bar indicator helps users know when toast will dismiss
+---
