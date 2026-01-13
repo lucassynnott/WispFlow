@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var recordingIndicator: RecordingIndicatorWindow?
     private var audioManager: AudioManager?
     private var whisperManager: WhisperManager?
+    private var textCleanupManager: TextCleanupManager?
     private var settingsWindowController: SettingsWindowController?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -46,21 +47,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         
-        // Initialize Whisper manager and auto-load model on main actor
+        // Initialize Whisper manager, text cleanup manager, and auto-load models on main actor
         Task { @MainActor in
             setupWhisperManager()
+            setupTextCleanupManager()
             
             // Provide whisper manager to status bar controller
             statusBarController?.whisperManager = whisperManager
             
-            // Set up settings window controller
-            if let whisper = whisperManager {
-                settingsWindowController = SettingsWindowController(whisperManager: whisper)
+            // Set up settings window controller with both managers
+            if let whisper = whisperManager, let cleanup = textCleanupManager {
+                settingsWindowController = SettingsWindowController(
+                    whisperManager: whisper,
+                    textCleanupManager: cleanup
+                )
             }
             
             // Auto-load the selected Whisper model in background
             print("Auto-loading Whisper model...")
             await whisperManager?.loadModel()
+            
+            // Text cleanup is ready immediately (rule-based, no model download needed)
+            print("Text cleanup ready with mode: \(textCleanupManager?.selectedMode.rawValue ?? "unknown")")
         }
     }
     
@@ -104,11 +112,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Set up callbacks
         whisperManager?.onTranscriptionComplete = { text in
             print("Transcription complete: \(text)")
-            // Future: Pass to text cleanup (US-005) and insertion (US-006)
         }
         
         whisperManager?.onError = { error in
             print("Whisper error: \(error)")
+        }
+    }
+    
+    @MainActor
+    private func setupTextCleanupManager() {
+        textCleanupManager = TextCleanupManager()
+        
+        // Set up callbacks
+        textCleanupManager?.onCleanupComplete = { text in
+            print("Text cleanup complete: \(text)")
+            // Future: Pass to text insertion (US-006)
+        }
+        
+        textCleanupManager?.onError = { error in
+            print("Text cleanup error: \(error)")
         }
     }
     
@@ -210,12 +232,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let transcribedText = await whisper.transcribe(audioData: audioData, sampleRate: sampleRate) {
                 print("Transcription result: \(transcribedText)")
                 
-                // Hide the indicator after transcription
-                recordingIndicator?.hideWithAnimation()
-                
                 if !transcribedText.isEmpty {
-                    // Future: Pass to text cleanup (US-005) and insertion (US-006)
-                    print("Ready for text cleanup and insertion: \(transcribedText)")
+                    // Pass to text cleanup (US-005)
+                    await processTextCleanup(transcribedText)
+                } else {
+                    recordingIndicator?.hideWithAnimation()
                 }
             } else {
                 recordingIndicator?.hideWithAnimation()
@@ -225,6 +246,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Reset whisper status
             whisper.resetStatus()
         }
+    }
+    
+    @MainActor
+    private func processTextCleanup(_ transcribedText: String) async {
+        guard let cleanup = textCleanupManager else {
+            print("TextCleanupManager not available, using raw text")
+            recordingIndicator?.hideWithAnimation()
+            // Future: Pass to text insertion (US-006)
+            print("Ready for text insertion: \(transcribedText)")
+            return
+        }
+        
+        // Update indicator to show cleanup status
+        if cleanup.isCleanupEnabled {
+            recordingIndicator?.updateStatus("Cleaning up...")
+        }
+        
+        // Perform text cleanup
+        let cleanedText = await cleanup.cleanupText(transcribedText)
+        
+        // Hide the indicator after cleanup
+        recordingIndicator?.hideWithAnimation()
+        
+        print("Final text (after cleanup): \(cleanedText)")
+        
+        // Future: Pass to text insertion (US-006)
+        print("Ready for text insertion: \(cleanedText)")
+        
+        // Reset cleanup status
+        cleanup.resetStatus()
     }
     
     private func showTranscriptionError(_ message: String) {

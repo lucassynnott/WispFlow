@@ -1,0 +1,21 @@
+**Summary:**
+
+Successfully implemented US-004: Local Whisper Transcription for WispFlow. Key changes:
+
+1. **Integrated WhisperKit** (argmaxinc/WhisperKit) via Swift Package Manager - a CoreML-optimized Whisper implementation for Apple Silicon
+2. **Created WhisperManager.swift** - wrapper class handling model loading, transcription pipeline, and status management
+3. **Created SettingsWindow.swift** - SwiftUI-based settings UI with model selection (tiny/base/small/medium), download/delete controls, and status display
+4. **Connected transcription to recording flow** - when recording stops, audio is automatically transcribed via WhisperKit
+5. **Updated minimum macOS to 14.0** (WhisperKit requirement)
+
+The app now supports:
+- Multiple Whisper model sizes with auto-download from Hugging Face
+- Model management UI accessible from Settings menu
+- "Transcribing..." indicator during processing
+- Error handling that guides users to Settings if model not loaded
+
+Commits:
+- `b4703ab feat(US-004): implement local Whisper transcription`
+- `b41dc57 docs: update progress log for US-004`
+
+There are 3 remaining stories in the PRD (US-005, US-006, US-007), so this is not the final completion.

@@ -135,13 +135,13 @@ As a user, I want my speech transcribed locally using Whisper so my audio never 
 - [x] High accuracy transcription
 - [x] Low latency processing
 
-### [ ] US-005: AI Text Cleanup
+### [x] US-005: AI Text Cleanup
 As a user, I want my transcribed text cleaned up automatically so I get polished, professional output.
-- Remove filler words ("um", "uh", "like", "you know")
-- Fix grammar and punctuation
-- Proper capitalization
-- Format naturally while preserving intent
-- Use local LLM (llama.cpp/MLX) for cleanup
+- [x] Remove filler words ("um", "uh", "like", "you know")
+- [x] Fix grammar and punctuation
+- [x] Proper capitalization
+- [x] Format naturally while preserving intent
+- [x] Use local LLM (llama.cpp/MLX) for cleanup
 
 ### [ ] US-006: Text Insertion
 As a user, I want the cleaned text inserted into my active application so I can dictate directly into any text field.

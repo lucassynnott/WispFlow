@@ -4,7 +4,9 @@ import SwiftUI
 /// Includes model management, audio settings, and general preferences
 struct SettingsView: View {
     @ObservedObject var whisperManager: WhisperManager
-    @State private var isLoadingModel = false
+    @ObservedObject var textCleanupManager: TextCleanupManager
+    @State private var isLoadingWhisperModel = false
+    @State private var isLoadingCleanupModel = false
     @State private var showDeleteConfirmation = false
     @State private var modelToDelete: WhisperManager.ModelSize?
     
@@ -13,12 +15,21 @@ struct SettingsView: View {
             // Transcription tab
             TranscriptionSettingsView(
                 whisperManager: whisperManager,
-                isLoadingModel: $isLoadingModel,
+                isLoadingModel: $isLoadingWhisperModel,
                 showDeleteConfirmation: $showDeleteConfirmation,
                 modelToDelete: $modelToDelete
             )
             .tabItem {
                 Label("Transcription", systemImage: "waveform")
+            }
+            
+            // Text Cleanup tab
+            TextCleanupSettingsView(
+                textCleanupManager: textCleanupManager,
+                isLoadingModel: $isLoadingCleanupModel
+            )
+            .tabItem {
+                Label("Text Cleanup", systemImage: "text.badge.checkmark")
             }
             
             // General tab (placeholder for future settings)
@@ -27,7 +38,7 @@ struct SettingsView: View {
                 Label("General", systemImage: "gear")
             }
         }
-        .frame(width: 480, height: 400)
+        .frame(width: 520, height: 480)
         .alert("Delete Model?", isPresented: $showDeleteConfirmation, presenting: modelToDelete) { model in
             Button("Delete", role: .destructive) {
                 Task {
@@ -273,6 +284,167 @@ struct StatusBadge: View {
     }
 }
 
+// MARK: - Text Cleanup Settings
+
+struct TextCleanupSettingsView: View {
+    @ObservedObject var textCleanupManager: TextCleanupManager
+    @Binding var isLoadingModel: Bool
+    
+    var body: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Cleanup toggle
+                    Toggle("Enable Text Cleanup", isOn: Binding(
+                        get: { textCleanupManager.isCleanupEnabled },
+                        set: { textCleanupManager.isCleanupEnabled = $0 }
+                    ))
+                    .toggleStyle(.switch)
+                    
+                    Text("When enabled, transcribed text will be cleaned up to remove filler words, fix grammar, and improve formatting.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Divider()
+            
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Mode selection
+                    Text("Cleanup Mode")
+                        .font(.headline)
+                    
+                    Text("Select a cleanup mode. More thorough modes apply additional corrections.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Picker("Cleanup Mode", selection: $textCleanupManager.selectedMode) {
+                        ForEach(TextCleanupManager.CleanupMode.allCases) { mode in
+                            Text(mode.displayName)
+                                .tag(mode)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                    .disabled(!textCleanupManager.isCleanupEnabled)
+                    
+                    // Mode description
+                    Text(textCleanupManager.selectedMode.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 20)
+                }
+            }
+            
+            Divider()
+            
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Status display
+                    HStack {
+                        Text("Status:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        CleanupStatusBadge(status: textCleanupManager.modelStatus)
+                    }
+                    
+                    Text(textCleanupManager.statusMessage)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Divider()
+            
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("What Text Cleanup Does")
+                        .font(.headline)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        CleanupFeatureRow(icon: "minus.circle", text: "Removes filler words (um, uh, like, you know)")
+                        CleanupFeatureRow(icon: "checkmark.circle", text: "Fixes grammar and punctuation")
+                        CleanupFeatureRow(icon: "textformat", text: "Proper capitalization")
+                        CleanupFeatureRow(icon: "text.alignleft", text: "Natural text formatting")
+                    }
+                }
+            }
+        }
+        .padding()
+    }
+}
+
+// MARK: - Cleanup Status Badge
+
+struct CleanupStatusBadge: View {
+    let status: TextCleanupManager.ModelStatus
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+            Text(statusText)
+                .font(.caption)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(statusColor.opacity(0.15))
+        .cornerRadius(8)
+    }
+    
+    private var statusColor: Color {
+        switch status {
+        case .notDownloaded:
+            return .gray
+        case .downloading, .loading:
+            return .orange
+        case .downloaded:
+            return .blue
+        case .ready:
+            return .green
+        case .error:
+            return .red
+        }
+    }
+    
+    private var statusText: String {
+        switch status {
+        case .notDownloaded:
+            return "Not Downloaded"
+        case .downloading(let progress):
+            return "Downloading \(Int(progress * 100))%"
+        case .downloaded:
+            return "Downloaded"
+        case .loading:
+            return "Loading"
+        case .ready:
+            return "Ready"
+        case .error:
+            return "Error"
+        }
+    }
+}
+
+// MARK: - Cleanup Feature Row
+
+struct CleanupFeatureRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundColor(.secondary)
+                .frame(width: 16)
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
 // MARK: - General Settings
 
 struct GeneralSettingsView: View {
@@ -298,9 +470,11 @@ struct GeneralSettingsView: View {
 final class SettingsWindowController: NSObject {
     private var settingsWindow: NSWindow?
     private let whisperManager: WhisperManager
+    private let textCleanupManager: TextCleanupManager
     
-    init(whisperManager: WhisperManager) {
+    init(whisperManager: WhisperManager, textCleanupManager: TextCleanupManager) {
         self.whisperManager = whisperManager
+        self.textCleanupManager = textCleanupManager
         super.init()
     }
     
@@ -311,7 +485,7 @@ final class SettingsWindowController: NSObject {
             return
         }
         
-        let settingsView = SettingsView(whisperManager: whisperManager)
+        let settingsView = SettingsView(whisperManager: whisperManager, textCleanupManager: textCleanupManager)
         let hostingController = NSHostingController(rootView: settingsView)
         
         let window = NSWindow(contentViewController: hostingController)
