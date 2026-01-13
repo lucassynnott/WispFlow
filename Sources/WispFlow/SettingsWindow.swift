@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Settings window for WispFlow configuration
 /// Includes model management, audio settings, and general preferences
@@ -580,6 +581,10 @@ struct TextCleanupSettingsView: View {
     @Binding var showLLMDeleteConfirmation: Bool
     @Binding var llmModelToDelete: LLMManager.ModelSize?
     
+    // US-305: Error handling state
+    @State private var showLLMErrorAlert = false
+    @State private var showFilePicker = false
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -683,29 +688,86 @@ struct TextCleanupSettingsView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             
+                            // US-305: Download progress bar
+                            if case .downloading(let progress) = llmManager.modelStatus {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    ProgressView(value: progress)
+                                        .progressViewStyle(.linear)
+                                    Text("\(Int(progress * 100))% downloaded")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
                             // Action buttons
                             HStack(spacing: 12) {
-                                Button(action: {
-                                    Task {
-                                        isLoadingLLMModel = true
-                                        await llmManager.loadModel()
-                                        isLoadingLLMModel = false
-                                    }
-                                }) {
-                                    HStack {
-                                        if isLoadingLLMModel {
-                                            ProgressView()
-                                                .scaleEffect(0.7)
-                                                .frame(width: 16, height: 16)
-                                        } else {
-                                            Image(systemName: llmButtonIconName)
+                                // Main action button (Download/Load/Retry)
+                                if case .error = llmManager.modelStatus {
+                                    // US-305: Retry button for failed downloads
+                                    Button(action: {
+                                        Task {
+                                            isLoadingLLMModel = true
+                                            await llmManager.retryDownload()
+                                            isLoadingLLMModel = false
+                                            // Show error alert if retry also failed
+                                            if case .error = llmManager.modelStatus {
+                                                showLLMErrorAlert = true
+                                            }
                                         }
-                                        Text(llmButtonTitle)
+                                    }) {
+                                        HStack {
+                                            if isLoadingLLMModel {
+                                                ProgressView()
+                                                    .scaleEffect(0.7)
+                                                    .frame(width: 16, height: 16)
+                                            } else {
+                                                Image(systemName: "arrow.clockwise")
+                                            }
+                                            Text("Retry Download")
+                                        }
+                                        .frame(minWidth: 140)
                                     }
-                                    .frame(minWidth: 140)
+                                    .disabled(isLoadingLLMModel)
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.orange)
+                                    
+                                    // Error details button
+                                    Button(action: {
+                                        showLLMErrorAlert = true
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "exclamationmark.triangle")
+                                            Text("Error Details")
+                                        }
+                                    }
+                                    .buttonStyle(.bordered)
+                                } else {
+                                    Button(action: {
+                                        Task {
+                                            isLoadingLLMModel = true
+                                            await llmManager.loadModel()
+                                            isLoadingLLMModel = false
+                                            // Show error alert if download failed
+                                            if case .error = llmManager.modelStatus {
+                                                showLLMErrorAlert = true
+                                            }
+                                        }
+                                    }) {
+                                        HStack {
+                                            if isLoadingLLMModel {
+                                                ProgressView()
+                                                    .scaleEffect(0.7)
+                                                    .frame(width: 16, height: 16)
+                                            } else {
+                                                Image(systemName: llmButtonIconName)
+                                            }
+                                            Text(llmButtonTitle)
+                                        }
+                                        .frame(minWidth: 140)
+                                    }
+                                    .disabled(isLoadingLLMModel || llmManager.modelStatus == .ready)
+                                    .buttonStyle(.borderedProminent)
                                 }
-                                .disabled(isLoadingLLMModel || llmManager.modelStatus == .ready)
-                                .buttonStyle(.borderedProminent)
                                 
                                 // Delete button (if model is downloaded)
                                 if llmManager.isModelDownloaded(llmManager.selectedModel) {
@@ -722,6 +784,96 @@ struct TextCleanupSettingsView: View {
                                     .buttonStyle(.bordered)
                                 }
                             }
+                            
+                            // US-305: Manual model path option as fallback
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Manual Model Path (Fallback)")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                
+                                Text("If automatic downloads fail, you can manually download a GGUF model file and specify its path here.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Toggle("Use custom model path", isOn: $llmManager.useCustomModelPath)
+                                    .toggleStyle(.switch)
+                                
+                                if llmManager.useCustomModelPath {
+                                    HStack {
+                                        TextField("Path to .gguf file", text: $llmManager.customModelPath)
+                                            .textFieldStyle(.roundedBorder)
+                                        
+                                        Button("Browse...") {
+                                            showFilePicker = true
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
+                                    
+                                    if !llmManager.customModelPath.isEmpty {
+                                        Button(action: {
+                                            Task {
+                                                isLoadingLLMModel = true
+                                                await llmManager.loadModelFromCustomPath()
+                                                isLoadingLLMModel = false
+                                                if case .error = llmManager.modelStatus {
+                                                    showLLMErrorAlert = true
+                                                }
+                                            }
+                                        }) {
+                                            HStack {
+                                                if isLoadingLLMModel {
+                                                    ProgressView()
+                                                        .scaleEffect(0.7)
+                                                        .frame(width: 16, height: 16)
+                                                } else {
+                                                    Image(systemName: "play.circle")
+                                                }
+                                                Text("Load Custom Model")
+                                            }
+                                        }
+                                        .disabled(isLoadingLLMModel || llmManager.modelStatus == .ready)
+                                        .buttonStyle(.borderedProminent)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // US-305: Error alert
+                    .alert("LLM Download Error", isPresented: $showLLMErrorAlert) {
+                        Button("OK", role: .cancel) { }
+                        Button("Retry") {
+                            Task {
+                                isLoadingLLMModel = true
+                                await llmManager.retryDownload()
+                                isLoadingLLMModel = false
+                            }
+                        }
+                    } message: {
+                        Text(llmManager.lastErrorMessage.isEmpty ? "An error occurred while downloading the model." : llmManager.lastErrorMessage)
+                    }
+                    // US-305: File picker for manual model path
+                    .fileImporter(
+                        isPresented: $showFilePicker,
+                        allowedContentTypes: [.data],
+                        allowsMultipleSelection: false
+                    ) { result in
+                        switch result {
+                        case .success(let urls):
+                            if let url = urls.first {
+                                // Check if it's a .gguf file
+                                if url.pathExtension.lowercased() == "gguf" {
+                                    llmManager.customModelPath = url.path
+                                } else {
+                                    // Show error for non-gguf files
+                                    llmManager.lastErrorMessage = "Please select a .gguf model file"
+                                    showLLMErrorAlert = true
+                                }
+                            }
+                        case .failure(let error):
+                            llmManager.lastErrorMessage = "Failed to select file: \(error.localizedDescription)"
+                            showLLMErrorAlert = true
                         }
                     }
                 }

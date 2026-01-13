@@ -49,6 +49,25 @@ final class LLMManager: ObservableObject {
             case .gemma2b: return "gemma-2b-it.Q4_K_M.gguf"
             }
         }
+        
+        /// Expected file size in bytes (approximate, for validation)
+        /// These are minimum expected sizes - actual may be larger
+        var expectedMinimumSizeBytes: Int64 {
+            switch self {
+            case .qwen1_5b: return 900_000_000   // ~900MB minimum
+            case .phi3_mini: return 1_800_000_000 // ~1.8GB minimum
+            case .gemma2b: return 1_300_000_000   // ~1.3GB minimum
+            }
+        }
+        
+        /// Human-readable expected size
+        var expectedSizeDescription: String {
+            switch self {
+            case .qwen1_5b: return "~1GB"
+            case .phi3_mini: return "~2GB"
+            case .gemma2b: return "~1.4GB"
+            }
+        }
     }
     
     /// Model status
@@ -121,6 +140,23 @@ final class LLMManager: ObservableObject {
     /// Status messages for UI display
     @Published private(set) var statusMessage: String = "No LLM model loaded"
     
+    /// Detailed error message for UI display (includes suggestions)
+    @Published var lastErrorMessage: String = ""
+    
+    /// Custom model path (for manual fallback option)
+    @Published var customModelPath: String = "" {
+        didSet {
+            UserDefaults.standard.set(customModelPath, forKey: "customLLMModelPath")
+        }
+    }
+    
+    /// Whether to use custom model path instead of downloaded model
+    @Published var useCustomModelPath: Bool = false {
+        didSet {
+            UserDefaults.standard.set(useCustomModelPath, forKey: "useLLMCustomModelPath")
+        }
+    }
+    
     /// Whether LLM cleanup is enabled
     @Published var isLLMEnabled: Bool {
         didSet {
@@ -163,6 +199,10 @@ final class LLMManager: ObservableObject {
         
         // Load LLM enabled preference (default to true)
         isLLMEnabled = UserDefaults.standard.object(forKey: Constants.llmEnabledKey) as? Bool ?? true
+        
+        // Load custom model path preferences
+        customModelPath = UserDefaults.standard.string(forKey: "customLLMModelPath") ?? ""
+        useCustomModelPath = UserDefaults.standard.bool(forKey: "useLLMCustomModelPath")
         
         // Check if model is already downloaded
         if isModelDownloaded(selectedModel) {
@@ -236,17 +276,45 @@ final class LLMManager: ObservableObject {
             return
         }
         
+        // Clear previous error
+        lastErrorMessage = ""
+        
         modelStatus = .downloading(progress: 0)
         downloadProgress = 0
-        statusMessage = "Downloading \(selectedModel.displayName)..."
+        statusMessage = "Checking network connectivity..."
+        
+        // Construct Hugging Face download URL
+        let urlString = "https://huggingface.co/\(selectedModel.huggingFaceID)/resolve/main/\(selectedModel.ggufFilename)"
+        
+        // Log download URL with boxed output
+        logDownloadStart(urlString: urlString, model: selectedModel)
+        
+        guard let url = URL(string: urlString) else {
+            let errorMsg = createDetailedErrorMessage(
+                error: NSError(domain: "LLMManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid download URL"]),
+                httpStatusCode: nil,
+                downloadURL: urlString
+            )
+            handleDownloadError(errorMsg)
+            return
+        }
+        
+        // Check network connectivity before starting download
+        statusMessage = "Checking network connectivity..."
+        let connectivityResult = await checkNetworkConnectivity(to: url)
+        if !connectivityResult.isReachable {
+            let errorMsg = createDetailedErrorMessage(
+                error: NSError(domain: "LLMManager", code: -1, userInfo: [NSLocalizedDescriptionKey: connectivityResult.message]),
+                httpStatusCode: nil,
+                downloadURL: urlString
+            )
+            handleDownloadError(errorMsg)
+            return
+        }
+        
+        statusMessage = "Downloading \(selectedModel.displayName) (\(selectedModel.expectedSizeDescription))..."
         
         do {
-            // Construct Hugging Face download URL
-            let urlString = "https://huggingface.co/\(selectedModel.huggingFaceID)/resolve/main/\(selectedModel.ggufFilename)"
-            guard let url = URL(string: urlString) else {
-                throw NSError(domain: "LLMManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid download URL"])
-            }
-            
             let destinationURL = modelPath(for: selectedModel)
             
             // Remove existing file if present (in case of interrupted download)
@@ -254,47 +322,87 @@ final class LLMManager: ObservableObject {
                 try FileManager.default.removeItem(at: destinationURL)
             }
             
-            print("LLMManager: Downloading from \(urlString)")
-            
             // Download the file with progress tracking using URLSessionDownloadDelegate
             let (tempURL, response) = try await downloadWithProgress(from: url)
             
-            // Check for valid response
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-                throw NSError(domain: "LLMManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Download failed with HTTP error \(statusCode)"])
+            // Check for valid response with specific error messages
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw NSError(domain: "LLMManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid server response"])
+            }
+            
+            if httpResponse.statusCode != 200 {
+                let errorMsg = createDetailedErrorMessage(
+                    error: NSError(domain: "LLMManager", code: httpResponse.statusCode, userInfo: [:]),
+                    httpStatusCode: httpResponse.statusCode,
+                    downloadURL: urlString
+                )
+                handleDownloadError(errorMsg)
+                // Clean up temp file
+                try? FileManager.default.removeItem(at: tempURL)
+                return
             }
             
             // Move downloaded file to destination
             try FileManager.default.moveItem(at: tempURL, to: destinationURL)
             
-            modelStatus = .downloaded
-            downloadProgress = 1.0
-            statusMessage = "\(selectedModel.displayName) downloaded"
-            print("LLMManager: Model downloaded successfully to \(destinationURL.path)")
+            // Verify the downloaded file
+            let verificationResult = verifyDownloadedModel(at: destinationURL, expectedModel: selectedModel)
+            if !verificationResult.isValid {
+                // Log the verification failure
+                logVerificationFailure(result: verificationResult, destinationURL: destinationURL)
+                
+                // Still mark as downloaded but with warning
+                modelStatus = .downloaded
+                downloadProgress = 1.0
+                statusMessage = "⚠️ Download complete but file size may indicate partial download"
+                print("LLMManager: WARNING - \(verificationResult.message)")
+            } else {
+                modelStatus = .downloaded
+                downloadProgress = 1.0
+                statusMessage = "\(selectedModel.displayName) downloaded"
+                logDownloadSuccess(destinationURL: destinationURL, fileSize: verificationResult.actualSize)
+            }
             
         } catch {
-            let errorMessage = "Download failed: \(error.localizedDescription)"
-            modelStatus = .error(errorMessage)
-            statusMessage = errorMessage
-            downloadProgress = 0
-            print("LLMManager: \(errorMessage)")
-            onError?(errorMessage)
+            let errorMsg = createDetailedErrorMessage(
+                error: error,
+                httpStatusCode: nil,
+                downloadURL: urlString
+            )
+            handleDownloadError(errorMsg)
         }
+    }
+    
+    /// Retry downloading the model (resets error state and tries again)
+    func retryDownload() async {
+        // Reset error state
+        lastErrorMessage = ""
+        modelStatus = .notDownloaded
+        statusMessage = "Retrying download..."
+        
+        // Try downloading again
+        await downloadModel()
     }
     
     /// Download file with progress tracking
     private func downloadWithProgress(from url: URL) async throws -> (URL, URLResponse) {
         return try await withCheckedThrowingContinuation { continuation in
-            let delegate = DownloadProgressDelegate { [weak self] progress in
+            let delegate = DownloadProgressDelegate { [weak self] progress, bytesWritten, totalBytes in
                 Task { @MainActor in
                     self?.downloadProgress = progress
                     self?.modelStatus = .downloading(progress: progress)
-                    self?.statusMessage = "Downloading... \(Int(progress * 100))%"
+                    let bytesStr = self?.formatBytes(totalBytes) ?? ""
+                    let downloadedStr = self?.formatBytes(bytesWritten) ?? ""
+                    self?.statusMessage = "Downloading... \(Int(progress * 100))% (\(downloadedStr) / \(bytesStr))"
                 }
             }
             
-            let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+            // Configure session with timeout
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 30  // 30 seconds for initial connection
+            config.timeoutIntervalForResource = 3600  // 1 hour for full download (large files)
+            
+            let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
             let task = session.downloadTask(with: url) { tempURL, response, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -312,6 +420,286 @@ final class LLMManager: ObservableObject {
                 }
             }
             task.resume()
+        }
+    }
+    
+    // MARK: - Network & Download Helpers
+    
+    /// Check network connectivity to a URL before attempting download
+    private func checkNetworkConnectivity(to url: URL) async -> (isReachable: Bool, message: String) {
+        // Try a HEAD request to check if the URL is reachable
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 10  // 10 second timeout for connectivity check
+        
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                switch httpResponse.statusCode {
+                case 200...299:
+                    return (true, "Connected")
+                case 401, 403:
+                    return (false, "Access denied. The model may require authentication or is not publicly available.")
+                case 404:
+                    return (false, "Model not found. The download URL may have changed or the model was removed.")
+                case 500...599:
+                    return (false, "Hugging Face server error. Please try again later.")
+                default:
+                    return (false, "Server returned status \(httpResponse.statusCode)")
+                }
+            }
+            return (true, "Connected")
+        } catch let error as NSError {
+            if error.domain == NSURLErrorDomain {
+                switch error.code {
+                case NSURLErrorNotConnectedToInternet:
+                    return (false, "No internet connection. Please check your network settings.")
+                case NSURLErrorTimedOut:
+                    return (false, "Connection timed out. The server may be slow or unreachable.")
+                case NSURLErrorCannotFindHost:
+                    return (false, "Cannot reach huggingface.co. Please check your internet connection.")
+                case NSURLErrorNetworkConnectionLost:
+                    return (false, "Network connection lost. Please check your connection and try again.")
+                case NSURLErrorSecureConnectionFailed:
+                    return (false, "Secure connection failed. There may be a network security issue.")
+                default:
+                    return (false, "Network error: \(error.localizedDescription)")
+                }
+            }
+            return (false, "Connection check failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Create a detailed error message based on the error type and HTTP status code
+    private func createDetailedErrorMessage(error: Error, httpStatusCode: Int?, downloadURL: String) -> String {
+        var message = ""
+        var suggestion = ""
+        
+        if let statusCode = httpStatusCode {
+            switch statusCode {
+            case 401:
+                message = "Authentication required (HTTP 401)"
+                suggestion = "This model may require a Hugging Face account. Try using the manual model path option instead."
+            case 403:
+                message = "Access denied (HTTP 403)"
+                suggestion = "You don't have permission to download this model. It may be restricted or require acceptance of terms. Try using the manual model path option."
+            case 404:
+                message = "Model not found (HTTP 404)"
+                suggestion = "The model file doesn't exist at the expected URL. The model name or URL may have changed. Try a different model or use the manual model path option."
+            case 429:
+                message = "Too many requests (HTTP 429)"
+                suggestion = "Rate limit exceeded. Please wait a few minutes and try again."
+            case 500...599:
+                message = "Server error (HTTP \(statusCode))"
+                suggestion = "Hugging Face is experiencing issues. Please try again later."
+            default:
+                message = "Download failed (HTTP \(statusCode))"
+                suggestion = "An unexpected HTTP error occurred. Check your network connection and try again."
+            }
+        } else {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain {
+                switch nsError.code {
+                case NSURLErrorNotConnectedToInternet:
+                    message = "No internet connection"
+                    suggestion = "Please connect to the internet and try again."
+                case NSURLErrorTimedOut:
+                    message = "Download timed out"
+                    suggestion = "The download took too long. Check your internet speed and try again, or use the manual model path option."
+                case NSURLErrorCannotFindHost:
+                    message = "Cannot reach download server"
+                    suggestion = "Unable to connect to huggingface.co. Check your internet connection and firewall settings."
+                case NSURLErrorNetworkConnectionLost:
+                    message = "Network connection lost"
+                    suggestion = "The connection was interrupted. Please check your network and try again."
+                case NSURLErrorCancelled:
+                    message = "Download cancelled"
+                    suggestion = "The download was cancelled. Click retry to start again."
+                default:
+                    message = "Network error: \(error.localizedDescription)"
+                    suggestion = "Check your internet connection and try again."
+                }
+            } else {
+                message = "Download failed: \(error.localizedDescription)"
+                suggestion = "Try again or use the manual model path option."
+            }
+        }
+        
+        return """
+        \(message)
+        
+        Download URL: \(downloadURL)
+        
+        Suggestion: \(suggestion)
+        """
+    }
+    
+    /// Handle download error - update state and log
+    private func handleDownloadError(_ errorMessage: String) {
+        lastErrorMessage = errorMessage
+        modelStatus = .error("Download failed")
+        statusMessage = "Download failed - tap for details"
+        downloadProgress = 0
+        
+        // Log error with boxed output
+        print("""
+        ╔═══════════════════════════════════════════════════════════════════╗
+        ║  [US-305] LLM DOWNLOAD ERROR                                      ║
+        ╠═══════════════════════════════════════════════════════════════════╣
+        ║  Model: \(selectedModel.displayName.padding(toLength: 52, withPad: " ", startingAt: 0)) ║
+        ╠═══════════════════════════════════════════════════════════════════╣
+        \(errorMessage.split(separator: "\n").map { "║  \(String($0).padding(toLength: 63, withPad: " ", startingAt: 0)) ║" }.joined(separator: "\n"))
+        ╚═══════════════════════════════════════════════════════════════════╝
+        """)
+        
+        // Log to ErrorLogger
+        let downloadError = NSError(domain: "LLMDownload", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMessage])
+        ErrorLogger.shared.logModelError(downloadError, modelInfo: [
+            "model": selectedModel.rawValue,
+            "huggingFaceID": selectedModel.huggingFaceID,
+            "ggufFilename": selectedModel.ggufFilename
+        ])
+        
+        onError?(errorMessage)
+    }
+    
+    /// Verify downloaded model file exists and has expected size
+    private func verifyDownloadedModel(at url: URL, expectedModel: ModelSize) -> (isValid: Bool, message: String, actualSize: Int64) {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return (false, "Model file not found after download", 0)
+        }
+        
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let fileSize = attributes[.size] as? Int64 ?? 0
+            
+            if fileSize < expectedModel.expectedMinimumSizeBytes {
+                let expectedStr = formatBytes(expectedModel.expectedMinimumSizeBytes)
+                let actualStr = formatBytes(fileSize)
+                return (false, "Downloaded file is too small (\(actualStr)). Expected at least \(expectedStr). The download may be incomplete.", fileSize)
+            }
+            
+            return (true, "Model file verified successfully", fileSize)
+        } catch {
+            return (false, "Could not verify file: \(error.localizedDescription)", 0)
+        }
+    }
+    
+    /// Format bytes into human-readable string
+    private func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
+    }
+    
+    /// Log download start with boxed output
+    private func logDownloadStart(urlString: String, model: ModelSize) {
+        print("""
+        ╔═══════════════════════════════════════════════════════════════════╗
+        ║  [US-305] LLM MODEL DOWNLOAD STARTING                             ║
+        ╠═══════════════════════════════════════════════════════════════════╣
+        ║  Model: \(model.displayName.padding(toLength: 52, withPad: " ", startingAt: 0)) ║
+        ║  Expected Size: \(model.expectedSizeDescription.padding(toLength: 44, withPad: " ", startingAt: 0)) ║
+        ╠═══════════════════════════════════════════════════════════════════╣
+        ║  Download URL:                                                    ║
+        ║  \(urlString.padding(toLength: 63, withPad: " ", startingAt: 0)) ║
+        ╚═══════════════════════════════════════════════════════════════════╝
+        """)
+    }
+    
+    /// Log download success
+    private func logDownloadSuccess(destinationURL: URL, fileSize: Int64) {
+        let sizeStr = formatBytes(fileSize)
+        print("""
+        ╔═══════════════════════════════════════════════════════════════════╗
+        ║  [US-305] LLM MODEL DOWNLOAD SUCCESS ✓                            ║
+        ╠═══════════════════════════════════════════════════════════════════╣
+        ║  File: \(destinationURL.lastPathComponent.padding(toLength: 53, withPad: " ", startingAt: 0)) ║
+        ║  Size: \(sizeStr.padding(toLength: 53, withPad: " ", startingAt: 0)) ║
+        ║  Path: \(destinationURL.path.prefix(53).padding(toLength: 53, withPad: " ", startingAt: 0)) ║
+        ╚═══════════════════════════════════════════════════════════════════╝
+        """)
+    }
+    
+    /// Log verification failure
+    private func logVerificationFailure(result: (isValid: Bool, message: String, actualSize: Int64), destinationURL: URL) {
+        print("""
+        ╔═══════════════════════════════════════════════════════════════════╗
+        ║  [US-305] LLM MODEL VERIFICATION WARNING ⚠️                        ║
+        ╠═══════════════════════════════════════════════════════════════════╣
+        ║  File: \(destinationURL.lastPathComponent.padding(toLength: 53, withPad: " ", startingAt: 0)) ║
+        ║  Issue: \(result.message.prefix(52).padding(toLength: 52, withPad: " ", startingAt: 0)) ║
+        ║  Actual Size: \(formatBytes(result.actualSize).padding(toLength: 47, withPad: " ", startingAt: 0)) ║
+        ╚═══════════════════════════════════════════════════════════════════╝
+        """)
+    }
+    
+    /// Load model from custom path (manual fallback option)
+    func loadModelFromCustomPath() async {
+        guard !customModelPath.isEmpty else {
+            let errorMsg = "No custom model path specified"
+            lastErrorMessage = errorMsg
+            modelStatus = .error(errorMsg)
+            statusMessage = errorMsg
+            onError?(errorMsg)
+            return
+        }
+        
+        let customURL = URL(fileURLWithPath: customModelPath)
+        
+        // Verify the file exists
+        guard FileManager.default.fileExists(atPath: customURL.path) else {
+            let errorMsg = "Custom model file not found at: \(customModelPath)"
+            lastErrorMessage = errorMsg
+            modelStatus = .error(errorMsg)
+            statusMessage = errorMsg
+            onError?(errorMsg)
+            return
+        }
+        
+        // Verify it's a GGUF file
+        guard customURL.pathExtension.lowercased() == "gguf" else {
+            let errorMsg = "Invalid file type. Please select a .gguf model file."
+            lastErrorMessage = errorMsg
+            modelStatus = .error(errorMsg)
+            statusMessage = errorMsg
+            onError?(errorMsg)
+            return
+        }
+        
+        print("""
+        ╔═══════════════════════════════════════════════════════════════════╗
+        ║  [US-305] LOADING CUSTOM LLM MODEL                                ║
+        ╠═══════════════════════════════════════════════════════════════════╣
+        ║  Path: \(customURL.path.prefix(53).padding(toLength: 53, withPad: " ", startingAt: 0)) ║
+        ╚═══════════════════════════════════════════════════════════════════╝
+        """)
+        
+        modelStatus = .loading
+        statusMessage = "Loading custom model..."
+        
+        do {
+            // Load model on background thread
+            let result = try await Task.detached {
+                return try self.loadLlamaModel(at: customURL)
+            }.value
+            
+            self.llamaModel = result.model
+            self.llamaContext = result.context
+            
+            modelStatus = .ready
+            statusMessage = "Custom model ready"
+            print("LLMManager: Custom model loaded successfully from \(customURL.path)")
+            
+        } catch {
+            let errorMessage = "Failed to load custom model: \(error.localizedDescription)"
+            lastErrorMessage = errorMessage
+            modelStatus = .error(errorMessage)
+            statusMessage = errorMessage
+            unloadModel()
+            print("LLMManager: \(errorMessage)")
+            onError?(errorMessage)
         }
     }
     
@@ -627,9 +1015,10 @@ final class LLMManager: ObservableObject {
 // MARK: - Download Progress Delegate
 
 private class DownloadProgressDelegate: NSObject, URLSessionDownloadDelegate {
-    private let progressHandler: (Double) -> Void
+    /// Progress handler with progress percentage, bytes written, and total bytes
+    private let progressHandler: (Double, Int64, Int64) -> Void
     
-    init(progressHandler: @escaping (Double) -> Void) {
+    init(progressHandler: @escaping (Double, Int64, Int64) -> Void) {
         self.progressHandler = progressHandler
         super.init()
     }
@@ -637,7 +1026,7 @@ private class DownloadProgressDelegate: NSObject, URLSessionDownloadDelegate {
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         if totalBytesExpectedToWrite > 0 {
             let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-            progressHandler(progress)
+            progressHandler(progress, totalBytesWritten, totalBytesExpectedToWrite)
         }
     }
     

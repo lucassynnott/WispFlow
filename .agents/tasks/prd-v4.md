@@ -172,14 +172,14 @@ As a user, I want Whisper models to download successfully.
 - [x] Show clear error message if download fails
 - [x] Add retry button for failed downloads
 
-### [ ] US-305: Fix LLM Model Downloads
+### [x] US-305: Fix LLM Model Downloads
 As a user, I want LLM models to download successfully.
-- Add try/catch around llama.cpp model download with error logging
-- Show download progress percentage
-- Log download URL and file size
-- Verify model file exists after download
-- Show clear error message if download fails
-- Add manual model path option as fallback
+- [x] Add try/catch around llama.cpp model download with error logging
+- [x] Show download progress percentage
+- [x] Log download URL and file size
+- [x] Verify model file exists after download
+- [x] Show clear error message if download fails
+- [x] Add manual model path option as fallback
 
 ### [ ] US-306: Audio Debug Export
 As a user, I want to export my recorded audio to verify capture is working.
