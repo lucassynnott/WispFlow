@@ -74,6 +74,11 @@ final class AudioManager: NSObject, ObservableObject {
     private var tapCallbackCount: Int = 0
     private var samplesAddedThisCallback: Int = 0
     
+    /// US-302: Timer to alert if no tap callbacks received within 2 seconds
+    private var noCallbackAlertTimer: Timer?
+    private var emptyCallbackCount: Int = 0  // Track callbacks with empty/zero data
+    private var zeroDataCallbackCount: Int = 0  // Track callbacks where all samples are zero
+    
     private var isCapturing = false
     private var captureStartTime: Date?
     
@@ -91,6 +96,7 @@ final class AudioManager: NSObject, ObservableObject {
     var onDevicesChanged: (([AudioInputDevice]) -> Void)?
     var onSilenceDetected: ((Float) -> Void)?  // Called if recording stops with only silence, passes measured dB level
     var onRecordingTooShort: (() -> Void)?  // Called if recording is below minimum duration
+    var onNoTapCallbacks: (() -> Void)?  // US-302: Called if no tap callbacks received within 2 seconds
     
     // MARK: - Initialization
     
@@ -435,6 +441,8 @@ final class AudioManager: NSObject, ObservableObject {
         bufferLock.unlock()
         tapCallbackCount = 0
         samplesAddedThisCallback = 0
+        emptyCallbackCount = 0  // US-302: Reset empty callback counter
+        zeroDataCallbackCount = 0  // US-302: Reset zero data callback counter
         print("AudioManager: [STAGE 1] ✓ masterBuffer cleared (unified audio storage)")
         
         // Configure audio engine
@@ -516,14 +524,26 @@ final class AudioManager: NSObject, ObservableObject {
                     samplesToAdd = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
                 }
                 
-                // Log first callback with detailed format info
+                // US-302: Log first callback with FULL details (format, sample count)
                 if self.tapCallbackCount == 1 {
                     let format = convertedBuffer.format
-                    print("AudioManager: [STAGE 2] ✓ First tap callback - converted buffer format:")
-                    print("  - Sample rate: \(format.sampleRate) Hz (expected: \(Constants.targetSampleRate))")
-                    print("  - Channels: \(format.channelCount) (expected: 1)")
-                    print("  - Format: \(format.commonFormat == .pcmFormatFloat32 ? "Float32" : "Other")")
-                    print("  - US-301: Level meter AND transcription use SAME masterBuffer")
+                    let inputBufferFrames = buffer.frameLength
+                    let outputFrames = convertedBuffer.frameLength
+                    print("╔═══════════════════════════════════════════════════════════════╗")
+                    print("║           US-302: FIRST TAP CALLBACK - FULL DETAILS           ║")
+                    print("╠═══════════════════════════════════════════════════════════════╣")
+                    print("║ Input buffer:                                                 ║")
+                    print("║   - Frame count: \(String(format: "%10d", inputBufferFrames)) frames                         ║")
+                    print("║   - Sample rate: \(String(format: "%10.0f", inputFormat.sampleRate)) Hz                            ║")
+                    print("║   - Channels:    \(String(format: "%10d", inputFormat.channelCount))                                ║")
+                    print("║ Converted buffer:                                             ║")
+                    print("║   - Frame count: \(String(format: "%10d", outputFrames)) frames                         ║")
+                    print("║   - Sample rate: \(String(format: "%10.0f", format.sampleRate)) Hz (target: \(Constants.targetSampleRate))         ║")
+                    print("║   - Channels:    \(String(format: "%10d", format.channelCount)) (expected: 1)                     ║")
+                    print("║   - Format:      \(format.commonFormat == .pcmFormatFloat32 ? "   Float32 ✓" : "     Other")                                ║")
+                    print("║ Sample count:    \(String(format: "%10d", samplesToAdd.count)) samples extracted                ║")
+                    print("║ US-301: Level meter AND transcription use SAME masterBuffer   ║")
+                    print("╚═══════════════════════════════════════════════════════════════╝")
                 }
             } else {
                 // No conversion needed - already at target format
@@ -532,17 +552,43 @@ final class AudioManager: NSObject, ObservableObject {
                     samplesToAdd = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
                 }
                 
+                // US-302: Log first callback with FULL details (no conversion case)
                 if self.tapCallbackCount == 1 {
-                    print("AudioManager: [STAGE 2] ✓ First tap callback - already at target format (16kHz mono Float32)")
-                    print("  - US-301: Level meter AND transcription use SAME masterBuffer")
+                    let bufferFrames = buffer.frameLength
+                    let format = buffer.format
+                    print("╔═══════════════════════════════════════════════════════════════╗")
+                    print("║           US-302: FIRST TAP CALLBACK - FULL DETAILS           ║")
+                    print("╠═══════════════════════════════════════════════════════════════╣")
+                    print("║ Buffer (no conversion needed):                                ║")
+                    print("║   - Frame count: \(String(format: "%10d", bufferFrames)) frames                         ║")
+                    print("║   - Sample rate: \(String(format: "%10.0f", format.sampleRate)) Hz                            ║")
+                    print("║   - Channels:    \(String(format: "%10d", format.channelCount))                                ║")
+                    print("║   - Format:      \(format.commonFormat == .pcmFormatFloat32 ? "   Float32 ✓" : "     Other")                                ║")
+                    print("║ Sample count:    \(String(format: "%10d", samplesToAdd.count)) samples extracted                ║")
+                    print("║ US-301: Level meter AND transcription use SAME masterBuffer   ║")
+                    print("╚═══════════════════════════════════════════════════════════════╝")
                 }
             }
             
+            // US-302: Log if callback receives empty/zero data
             guard !samplesToAdd.isEmpty else {
-                if self.tapCallbackCount % 50 == 0 {
-                    print("AudioManager: [STAGE 2] ⚠️ Tap callback #\(self.tapCallbackCount) received empty data")
+                self.emptyCallbackCount += 1
+                // Log first empty callback immediately, then every 10th
+                if self.emptyCallbackCount == 1 || self.emptyCallbackCount % 10 == 0 {
+                    print("AudioManager: [US-302] ⚠️ EMPTY DATA: Tap callback #\(self.tapCallbackCount) received empty buffer (empty count: \(self.emptyCallbackCount))")
                 }
                 return
+            }
+            
+            // US-302: Check if ALL samples are zero (problematic data)
+            let zeroThreshold: Float = 1e-7
+            let allZero = samplesToAdd.allSatisfy { abs($0) < zeroThreshold }
+            if allZero {
+                self.zeroDataCallbackCount += 1
+                // Log first zero-data callback immediately, then every 10th
+                if self.zeroDataCallbackCount == 1 || self.zeroDataCallbackCount % 10 == 0 {
+                    print("AudioManager: [US-302] ⚠️ ZERO DATA: Tap callback #\(self.tapCallbackCount) has \(samplesToAdd.count) samples that are all near-zero (zero-data count: \(self.zeroDataCallbackCount))")
+                }
             }
             
             // US-301: Calculate level from samples JUST ADDED to masterBuffer (same data!)
@@ -576,7 +622,12 @@ final class AudioManager: NSObject, ObservableObject {
         
         isCapturing = true
         captureStartTime = Date()
+        
+        // US-302: Start timer to alert if no tap callbacks received within 2 seconds
+        startNoCallbackAlertTimer()
+        
         print("AudioManager: [STAGE 1] ✓ Audio engine started - capturing audio")
+        print("AudioManager: [US-302] 2-second no-callback alert timer started")
     }
     
     /// Stop capturing audio and return the result
@@ -590,6 +641,9 @@ final class AudioManager: NSObject, ObservableObject {
         print("║         US-301: Unified masterBuffer Architecture             ║")
         print("╚═══════════════════════════════════════════════════════════════╝")
         
+        // US-302: Stop the no-callback alert timer
+        stopNoCallbackAlertTimer()
+        
         // Stop engine and remove tap
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
@@ -600,6 +654,9 @@ final class AudioManager: NSObject, ObservableObject {
         // Calculate duration
         let duration = captureStartTime.map { Date().timeIntervalSince($0) } ?? 0
         captureStartTime = nil
+        
+        // US-302: Log tap callback statistics
+        logTapCallbackStats(duration: duration)
         
         // US-301: Log sample counts - masterBuffer is the ONLY audio storage
         bufferLock.lock()
@@ -703,6 +760,9 @@ final class AudioManager: NSObject, ObservableObject {
     func cancelCapturing() {
         guard isCapturing else { return }
         
+        // US-302: Stop the no-callback alert timer
+        stopNoCallbackAlertTimer()
+        
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
         
@@ -715,11 +775,65 @@ final class AudioManager: NSObject, ObservableObject {
         bufferLock.unlock()
         
         print("AudioManager: Cancelled capturing (masterBuffer cleared)")
+        print("AudioManager: [US-302] Total tap callbacks received before cancel: \(tapCallbackCount)")
     }
     
     /// Check if currently capturing
     var isCurrentlyCapturing: Bool {
         return isCapturing
+    }
+    
+    // MARK: - US-302: Audio Tap Verification
+    
+    /// US-302: Start timer to alert if no tap callbacks received within 2 seconds of starting
+    private func startNoCallbackAlertTimer() {
+        // Invalidate any existing timer
+        noCallbackAlertTimer?.invalidate()
+        
+        // Start a new timer that fires after 2 seconds
+        noCallbackAlertTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            
+            if self.tapCallbackCount == 0 && self.isCapturing {
+                print("╔═══════════════════════════════════════════════════════════════╗")
+                print("║     ⚠️ US-302 ALERT: NO TAP CALLBACKS RECEIVED IN 2 SECONDS    ║")
+                print("╠═══════════════════════════════════════════════════════════════╣")
+                print("║ The audio tap callback has not been called since recording    ║")
+                print("║ started. This indicates a problem with audio capture.         ║")
+                print("║                                                               ║")
+                print("║ Possible causes:                                              ║")
+                print("║   - Audio device not providing data                           ║")
+                print("║   - Audio engine not running properly                         ║")
+                print("║   - System audio permission issue                             ║")
+                print("║   - Audio hardware disconnected                               ║")
+                print("╚═══════════════════════════════════════════════════════════════╝")
+                
+                self.onNoTapCallbacks?()
+            }
+        }
+    }
+    
+    /// US-302: Stop the no-callback alert timer
+    private func stopNoCallbackAlertTimer() {
+        noCallbackAlertTimer?.invalidate()
+        noCallbackAlertTimer = nil
+    }
+    
+    /// US-302: Log callback statistics summary after capture stops
+    private func logTapCallbackStats(duration: TimeInterval) {
+        let callbacksPerSecond = duration > 0 ? Double(tapCallbackCount) / duration : 0
+        let expectedCallbacks = duration > 0 ? Int(duration * Constants.targetSampleRate / 4096.0) : 0
+        
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║              US-302: TAP CALLBACK STATISTICS                  ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Total tap callbacks:     \(String(format: "%10d", tapCallbackCount))                        ║")
+        print("║ Duration:                \(String(format: "%10.2f", duration)) seconds                  ║")
+        print("║ Callbacks per second:    \(String(format: "%10.1f", callbacksPerSecond))                        ║")
+        print("║ Expected (approx):       \(String(format: "%10d", expectedCallbacks))                        ║")
+        print("║ Empty callbacks:         \(String(format: "%10d", emptyCallbackCount))                        ║")
+        print("║ Zero-data callbacks:     \(String(format: "%10d", zeroDataCallbackCount))                        ║")
+        print("╚═══════════════════════════════════════════════════════════════╝")
     }
     
     // MARK: - Private Helpers

@@ -1,0 +1,19 @@
+There are 5 remaining unchecked stories in the PRD (US-302 through US-306). Since there are still remaining stories, I should NOT output the completion signal.
+
+## Summary
+
+Successfully implemented **US-301: Unify Audio Buffer Architecture** with the following changes:
+
+1. **Replaced `audioBuffers: [AVAudioPCMBuffer]` with unified `masterBuffer: [Float]`** - This is now the ONLY audio storage in AudioManager.
+
+2. **Added thread-safe access** via `bufferLock` (NSLock) for concurrent masterBuffer access from the audio tap callback.
+
+3. **Level meter now calculates from same samples** - The `calculatePeakLevelFromSamples()` method computes dB level from the exact same samples being added to masterBuffer, eliminating any possibility of disconnect.
+
+4. **Added `getAudioBuffer()` method** - Returns masterBuffer directly for external access.
+
+5. **Comprehensive sample count logging** - Tracks `tapCallbackCount` and logs sample counts at every stage (tap callbacks, buffer appends, capture stop).
+
+Commits:
+- `84401b4 feat(US-301): unify audio buffer architecture with single masterBuffer`
+- `91bd723 docs: update progress log for US-301`

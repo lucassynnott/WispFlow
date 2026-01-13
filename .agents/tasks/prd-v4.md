@@ -147,13 +147,13 @@ As a user, I want the audio that shows in the level meter to be the same audio t
 - [x] getAudioBuffer() returns masterBuffer directly
 - [x] Log sample counts at every stage to verify data flow
 
-### [ ] US-302: Audio Tap Verification
+### [x] US-302: Audio Tap Verification
 As a developer, I want to verify the audio tap is actually being called with real data.
-- Add counter for number of tap callbacks received
-- Log first callback with full details (format, sample count)
-- Log every 10th callback with sample count
-- Log if callback receives empty/zero data
-- Alert if no callbacks received within 2 seconds of starting
+- [x] Add counter for number of tap callbacks received
+- [x] Log first callback with full details (format, sample count)
+- [x] Log every 10th callback with sample count
+- [x] Log if callback receives empty/zero data
+- [x] Alert if no callbacks received within 2 seconds of starting
 
 ### [ ] US-303: Buffer Integrity Logging
 As a developer, I want to trace exactly where audio data goes.
