@@ -200,3 +200,43 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-163956-8021-ite
   - Question detection by checking for question words at start of sentence
   - Mode-based filtering allows progressive cleanup intensity
 ---
+
+## [2026-01-13 16:50] - US-006: Text Insertion
+Thread: codex exec session
+Run: 20260113-163956-8021 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-163956-8021-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-163956-8021-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: a658327 feat(US-006): implement text insertion
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/TextInserter.swift (new)
+  - Sources/WispFlow/AppDelegate.swift (modified - added text insertion integration)
+  - Sources/WispFlow/SettingsWindow.swift (modified - added Text Insertion settings tab)
+  - .agents/tasks/prd.md (updated acceptance criteria)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status)
+- What was implemented:
+  - TextInserter.swift: Text insertion via pasteboard and Cmd+V simulation
+  - Accessibility permission check using AXIsProcessTrusted() and AXIsProcessTrustedWithOptions
+  - Permission request with guidance alert linking to System Settings > Privacy & Security > Accessibility
+  - Pasteboard text insertion: copy to NSPasteboard.general, simulate Cmd+V using CGEvent
+  - CGEvent with virtual key 0x09 (V) and maskCommand flag for paste simulation
+  - Clipboard preservation: save/restore all NSPasteboardItem data types
+  - Configurable restore delay (0.2-2.0s slider) with UserDefaults persistence
+  - Settings UI: TextInsertionSettingsView with permission status, clipboard options
+  - InsertionResult enum for success/noAccessibilityPermission/insertionFailed states
+  - Error handling with NSAlert for failures
+  - Integration with AppDelegate via performTextInsertion() called after text cleanup
+  - Recording indicator shows "Inserting..." status during text insertion
+- **Learnings for future iterations:**
+  - AXIsProcessTrusted() checks accessibility permission without prompting
+  - AXIsProcessTrustedWithOptions with kAXTrustedCheckOptionPrompt shows system permission dialog
+  - CGEvent keyboardEventSource with nil source posts to .cghidEventTap for system-wide keystroke simulation
+  - Virtual key 0x09 is 'V' key on macOS
+  - NSPasteboardItem.types provides all data types; iterate and copy data for each type
+  - Clipboard restore needs delay to ensure paste completes before restoration
+  - usleep() with microseconds (50_000 = 50ms) for brief keystroke delays
+---
