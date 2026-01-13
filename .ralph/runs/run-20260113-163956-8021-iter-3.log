@@ -1,0 +1,32 @@
+All 6 acceptance criteria in the PRD are covered by the completed stories. Since all stories in the MVP scope (US-001 through US-007) are now complete, the PRD is fully implemented.
+
+## Summary
+
+I've successfully completed **US-007: Settings Persistence** for WispFlow. Here's what was implemented:
+
+**Key Changes:**
+1. **HotkeyManager.swift** - Added UserDefaults persistence for hotkey configuration (keyCode and modifiers), with load/save methods and reset-to-default capability
+
+2. **SettingsWindow.swift** - Added complete General Settings tab with:
+   - HotkeyRecorderView for recording custom keyboard shortcuts
+   - Launch at Login toggle using SMAppService
+   - About section with version info
+   - Moved General tab to first position
+
+3. **AppDelegate.swift** - Updated to pass hotkeyManager to SettingsWindowController
+
+All settings now persist between sessions:
+- Hotkey configuration (via HotkeyManager)
+- Model selection (via WhisperManager)
+- Text cleanup mode/enabled (via TextCleanupManager)
+- Clipboard preservation settings (via TextInserter)
+- Audio device selection (via AudioManager)
+- Launch at login (via SMAppService - system-managed)
+
+**Commits:**
+- `47f3c13` feat(US-007): implement settings persistence
+- `9162397` docs: update progress log for US-007
+
+All MVP stories (US-001 through US-007) are now complete. 🎉
+
+<promise>COMPLETE</promise>
