@@ -118,13 +118,13 @@ As a developer, I want detailed audio diagnostics so I can debug capture issues.
 - [x] Show percentage of zero vs non-zero samples
 - [x] Add console output for all audio pipeline stages
 
-### [ ] US-204: Permission Flow UX
+### [x] US-204: Permission Flow UX
 As a user, I want clear guidance on granting permissions so I can set up the app correctly.
-- Add step-by-step permission grant instructions in Settings
-- Show current permission state with colored indicator (red/green)
-- Add direct "Open System Settings" button
-- Show "Permission Granted!" confirmation when detected
-- Remember and skip permission prompts once granted
+- [x] Add step-by-step permission grant instructions in Settings
+- [x] Show current permission state with colored indicator (red/green)
+- [x] Add direct "Open System Settings" button
+- [x] Show "Permission Granted!" confirmation when detected
+- [x] Remember and skip permission prompts once granted
 
 ### [ ] US-205: Silence Detection Fix
 As a user, I want accurate silence detection so valid audio isn't rejected.

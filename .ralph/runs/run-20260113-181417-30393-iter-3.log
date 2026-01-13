@@ -1,0 +1,16 @@
+There are still 2 unchecked stories (US-204 and US-205) in the PRD, so I should not output the completion signal.
+
+## Summary
+
+Successfully implemented **US-203: Audio Capture Diagnostics**. Added comprehensive console logging with 5 clearly labeled audio pipeline stages:
+- **Stage 1**: Capture Start (permission, device, format setup)
+- **Stage 2**: Tap Installed (audio conversion, buffer appends)  
+- **Stage 3**: Capture Stop (engine shutdown, duration)
+- **Stage 4**: Buffer Combine (sample values, statistics, zero/non-zero percentages)
+- **Stage 5**: Transcription Handoff (final diagnostics before WhisperKit)
+
+Each stage logs sample count, duration, peak/RMS levels, first/last 10 samples, and zero vs non-zero sample percentages for debugging audio capture issues.
+
+**Commits:**
+- `eb4420c feat(US-203): add audio capture diagnostics with pipeline stage logging`
+- `b1afbe0 docs: update progress log for US-203`

@@ -151,30 +151,35 @@ As a developer, I want detailed audio diagnostics so I can debug capture issues.
 ### US-204: Permission Flow UX
 As a user, I want clear guidance on granting permissions so I can set up the app correctly.
 
-- [ ] Add step-by-step permission grant instructions in Settings
+- [x] Add step-by-step permission grant instructions in Settings
   - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` `TextInsertionSettingsView` to show numbered steps when permission not granted
   - Acceptance: Clear 1-2-3 steps visible explaining how to grant permission
   - Verification: `swift build` passes; view Settings without permission, verify instructions visible
+  - **DONE**: TextInsertionSettingsView shows numbered steps 1-2-3 explaining how to grant permission (lines 905-929)
 
-- [ ] Show current permission state with colored indicator (red/green)
+- [x] Show current permission state with colored indicator (red/green)
   - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` to use SF Symbol with red (denied) or green (granted) color
   - Acceptance: Color clearly indicates permission state at a glance
   - Verification: `swift build` passes; verify red when denied, green when granted
+  - **DONE**: Uses checkmark.circle.fill (green) or xmark.circle.fill (red) SF Symbols with colored background (lines 865-878)
 
-- [ ] Add direct "Open System Settings" button
+- [x] Add direct "Open System Settings" button
   - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` to add button that opens System Settings > Privacy & Security > Accessibility
   - Acceptance: One-click access to correct System Settings pane
   - Verification: `swift build` passes; click button, verify correct System Settings pane opens
+  - **DONE**: "Open System Settings" button opens x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility (lines 932-941, 976-980)
 
-- [ ] Show "Permission Granted!" confirmation when detected
+- [x] Show "Permission Granted!" confirmation when detected
   - Scope: Modify `Sources/WispFlow/TextInserter.swift` or SettingsWindow to show temporary success message when permission transitions from denied to granted
   - Acceptance: User sees confirmation that permission was successfully detected
   - Verification: `swift build` passes; grant permission, verify success message appears
+  - **DONE**: Animated "Permission Granted!" message shown via onPermissionGranted callback with 3-second auto-hide (lines 881-894, 959-972)
 
-- [ ] Remember and skip permission prompts once granted
+- [x] Remember and skip permission prompts once granted
   - Scope: Verify current implementation doesn't repeatedly prompt after permission is granted; add check if needed
   - Acceptance: No permission prompts shown after permission is granted
   - Verification: `swift build` passes; grant permission, restart app, verify no prompt
+  - **DONE**: Permission status tracked in hasAccessibilityPermission; prompts only shown when inserting text and permission denied; polling stops once granted
 
 ---
 
