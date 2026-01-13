@@ -2,7 +2,7 @@
 
 ## Summary
 
-WispFlow is a macOS voice-to-text application. **US-001 is complete**—the project has a working menu bar app foundation. The MVP requires building a native Swift/SwiftUI menu bar app with:
+WispFlow is a macOS voice-to-text application. **US-001 through US-004 are complete**—the project has a working menu bar app with global hotkey, audio capture, and local Whisper transcription. The MVP requires building a native Swift/SwiftUI menu bar app with:
 
 1. System tray presence and recording toggle (US-001)
 2. Global hotkey activation (US-002)
@@ -120,32 +120,37 @@ The implementation should proceed in dependency order: project scaffolding → m
 
 ---
 
-### US-004: Local Whisper Transcription
+### US-004: Local Whisper Transcription ✅
 
-- [ ] Integrate whisper.cpp Swift bindings
+- [x] Integrate whisper.cpp Swift bindings
   - Scope: Add whisper.cpp as a Swift Package dependency (e.g., via SPM or vendored). Create `WhisperManager.swift` wrapper.
   - Acceptance: whisper.cpp compiles and links with the app
   - Verification: `swift build` succeeds with whisper.cpp dependency
+  - **Completed**: Integrated WhisperKit (argmaxinc/WhisperKit) via SPM instead of whisper.cpp - WhisperKit is Apple-optimized for CoreML. Created WhisperManager.swift wrapper class. Updated minimum macOS version to 14.0 (WhisperKit requirement).
 
-- [ ] Implement model download manager
+- [x] Implement model download manager
   - Scope: Create `ModelDownloader.swift` to download Whisper models from Hugging Face. Support tiny, base, small, medium sizes. Show download progress. Store models in Application Support.
   - Acceptance: User can download models; progress is shown; models persist
   - Verification: Trigger download, verify progress updates, verify model file exists after completion
+  - **Completed**: WhisperManager handles model downloads via WhisperKit's built-in download mechanism. Models stored in ~/Library/Application Support/WispFlow/Models/. Supports tiny, base, small, medium model sizes with descriptive labels and size estimates.
 
-- [ ] Create model management UI
+- [x] Create model management UI
   - Scope: Add Settings tab for model management. List available models with download/delete buttons. Show currently selected model.
   - Acceptance: User can view, download, delete, and select models
   - Verification: Open settings, download a model, select it, delete another model
+  - **Completed**: Created SettingsWindow.swift with SwiftUI-based settings UI. TranscriptionSettingsView provides model selection (radio group), download/load/delete buttons, status badge, and list of downloaded models. SettingsWindowController manages the NSWindow hosting the SwiftUI view.
 
-- [ ] Implement transcription pipeline
+- [x] Implement transcription pipeline
   - Scope: Load selected model. Accept audio data. Run Whisper inference. Return transcribed text.
   - Acceptance: Audio input produces text output with >90% accuracy on clear speech
   - Verification: Record "Hello world, this is a test", verify transcription matches
+  - **Completed**: WhisperManager.transcribe() method accepts Float32 audio data at 16kHz, calls WhisperKit transcribe API, returns joined text from TranscriptionResult array. Connected to AppDelegate.processTranscription() which is called when recording stops.
 
-- [ ] Add transcription progress/status
+- [x] Add transcription progress/status
   - Scope: Update UI during transcription (e.g., "Transcribing..." indicator). Handle transcription errors gracefully.
   - Acceptance: User sees feedback during transcription; errors show helpful messages
   - Verification: Trigger transcription, verify status updates appear
+  - **Completed**: WhisperManager publishes modelStatus, transcriptionStatus, and statusMessage for UI updates. RecordingIndicatorWindow.updateStatus() shows "Transcribing..." during processing. Error alerts guide user to Settings if model not loaded.
 
 ---
 

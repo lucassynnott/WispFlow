@@ -42,9 +42,10 @@ swift build
 
 ## Requirements
 
-- macOS 13.0+ (Ventura or later)
+- macOS 14.0+ (Sonoma or later) - Required by WhisperKit dependency
 - Swift 5.9+
 - For tests: Full Xcode installation (Command Line Tools only won't support XCTest)
+- WhisperKit dependency will auto-download Whisper models from Hugging Face on first use
 
 ## Notes
 

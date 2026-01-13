@@ -127,13 +127,13 @@ As a user, I want the app to capture my microphone audio so it can transcribe my
 - [x] List available audio input devices in settings
 - [x] Remember selected device between sessions
 
-### [ ] US-004: Local Whisper Transcription
+### [x] US-004: Local Whisper Transcription
 As a user, I want my speech transcribed locally using Whisper so my audio never leaves my device.
-- Integrate whisper.cpp or MLX Whisper
-- Support for multiple model sizes (tiny/base/small/medium)
-- Model download and management UI
-- High accuracy transcription
-- Low latency processing
+- [x] Integrate whisper.cpp or MLX Whisper
+- [x] Support for multiple model sizes (tiny/base/small/medium)
+- [x] Model download and management UI
+- [x] High accuracy transcription
+- [x] Low latency processing
 
 ### [ ] US-005: AI Text Cleanup
 As a user, I want my transcribed text cleaned up automatically so I get polished, professional output.

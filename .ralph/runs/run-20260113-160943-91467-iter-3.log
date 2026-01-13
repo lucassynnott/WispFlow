@@ -1,0 +1,21 @@
+**Summary:**
+
+Implemented US-003: Audio Capture with all required functionality:
+
+1. **AudioManager.swift** - Complete audio capture using AVAudioEngine with:
+   - Microphone permission request and graceful denial handling (NSAlert directing to System Settings)
+   - Audio format conversion to 16kHz mono Float32 for Whisper compatibility
+   - Audio buffer accumulation during recording sessions
+   - start/stop/cancel recording controls
+
+2. **Audio Input Device Selection** (bonus feature from PRD):
+   - Device enumeration using Core Audio APIs
+   - Device selection persistence via UserDefaults
+   - Device change listener for hot-plug support
+   - "Audio Input" submenu in the status bar menu for device selection
+
+3. **Integration** - Connected AudioManager to AppDelegate and StatusBarController for recording lifecycle management
+
+**Verification:** `swift build` passes with no errors.
+
+**Commit:** `33cac3d feat(US-003): implement audio capture with device selection`

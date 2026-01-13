@@ -6,20 +6,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyManager: HotkeyManager?
     private var recordingIndicator: RecordingIndicatorWindow?
     private var audioManager: AudioManager?
+    private var whisperManager: WhisperManager?
+    private var settingsWindowController: SettingsWindowController?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Initialize the audio manager first
+        // Initialize audio manager
         setupAudioManager()
         
         // Initialize the status bar controller
         statusBarController = StatusBarController()
         
-        // Provide audio manager to status bar controller for device selection
+        // Provide audio manager to status bar controller
         statusBarController?.audioManager = audioManager
         
-        // Set up recording state change handler
+        // Set up callbacks
         statusBarController?.onRecordingStateChanged = { [weak self] state in
             self?.handleRecordingStateChange(state)
+        }
+        
+        statusBarController?.onOpenSettings = { [weak self] in
+            self?.openSettings()
         }
         
         // Initialize and start the hotkey manager
@@ -38,6 +44,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 print("Microphone permission denied - recording will not work")
             }
+        }
+        
+        // Initialize Whisper manager and auto-load model on main actor
+        Task { @MainActor in
+            setupWhisperManager()
+            
+            // Provide whisper manager to status bar controller
+            statusBarController?.whisperManager = whisperManager
+            
+            // Set up settings window controller
+            if let whisper = whisperManager {
+                settingsWindowController = SettingsWindowController(whisperManager: whisper)
+            }
+            
+            // Auto-load the selected Whisper model in background
+            print("Auto-loading Whisper model...")
+            await whisperManager?.loadModel()
         }
     }
     
@@ -72,6 +95,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         audioManager?.onDevicesChanged = { devices in
             print("Audio devices updated: \(devices.map { $0.name })")
         }
+    }
+    
+    @MainActor
+    private func setupWhisperManager() {
+        whisperManager = WhisperManager()
+        
+        // Set up callbacks
+        whisperManager?.onTranscriptionComplete = { text in
+            print("Transcription complete: \(text)")
+            // Future: Pass to text cleanup (US-005) and insertion (US-006)
+        }
+        
+        whisperManager?.onError = { error in
+            print("Whisper error: \(error)")
+        }
+    }
+    
+    private func openSettings() {
+        settingsWindowController?.showSettings()
     }
     
     private func setupHotkeyManager() {
@@ -118,7 +160,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Stop audio capture and get result
             if let result = audioManager?.stopCapturing() {
                 print("Stopped recording - Duration: \(String(format: "%.2f", result.duration))s, Data: \(result.audioData.count) bytes")
-                // Future: Process transcription with Whisper (US-004)
+                
+                // Process transcription with Whisper on MainActor
+                let audioData = result.audioData
+                let sampleRate = result.sampleRate
+                Task { @MainActor in
+                    processTranscription(audioData: audioData, sampleRate: sampleRate)
+                }
             } else {
                 print("Stopped recording (no audio captured)")
             }
@@ -135,6 +183,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 print("Failed to start audio capture: \(error.localizedDescription)")
                 // Revert state if audio capture failed
                 statusBarController?.setRecordingState(.idle)
+            }
+        }
+    }
+    
+    @MainActor
+    private func processTranscription(audioData: Data, sampleRate: Double) {
+        guard let whisper = whisperManager else {
+            print("WhisperManager not available")
+            return
+        }
+        
+        // Check if model is ready
+        guard whisper.isReady else {
+            print("Whisper model not loaded. Please load a model in Settings.")
+            showTranscriptionError("Model not loaded. Please open Settings and load a Whisper model.")
+            return
+        }
+        
+        // Update recording indicator to show transcribing status
+        recordingIndicator?.updateStatus("Transcribing...")
+        recordingIndicator?.showWithAnimation()
+        
+        // Process transcription in background
+        Task { @MainActor in
+            if let transcribedText = await whisper.transcribe(audioData: audioData, sampleRate: sampleRate) {
+                print("Transcription result: \(transcribedText)")
+                
+                // Hide the indicator after transcription
+                recordingIndicator?.hideWithAnimation()
+                
+                if !transcribedText.isEmpty {
+                    // Future: Pass to text cleanup (US-005) and insertion (US-006)
+                    print("Ready for text cleanup and insertion: \(transcribedText)")
+                }
+            } else {
+                recordingIndicator?.hideWithAnimation()
+                print("Transcription failed or returned empty")
+            }
+            
+            // Reset whisper status
+            whisper.resetStatus()
+        }
+    }
+    
+    private func showTranscriptionError(_ message: String) {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "Transcription Error"
+            alert.informativeText = message
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Open Settings")
+            alert.addButton(withTitle: "OK")
+            
+            if alert.runModal() == .alertFirstButtonReturn {
+                self.openSettings()
             }
         }
     }

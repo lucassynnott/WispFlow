@@ -9,8 +9,14 @@ final class StatusBarController: NSObject {
     // Callback for when recording state changes
     var onRecordingStateChanged: ((RecordingState) -> Void)?
     
+    // Callback for opening settings
+    var onOpenSettings: (() -> Void)?
+    
     // Reference to audio manager for device selection
     weak var audioManager: AudioManager?
+    
+    // Reference to whisper manager for model status
+    weak var whisperManager: WhisperManager?
     
     override init() {
         super.init()
@@ -151,11 +157,8 @@ final class StatusBarController: NSObject {
     }
     
     @objc private func openSettings() {
-        // For now, just print. Settings window will be implemented in US-007
-        print("Settings clicked - Settings window not yet implemented")
-        
-        // Open System Settings for WispFlow (placeholder behavior)
-        // In the future, this will open our custom settings window
+        print("Settings clicked - opening settings window")
+        onOpenSettings?()
     }
     
     @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
