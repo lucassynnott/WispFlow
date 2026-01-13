@@ -150,12 +150,12 @@ As a user, I want the cleaned text inserted into my active application so I can 
 - [x] Request accessibility permissions
 - [x] Preserve clipboard contents (optional restore)
 
-### [ ] US-007: Settings Persistence
+### [x] US-007: Settings Persistence
 As a user, I want my settings to persist between sessions so I don't have to reconfigure the app.
-- Save/load hotkey configuration
-- Save/load model selection
-- Save/load launch at login preference
-- Use UserDefaults or similar storage
+- [x] Save/load hotkey configuration
+- [x] Save/load model selection
+- [x] Save/load launch at login preference
+- [x] Use UserDefaults or similar storage
 
 ## Future Enhancements (v0.2+)
 

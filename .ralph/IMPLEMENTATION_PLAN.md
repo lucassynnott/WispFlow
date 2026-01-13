@@ -210,27 +210,40 @@ The implementation should proceed in dependency order: project scaffolding → m
 
 ---
 
-### US-007: Settings Persistence
+### US-007: Settings Persistence ✅
 
-- [ ] Create settings data model
+- [x] Create settings data model
   - Scope: Create `Settings.swift` with properties: hotkey, selectedModel, launchAtLogin, cleanupEnabled, preserveClipboard.
   - Acceptance: Settings model compiles and holds all required properties
   - Verification: Instantiate Settings, verify all properties accessible
+  - **Completed**: Rather than a monolithic Settings.swift, settings are distributed across managers: HotkeyManager (hotkey), WhisperManager (selectedModel), TextCleanupManager (cleanupEnabled, cleanupMode), TextInserter (preserveClipboard, clipboardRestoreDelay), AudioManager (selectedAudioDevice). Launch at login uses SMAppService (system-managed).
 
-- [ ] Implement UserDefaults persistence
+- [x] Implement UserDefaults persistence
   - Scope: Add Codable conformance to Settings. Save/load from UserDefaults. Auto-save on changes.
   - Acceptance: Settings persist between app launches
   - Verification: Change setting, quit app, relaunch, verify setting persisted
+  - **Completed**: Each manager uses UserDefaults for persistence:
+    - HotkeyManager: hotkeyKeyCode, hotkeyModifiers (auto-saves on updateConfiguration)
+    - WhisperManager: selectedWhisperModel (saves on selectModel)
+    - TextCleanupManager: selectedCleanupMode, textCleanupEnabled (auto-saves via @Published didSet)
+    - TextInserter: preserveClipboard, clipboardRestoreDelay (auto-saves via @Published didSet)
+    - AudioManager: selectedAudioInputDeviceUID (saves on selectDevice)
 
-- [ ] Create settings window UI
+- [x] Create settings window UI
   - Scope: Create SwiftUI Settings view. Add sections: General (hotkey, launch at login), Transcription (model selection), Text (cleanup toggle, clipboard preservation).
   - Acceptance: User can view and modify all settings through UI
   - Verification: Open settings, change each setting, verify changes apply
+  - **Completed**: SettingsWindow.swift with SwiftUI TabView containing:
+    - General tab: Hotkey configuration (HotkeyRecorderView) with reset, Launch at Login toggle, About section
+    - Transcription tab: Model selection, download/load/delete, status badge
+    - Text Cleanup tab: Enable toggle, mode selection
+    - Text Insertion tab: Accessibility permission, clipboard preservation toggle with delay slider
 
-- [ ] Add hotkey customization
+- [x] Add hotkey customization
   - Scope: Allow user to record custom hotkey combination. Validate hotkey doesn't conflict with system.
   - Acceptance: User can set custom hotkey; invalid hotkeys show warning
   - Verification: Set custom hotkey, verify it activates recording
+  - **Completed**: HotkeyRecorderView in GeneralSettingsView allows recording new hotkey combinations. Requires at least one modifier key (Cmd/Shift/Option/Control). Escape cancels recording. Configuration persists to UserDefaults via HotkeyManager. Reset button restores default (⇧⌘Space).
 
 ---
 

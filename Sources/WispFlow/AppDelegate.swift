@@ -58,11 +58,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             statusBarController?.whisperManager = whisperManager
             
             // Set up settings window controller with all managers
-            if let whisper = whisperManager, let cleanup = textCleanupManager, let inserter = textInserter {
+            if let whisper = whisperManager, let cleanup = textCleanupManager, let inserter = textInserter, let hotkey = hotkeyManager {
                 settingsWindowController = SettingsWindowController(
                     whisperManager: whisper,
                     textCleanupManager: cleanup,
-                    textInserter: inserter
+                    textInserter: inserter,
+                    hotkeyManager: hotkey
                 )
             }
             

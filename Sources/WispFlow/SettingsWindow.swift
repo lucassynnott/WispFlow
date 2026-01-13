@@ -6,6 +6,7 @@ struct SettingsView: View {
     @ObservedObject var whisperManager: WhisperManager
     @ObservedObject var textCleanupManager: TextCleanupManager
     @ObservedObject var textInserter: TextInserter
+    @ObservedObject var hotkeyManager: HotkeyManager
     @State private var isLoadingWhisperModel = false
     @State private var isLoadingCleanupModel = false
     @State private var showDeleteConfirmation = false
@@ -13,6 +14,12 @@ struct SettingsView: View {
     
     var body: some View {
         TabView {
+            // General tab (hotkey, launch at login)
+            GeneralSettingsView(hotkeyManager: hotkeyManager)
+            .tabItem {
+                Label("General", systemImage: "gear")
+            }
+            
             // Transcription tab
             TranscriptionSettingsView(
                 whisperManager: whisperManager,
@@ -37,12 +44,6 @@ struct SettingsView: View {
             TextInsertionSettingsView(textInserter: textInserter)
             .tabItem {
                 Label("Text Insertion", systemImage: "doc.on.clipboard")
-            }
-            
-            // General tab (placeholder for future settings)
-            GeneralSettingsView()
-            .tabItem {
-                Label("General", systemImage: "gear")
             }
         }
         .frame(width: 520, height: 520)
@@ -572,22 +573,199 @@ struct InsertionFeatureRow: View {
 // MARK: - General Settings
 
 struct GeneralSettingsView: View {
+    @ObservedObject var hotkeyManager: HotkeyManager
+    @State private var isRecordingHotkey = false
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    
     var body: some View {
         Form {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("General Settings")
-                    .font(.headline)
-                
-                Text("Additional settings will be added in future versions.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Hotkey configuration
+                    Text("Global Hotkey")
+                        .font(.headline)
+                    
+                    Text("Press this keyboard shortcut from any app to start/stop voice recording.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    HStack(spacing: 12) {
+                        // Current hotkey display
+                        HotkeyRecorderView(
+                            hotkeyManager: hotkeyManager,
+                            isRecording: $isRecordingHotkey
+                        )
+                        
+                        // Reset to default button
+                        Button(action: {
+                            hotkeyManager.resetToDefault()
+                        }) {
+                            Text("Reset")
+                        }
+                        .disabled(hotkeyManager.configuration == .defaultHotkey)
+                    }
+                    
+                    if isRecordingHotkey {
+                        Text("Press your desired key combination...")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+            }
+            
+            Divider()
+            
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Launch at Login
+                    Text("Startup")
+                        .font(.headline)
+                    
+                    Toggle("Launch WispFlow at Login", isOn: $launchAtLogin)
+                        .toggleStyle(.switch)
+                        .onChange(of: launchAtLogin) { _, newValue in
+                            setLaunchAtLogin(enabled: newValue)
+                        }
+                    
+                    Text("Automatically start WispFlow when you log in to your Mac.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Divider()
+            
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("About WispFlow")
+                        .font(.headline)
+                    
+                    Text("Version 0.1 (MVP)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Voice-to-text dictation with AI-powered transcription and auto-editing. All processing happens locally on your device.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding()
+        .onAppear {
+            // Refresh launch at login status
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+    
+    private func setLaunchAtLogin(enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+                print("Launch at login enabled")
+            } else {
+                try SMAppService.mainApp.unregister()
+                print("Launch at login disabled")
+            }
+        } catch {
+            print("Failed to \(enabled ? "enable" : "disable") launch at login: \(error)")
+            // Revert the toggle on failure
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
     }
 }
+
+// MARK: - Hotkey Recorder View
+
+struct HotkeyRecorderView: View {
+    @ObservedObject var hotkeyManager: HotkeyManager
+    @Binding var isRecording: Bool
+    @State private var localEventMonitor: Any?
+    
+    var body: some View {
+        Button(action: {
+            if isRecording {
+                stopRecording()
+            } else {
+                startRecording()
+            }
+        }) {
+            HStack {
+                if isRecording {
+                    Image(systemName: "keyboard")
+                        .foregroundColor(.orange)
+                    Text("Recording...")
+                        .foregroundColor(.orange)
+                } else {
+                    Text(hotkeyManager.hotkeyDisplayString)
+                        .font(.system(.body, design: .monospaced))
+                }
+            }
+            .frame(minWidth: 120)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.bordered)
+        .onDisappear {
+            stopRecording()
+        }
+    }
+    
+    private func startRecording() {
+        isRecording = true
+        
+        // Install a local event monitor to capture key presses
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            // Ignore modifier-only key presses (flagsChanged)
+            if event.type == .keyDown {
+                handleKeyEvent(event)
+                return nil // Consume the event
+            }
+            return event
+        }
+    }
+    
+    private func stopRecording() {
+        isRecording = false
+        if let monitor = localEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            localEventMonitor = nil
+        }
+    }
+    
+    private func handleKeyEvent(_ event: NSEvent) {
+        // Get modifiers (excluding caps lock, function, etc.)
+        let relevantFlags: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
+        let modifiers = event.modifierFlags.intersection(relevantFlags)
+        
+        // Require at least one modifier key
+        guard !modifiers.isEmpty else {
+            print("HotkeyRecorder: Hotkey must include at least one modifier (Cmd, Shift, Option, or Control)")
+            return
+        }
+        
+        // Ignore Escape key (cancel)
+        if event.keyCode == 53 { // kVK_Escape
+            stopRecording()
+            return
+        }
+        
+        // Create new configuration
+        let newConfig = HotkeyManager.HotkeyConfiguration(
+            keyCode: event.keyCode,
+            modifierFlags: modifiers
+        )
+        
+        // Update the hotkey manager (this persists automatically)
+        hotkeyManager.updateConfiguration(newConfig)
+        
+        // Stop recording
+        stopRecording()
+        
+        print("HotkeyRecorder: New hotkey set to \(newConfig.displayString)")
+    }
+}
+
+import ServiceManagement
 
 // MARK: - Settings Window Controller
 
@@ -596,11 +774,13 @@ final class SettingsWindowController: NSObject {
     private let whisperManager: WhisperManager
     private let textCleanupManager: TextCleanupManager
     private let textInserter: TextInserter
+    private let hotkeyManager: HotkeyManager
     
-    init(whisperManager: WhisperManager, textCleanupManager: TextCleanupManager, textInserter: TextInserter) {
+    init(whisperManager: WhisperManager, textCleanupManager: TextCleanupManager, textInserter: TextInserter, hotkeyManager: HotkeyManager) {
         self.whisperManager = whisperManager
         self.textCleanupManager = textCleanupManager
         self.textInserter = textInserter
+        self.hotkeyManager = hotkeyManager
         super.init()
     }
     
@@ -614,7 +794,8 @@ final class SettingsWindowController: NSObject {
         let settingsView = SettingsView(
             whisperManager: whisperManager,
             textCleanupManager: textCleanupManager,
-            textInserter: textInserter
+            textInserter: textInserter,
+            hotkeyManager: hotkeyManager
         )
         let hostingController = NSHostingController(rootView: settingsView)
         
