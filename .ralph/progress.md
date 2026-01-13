@@ -1068,3 +1068,50 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-it
   - ToggleStyle makeBody receives configuration with isOn binding for custom controls
   - Animation presets centralize timing values for consistent micro-interactions
 ---
+
+## [2026-01-13 20:50] - US-402: Refined Menu Bar Experience
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: b66dbd6 feat(US-402): add refined menu bar experience with warm colors and pulse animation
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/StatusBarController.swift (icon tinting, pulse animation, menu icons)
+  - .agents/tasks/prd-v5.md (updated - US-402 marked complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated - US-402 tasks marked complete)
+- What was implemented:
+  - Custom menu bar icon tinting using NSColor.Wispflow palette:
+    - Warm charcoal (#2D3436) for ready state (idle)
+    - textSecondary (#636E72) for other idle states (not downloaded, downloaded)
+    - Coral accent (#E07A5F) for recording and downloading/loading states
+    - Error color for error state
+  - Dropdown menu with warm icons:
+    - Gear icon (gearshape) for Settings
+    - Microphone icon (mic) for Audio Input
+    - Arrow icon (arrow.counterclockwise.circle) for Launch at Login
+    - Power icon (power) for Quit
+    - All icons tinted with textSecondary color
+  - Recording state with coral pulsing glow:
+    - Timer-based animation at 0.05s intervals
+    - Sine wave oscillation for smooth pulse effect
+    - Alpha varies between 0.7-1.0 for subtle pulse
+    - Coral brightness varies for glow effect
+    - Animation starts when recording begins, stops when recording ends
+    - Proper cleanup in deinit
+  - Helper methods created:
+    - createTintedStatusIcon() for status bar icon with NSImage.SymbolConfiguration
+    - createMenuIcon() for menu item icons with tinting
+    - startPulseAnimation(), stopPulseAnimation(), updatePulseEffect()
+    - updateRecordingIconWithPulse() for dynamic glow intensity
+- **Learnings for future iterations:**
+  - NSImage template images need isTemplate = false to allow custom tinting
+  - lockFocus/unlockFocus with fill(using: .sourceAtop) applies color tint to images
+  - Timer-based animation with sine wave provides smooth pulse effect
+  - NSColor component access (redComponent, greenComponent, blueComponent) allows dynamic color manipulation
+  - Clean up timers in both deinit and state change to prevent memory leaks
+---
