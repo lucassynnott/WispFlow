@@ -1190,3 +1190,41 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-it
   - Custom gradient progress bars look more premium than default ProgressView
   - HotkeyRecorderView benefits from focus glow effect using shadow with conditional color
 ---
+
+## [2026-01-13 21:05] - US-405: General Settings Tab Polish
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 5)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-5.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-5.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: b5179ee feat(US-405): add general settings tab polish with design system integration
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/WispFlow/SettingsWindow.swift (GeneralSettingsView and HotkeyRecorderView enhancements)
+  - .ralph/IMPLEMENTATION_PLAN.md (marked US-405 tasks complete)
+  - .agents/tasks/prd-v5.md (marked US-405 complete)
+- What was implemented:
+  - Redesigned GeneralSettingsView with hero About section at top
+  - Created app logo representation using SF Symbol waveform.circle.fill with gradient overlay on circle background
+  - App name displayed using Font.Wispflow.largeTitle (28pt, bold, rounded)
+  - Version number displayed with subtle pill-style background (border color at 0.5 opacity)
+  - Created SubtleLinkButton component with hover animations for GitHub/Website/Support links
+  - Enhanced HotkeyRecorderView with:
+    - Pulsing coral dot animation when recording (pulse varies opacity 0.6-1.0 and scale 0.8-1.2)
+    - Command symbol icon with hover color change (textSecondary to accent)
+    - Coral glow shadow on focus/recording (radius 6-12px)
+    - Scale animation on recording state (1.02x)
+    - Increased corner radius to CornerRadius.medium (12px)
+  - Added icon headers to Hotkey (keyboard icon) and Startup (power icon) sections
+  - Updated launch at login toggle with indented description text below
+  - All sections use consistent card styling with .wispflowCard() modifier
+- **Learnings for future iterations:**
+  - Using SF Symbols with gradient fill creates professional logo without custom assets
+  - SubtleLinkButton pattern is reusable for any link-styled button with hover effects
+  - Pulse animation using .easeInOut.repeatForever provides organic feel
+  - Description text indented with padding(.leading, Spacing.xxl + Spacing.md) aligns with toggle label
+  - Hero section pattern (centered content in card) works well for About/branding areas
+---
