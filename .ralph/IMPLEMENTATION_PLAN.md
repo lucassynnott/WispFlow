@@ -157,45 +157,68 @@ As a user, I want an elegant menu bar presence that feels premium.
 ### US-403: Beautiful Recording Indicator
 As a user, I want a stunning recording indicator that's a joy to look at.
 
-- [ ] Update recording indicator colors to design system
+- [x] Update recording indicator colors to design system
   - Scope: Modify `Sources/WispFlow/RecordingIndicatorWindow.swift`
-  - Use coral (#E07A5F) for recording icon instead of systemRed
+  - Use coral (#E07A5F) for recording dot instead of systemRed
   - Use warm charcoal (#2D3436) for text instead of labelColor
-  - Update cancel button to warm gray with coral hover
-  - Acceptance: Recording indicator uses design system colors
-  - Verification: `swift build` passes
+  - Update cancel button to warm gray with coral hover via HoverGlowButton
+  - Acceptance: Recording indicator uses design system colors ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Enhance frosted glass effect with warm tint
+- [x] Enhance frosted glass effect with warm tint
   - Scope: Modify `Sources/WispFlow/RecordingIndicatorWindow.swift` setupUI()
-  - Apply warm ivory tint to NSVisualEffectView
-  - Increase corner radius to 22px (already set, confirm)
-  - Add subtle warm shadow
-  - Acceptance: Floating pill has warmer appearance
-  - Verification: `swift build` passes
+  - Apply warm ivory tint overlay to NSVisualEffectView
+  - Increased corner radius to 26px for larger pill
+  - Added warm drop shadow for floating effect
+  - Acceptance: Floating pill has warmer appearance ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Improve audio level meter visualization
-  - Scope: Modify `AudioLevelMeterView` in `Sources/WispFlow/RecordingIndicatorWindow.swift`
-  - Use design system colors: coral for active, sage green for normal levels
-  - Smoother animation (currently 0.05s, may be fine)
-  - Consider rounded caps on the level bar
-  - Acceptance: Level meter uses warm color palette
-  - Verification: `swift build` passes
+- [x] Replace audio level meter with smooth waveform visualization
+  - Scope: Created `LiveWaveformView` in `Sources/WispFlow/RecordingIndicatorWindow.swift`
+  - Smooth, animated sine wave that responds to audio level
+  - Uses design system colors: coral for active, sage green for normal levels
+  - Organic multi-wave animation at 30fps
+  - Acceptance: Waveform uses warm color palette with smooth animation ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Add recording duration display
-  - Scope: Modify `Sources/WispFlow/RecordingIndicatorWindow.swift`
-  - Show elapsed time in status label (e.g., "Recording... 0:05")
-  - Use design system caption font
-  - Update label dynamically via timer
-  - Acceptance: Recording duration shown in real-time
-  - Verification: `swift build` passes
+- [x] Add recording duration display
+  - Scope: Added duration timer and label to RecordingIndicatorWindow
+  - Shows elapsed time separately from status label (e.g., "0:05")
+  - Uses semibold 14pt font for emphasis
+  - Update label dynamically via 1-second timer
+  - Acceptance: Recording duration shown in real-time ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Enhance show/hide animations
-  - Scope: Modify showWithAnimation()/hideWithAnimation() in RecordingIndicatorWindow
-  - Add slide-down effect on appear (from above screen)
-  - Add slide-up effect on dismiss
-  - Increase animation duration slightly for smoothness (0.25s)
-  - Acceptance: Recording indicator slides in/out elegantly
-  - Verification: `swift build` passes
+- [x] Enhance show/hide animations
+  - Scope: Modified showWithAnimation()/hideWithAnimation() in RecordingIndicatorWindow
+  - Added slide-down effect on appear (from above screen)
+  - Added slide-up effect on dismiss
+  - Animation duration 0.35s with easeOut/easeIn timing functions
+  - Acceptance: Recording indicator slides in/out elegantly ✓
+  - Verification: `swift build` passes ✓
+
+- [x] Add coral pulsing recording dot
+  - Scope: Replaced mic icon with circular dot that pulses
+  - Smooth pulse animation varies opacity (0.8-1.0) and scale (0.9-1.1)
+  - Uses warm coral (#E07A5F) from design system
+  - Acceptance: Recording dot pulses gently ✓
+  - Verification: `swift build` passes ✓
+
+- [x] Create elegant cancel button with hover glow
+  - Scope: Created `HoverGlowButton` class
+  - Coral glow effect on hover with shadow
+  - Scale animation on press (0.9x)
+  - Uses design system colors
+  - Acceptance: Cancel button has elegant hover/press states ✓
+  - Verification: `swift build` passes ✓
+
+**Implementation Notes (US-403):**
+- Renamed LiveWaveformView to avoid conflict with existing AudioWaveformView (SwiftUI)
+- Recording indicator window size increased from 200x44 to 240x52 for better proportions
+- Added shadow view layer behind visual effect for floating appearance
+- Timer-based animations for pulse and waveform provide smooth 30fps updates
+- Duration timer starts/stops with show/hide to ensure accurate timing
+- All timers properly cleaned up in deinit to prevent memory leaks
 
 ---
 

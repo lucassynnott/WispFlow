@@ -2,16 +2,19 @@ import AppKit
 import Combine
 
 /// Floating recording indicator window that shows when recording is active
-/// Displays a pill-shaped overlay with recording status, audio level meter, and cancel button
+/// Displays an elegant pill-shaped overlay with recording status, waveform visualization, and cancel button
+/// Features frosted glass effect, warm colors, and smooth animations
 final class RecordingIndicatorWindow: NSPanel {
     
     // MARK: - UI Components
     
     private let containerView = NSView()
-    private let recordingIcon = NSImageView()
-    private let audioLevelMeter = AudioLevelMeterView()
+    private let recordingDot = NSView()
+    private let waveformView = LiveWaveformView()
     private let statusLabel = NSTextField()
-    private let cancelButton = NSButton()
+    private let durationLabel = NSTextField()
+    private let cancelButton = HoverGlowButton()
+    private var trackingArea: NSTrackingArea?
     
     /// Callback when cancel button is clicked
     var onCancel: (() -> Void)?
@@ -19,17 +22,27 @@ final class RecordingIndicatorWindow: NSPanel {
     /// Audio level subscription
     private var audioLevelCancellable: AnyCancellable?
     
+    /// Recording duration timer
+    private var durationTimer: Timer?
+    private var recordingStartTime: Date?
+    
+    /// Pulse animation for recording dot
+    private var pulseTimer: Timer?
+    private var pulsePhase: CGFloat = 0
+    
     // MARK: - Configuration
     
     private struct Constants {
-        static let windowWidth: CGFloat = 200
-        static let windowHeight: CGFloat = 44
-        static let cornerRadius: CGFloat = 22
-        static let padding: CGFloat = 12
-        static let iconSize: CGFloat = 20
-        static let levelMeterWidth: CGFloat = 40
-        static let levelMeterHeight: CGFloat = 8
-        static let animationDuration: TimeInterval = 0.2
+        static let windowWidth: CGFloat = 240
+        static let windowHeight: CGFloat = 52
+        static let cornerRadius: CGFloat = 26
+        static let padding: CGFloat = 16
+        static let dotSize: CGFloat = 12
+        static let waveformWidth: CGFloat = 60
+        static let waveformHeight: CGFloat = 24
+        static let cancelButtonSize: CGFloat = 22
+        static let animationDuration: TimeInterval = 0.35
+        static let slideOffset: CGFloat = 60
     }
     
     // MARK: - Initialization
@@ -64,8 +77,8 @@ final class RecordingIndicatorWindow: NSPanel {
         // Don't show in mission control or expose
         collectionBehavior.insert(.stationary)
         
-        // Position window at top center of main screen
-        positionWindow()
+        // Position window at top center of main screen (with offset for slide animation)
+        positionWindow(withSlideOffset: true)
     }
     
     private func setupUI() {
@@ -76,7 +89,7 @@ final class RecordingIndicatorWindow: NSPanel {
         containerView.layer?.cornerRadius = Constants.cornerRadius
         containerView.layer?.masksToBounds = true
         
-        // Use visual effect view for blur background
+        // Use visual effect view for frosted glass background with warm tint
         let visualEffect = NSVisualEffectView()
         visualEffect.material = .hudWindow
         visualEffect.state = .active
@@ -85,28 +98,49 @@ final class RecordingIndicatorWindow: NSPanel {
         visualEffect.layer?.cornerRadius = Constants.cornerRadius
         visualEffect.layer?.masksToBounds = true
         
+        // Apply warm ivory tint overlay for warmth
+        let warmOverlay = NSView()
+        warmOverlay.wantsLayer = true
+        warmOverlay.layer?.backgroundColor = NSColor.Wispflow.background.withAlphaComponent(0.3).cgColor
+        warmOverlay.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add drop shadow layer for floating effect
+        let shadowView = NSView()
+        shadowView.wantsLayer = true
+        shadowView.layer?.cornerRadius = Constants.cornerRadius
+        shadowView.layer?.shadowColor = NSColor.Wispflow.textPrimary.withAlphaComponent(0.2).cgColor
+        shadowView.layer?.shadowOpacity = 1.0
+        shadowView.layer?.shadowOffset = CGSize(width: 0, height: -4)
+        shadowView.layer?.shadowRadius = 16
+        shadowView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.01).cgColor
+        shadowView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(shadowView)
+        
         visualEffect.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(visualEffect)
+        
+        // Add warm overlay inside visual effect
+        visualEffect.addSubview(warmOverlay)
         
         // Container inside visual effect
         containerView.translatesAutoresizingMaskIntoConstraints = false
         visualEffect.addSubview(containerView)
         
-        // Recording icon (pulsing red circle)
-        let recordingImage = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "Recording")
-        recordingIcon.image = recordingImage
-        recordingIcon.contentTintColor = .systemRed
-        recordingIcon.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(recordingIcon)
+        // Recording dot (warm coral pulsing circle)
+        recordingDot.wantsLayer = true
+        recordingDot.layer?.cornerRadius = Constants.dotSize / 2
+        recordingDot.layer?.backgroundColor = NSColor.Wispflow.accent.cgColor
+        recordingDot.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(recordingDot)
         
-        // Audio level meter (shows real-time mic input level)
-        audioLevelMeter.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(audioLevelMeter)
+        // Audio waveform visualization (smooth wave, not bars)
+        waveformView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(waveformView)
         
-        // Status label
-        statusLabel.stringValue = "Recording..."
-        statusLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        statusLabel.textColor = .labelColor
+        // Status label with elegant typography
+        statusLabel.stringValue = "Recording"
+        statusLabel.font = NSFont.Wispflow.caption
+        statusLabel.textColor = NSColor.Wispflow.textSecondary
         statusLabel.backgroundColor = .clear
         statusLabel.isBordered = false
         statusLabel.isEditable = false
@@ -114,12 +148,19 @@ final class RecordingIndicatorWindow: NSPanel {
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(statusLabel)
         
-        // Cancel button
-        let cancelImage = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Cancel recording")
-        cancelButton.image = cancelImage
-        cancelButton.imagePosition = .imageOnly
-        cancelButton.isBordered = false
-        cancelButton.contentTintColor = .secondaryLabelColor
+        // Duration label with elegant typography
+        durationLabel.stringValue = "0:00"
+        durationLabel.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        durationLabel.textColor = NSColor.Wispflow.textPrimary
+        durationLabel.backgroundColor = .clear
+        durationLabel.isBordered = false
+        durationLabel.isEditable = false
+        durationLabel.isSelectable = false
+        durationLabel.alignment = .left
+        durationLabel.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(durationLabel)
+        
+        // Cancel button with hover glow
         cancelButton.target = self
         cancelButton.action = #selector(cancelButtonClicked)
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
@@ -127,11 +168,23 @@ final class RecordingIndicatorWindow: NSPanel {
         
         // Layout constraints
         NSLayoutConstraint.activate([
+            // Shadow view fills content view
+            shadowView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            shadowView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            shadowView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            shadowView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
             // Visual effect fills content view
             visualEffect.topAnchor.constraint(equalTo: contentView.topAnchor),
             visualEffect.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             visualEffect.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             visualEffect.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
+            // Warm overlay fills visual effect
+            warmOverlay.topAnchor.constraint(equalTo: visualEffect.topAnchor),
+            warmOverlay.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor),
+            warmOverlay.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor),
+            warmOverlay.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
             
             // Container fills visual effect
             containerView.topAnchor.constraint(equalTo: visualEffect.topAnchor),
@@ -139,40 +192,42 @@ final class RecordingIndicatorWindow: NSPanel {
             containerView.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
             
-            // Recording icon on the left
-            recordingIcon.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Constants.padding),
-            recordingIcon.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            recordingIcon.widthAnchor.constraint(equalToConstant: Constants.iconSize),
-            recordingIcon.heightAnchor.constraint(equalToConstant: Constants.iconSize),
+            // Recording dot on the left
+            recordingDot.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Constants.padding),
+            recordingDot.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            recordingDot.widthAnchor.constraint(equalToConstant: Constants.dotSize),
+            recordingDot.heightAnchor.constraint(equalToConstant: Constants.dotSize),
             
-            // Audio level meter next to recording icon
-            audioLevelMeter.leadingAnchor.constraint(equalTo: recordingIcon.trailingAnchor, constant: 6),
-            audioLevelMeter.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            audioLevelMeter.widthAnchor.constraint(equalToConstant: Constants.levelMeterWidth),
-            audioLevelMeter.heightAnchor.constraint(equalToConstant: Constants.levelMeterHeight),
+            // Audio waveform next to recording dot
+            waveformView.leadingAnchor.constraint(equalTo: recordingDot.trailingAnchor, constant: 10),
+            waveformView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            waveformView.widthAnchor.constraint(equalToConstant: Constants.waveformWidth),
+            waveformView.heightAnchor.constraint(equalToConstant: Constants.waveformHeight),
             
-            // Status label in the middle
-            statusLabel.leadingAnchor.constraint(equalTo: audioLevelMeter.trailingAnchor, constant: 8),
-            statusLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            // Status label and duration stacked vertically
+            statusLabel.leadingAnchor.constraint(equalTo: waveformView.trailingAnchor, constant: 10),
+            statusLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 10),
+            
+            durationLabel.leadingAnchor.constraint(equalTo: waveformView.trailingAnchor, constant: 10),
+            durationLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -10),
             
             // Cancel button on the right
             cancelButton.leadingAnchor.constraint(greaterThanOrEqualTo: statusLabel.trailingAnchor, constant: 8),
+            cancelButton.leadingAnchor.constraint(greaterThanOrEqualTo: durationLabel.trailingAnchor, constant: 8),
             cancelButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -Constants.padding),
             cancelButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            cancelButton.widthAnchor.constraint(equalToConstant: Constants.iconSize),
-            cancelButton.heightAnchor.constraint(equalToConstant: Constants.iconSize)
+            cancelButton.widthAnchor.constraint(equalToConstant: Constants.cancelButtonSize),
+            cancelButton.heightAnchor.constraint(equalToConstant: Constants.cancelButtonSize)
         ])
-        
-        // Start pulsing animation
-        startPulsingAnimation()
     }
     
-    private func positionWindow() {
+    private func positionWindow(withSlideOffset: Bool = false) {
         guard let screen = NSScreen.main else { return }
         
         let screenFrame = screen.visibleFrame
         let windowX = screenFrame.midX - (Constants.windowWidth / 2)
-        let windowY = screenFrame.maxY - Constants.windowHeight - 20 // 20px from top
+        let baseY = screenFrame.maxY - Constants.windowHeight - 20 // 20px from top
+        let windowY = withSlideOffset ? baseY + Constants.slideOffset : baseY
         
         setFrameOrigin(NSPoint(x: windowX, y: windowY))
     }
@@ -180,19 +235,59 @@ final class RecordingIndicatorWindow: NSPanel {
     // MARK: - Animations
     
     private func startPulsingAnimation() {
-        let pulseAnimation = CABasicAnimation(keyPath: "opacity")
-        pulseAnimation.fromValue = 1.0
-        pulseAnimation.toValue = 0.4
-        pulseAnimation.duration = 0.8
-        pulseAnimation.autoreverses = true
-        pulseAnimation.repeatCount = .infinity
-        pulseAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        // Stop any existing animation
+        stopPulsingAnimation()
         
-        recordingIcon.layer?.add(pulseAnimation, forKey: "pulse")
+        // Gentle pulse animation using timer for smooth coral dot pulsing
+        pulseTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.pulsePhase += 0.05
+            if self.pulsePhase > CGFloat.pi * 2 {
+                self.pulsePhase -= CGFloat.pi * 2
+            }
+            
+            // Pulse opacity between 0.6 and 1.0
+            let opacity = 0.8 + 0.2 * sin(self.pulsePhase)
+            
+            // Pulse scale between 0.9 and 1.1
+            let scale = 1.0 + 0.1 * sin(self.pulsePhase)
+            
+            DispatchQueue.main.async {
+                self.recordingDot.layer?.opacity = Float(opacity)
+                self.recordingDot.layer?.transform = CATransform3DMakeScale(scale, scale, 1.0)
+            }
+        }
     }
     
     private func stopPulsingAnimation() {
-        recordingIcon.layer?.removeAnimation(forKey: "pulse")
+        pulseTimer?.invalidate()
+        pulseTimer = nil
+        recordingDot.layer?.opacity = 1.0
+        recordingDot.layer?.transform = CATransform3DIdentity
+    }
+    
+    private func startDurationTimer() {
+        recordingStartTime = Date()
+        durationTimer?.invalidate()
+        durationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateDurationDisplay()
+        }
+        updateDurationDisplay()
+    }
+    
+    private func stopDurationTimer() {
+        durationTimer?.invalidate()
+        durationTimer = nil
+        recordingStartTime = nil
+        durationLabel.stringValue = "0:00"
+    }
+    
+    private func updateDurationDisplay() {
+        guard let startTime = recordingStartTime else { return }
+        let elapsed = Int(Date().timeIntervalSince(startTime))
+        let minutes = elapsed / 60
+        let seconds = elapsed % 60
+        durationLabel.stringValue = String(format: "%d:%02d", minutes, seconds)
     }
     
     // MARK: - Actions
@@ -204,33 +299,66 @@ final class RecordingIndicatorWindow: NSPanel {
     
     // MARK: - Public API
     
-    /// Show the indicator with animation
+    /// Show the indicator with smooth slide-down animation
     func showWithAnimation() {
+        // Start with window above screen (for slide-down effect)
+        positionWindow(withSlideOffset: true)
         alphaValue = 0
         orderFrontRegardless()
         
+        // Animate slide down and fade in
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Constants.animationDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             self.animator().alphaValue = 1
         }
         
+        // Animate position separately for smooth slide
+        guard let screen = NSScreen.main else { return }
+        let screenFrame = screen.visibleFrame
+        let targetY = screenFrame.maxY - Constants.windowHeight - 20
+        
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Constants.animationDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            let currentFrame = self.frame
+            self.animator().setFrameOrigin(NSPoint(x: currentFrame.origin.x, y: targetY))
+        }
+        
         startPulsingAnimation()
-        print("Recording indicator shown")
+        startDurationTimer()
+        print("Recording indicator shown with slide-down animation")
     }
     
-    /// Hide the indicator with animation
+    /// Hide the indicator with smooth slide-up animation
     func hideWithAnimation(completion: (() -> Void)? = nil) {
         stopPulsingAnimation()
+        stopDurationTimer()
         
+        // Calculate slide-up target position
+        guard let screen = NSScreen.main else {
+            orderOut(nil)
+            completion?()
+            return
+        }
+        let screenFrame = screen.visibleFrame
+        let targetY = screenFrame.maxY + Constants.slideOffset
+        
+        // Animate slide up and fade out
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = Constants.animationDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             self.animator().alphaValue = 0
+            let currentFrame = self.frame
+            self.animator().setFrameOrigin(NSPoint(x: currentFrame.origin.x, y: targetY))
         }, completionHandler: { [weak self] in
             self?.orderOut(nil)
+            // Reset position for next show
+            self?.positionWindow(withSlideOffset: true)
             completion?()
         })
         
-        print("Recording indicator hidden")
+        print("Recording indicator hidden with slide-up animation")
     }
     
     /// Update the status text
@@ -238,9 +366,9 @@ final class RecordingIndicatorWindow: NSPanel {
         statusLabel.stringValue = text
     }
     
-    /// Update audio level meter (value in dB, typically -60 to 0)
+    /// Update audio waveform with current level (value in dB, typically -60 to 0)
     func updateAudioLevel(_ level: Float) {
-        audioLevelMeter.updateLevel(level)
+        waveformView.updateLevel(level)
     }
     
     /// Connect to AudioManager for real-time level updates
@@ -248,7 +376,7 @@ final class RecordingIndicatorWindow: NSPanel {
         audioLevelCancellable = audioManager.$currentAudioLevel
             .receive(on: DispatchQueue.main)
             .sink { [weak self] level in
-                self?.audioLevelMeter.updateLevel(level)
+                self?.waveformView.updateLevel(level)
             }
     }
     
@@ -256,7 +384,13 @@ final class RecordingIndicatorWindow: NSPanel {
     func disconnectAudioManager() {
         audioLevelCancellable?.cancel()
         audioLevelCancellable = nil
-        audioLevelMeter.updateLevel(-60.0)
+        waveformView.updateLevel(-60.0)
+    }
+    
+    deinit {
+        stopPulsingAnimation()
+        stopDurationTimer()
+        audioLevelCancellable?.cancel()
     }
     
     // MARK: - Window Behavior Overrides
@@ -270,19 +404,31 @@ final class RecordingIndicatorWindow: NSPanel {
     }
 }
 
-// MARK: - Audio Level Meter View
+// MARK: - Live Waveform View
 
-/// A simple horizontal bar that visualizes audio level in real-time
-final class AudioLevelMeterView: NSView {
+/// Smooth, animated waveform visualization that responds to audio level in real-time
+/// Creates an elegant, flowing wave effect instead of harsh bars
+final class LiveWaveformView: NSView {
     
-    private let levelBar = NSView()
-    private var levelBarWidthConstraint: NSLayoutConstraint?
+    /// Number of wave points to render
+    private let wavePointCount = 20
+    
+    /// Current audio level (0-1)
+    private var currentLevel: CGFloat = 0
+    
+    /// Wave phase for animation
+    private var wavePhase: CGFloat = 0
+    
+    /// Animation timer
+    private var animationTimer: Timer?
+    
+    /// Wave shape layer
+    private let waveLayer = CAShapeLayer()
     
     private struct Constants {
         static let minDB: Float = -60.0
         static let maxDB: Float = 0.0
-        static let silenceThreshold: Float = -55.0  // Matches AudioManager threshold (lowered from -40dB)
-        static let cornerRadius: CGFloat = 2.0
+        static let silenceThreshold: Float = -55.0
     }
     
     override init(frame frameRect: NSRect) {
@@ -297,64 +443,250 @@ final class AudioLevelMeterView: NSView {
     
     private func setupView() {
         wantsLayer = true
-        layer?.cornerRadius = Constants.cornerRadius
         layer?.masksToBounds = true
-        layer?.backgroundColor = NSColor.systemGray.withAlphaComponent(0.3).cgColor
         
-        // Level bar (filled portion)
-        levelBar.wantsLayer = true
-        levelBar.layer?.cornerRadius = Constants.cornerRadius
-        levelBar.layer?.backgroundColor = NSColor.systemGreen.cgColor
-        levelBar.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(levelBar)
+        // Configure wave layer
+        waveLayer.fillColor = NSColor.Wispflow.accent.withAlphaComponent(0.4).cgColor
+        waveLayer.strokeColor = NSColor.Wispflow.accent.cgColor
+        waveLayer.lineWidth = 2.0
+        waveLayer.lineCap = .round
+        waveLayer.lineJoin = .round
+        layer?.addSublayer(waveLayer)
         
-        // Create width constraint for animation
-        levelBarWidthConstraint = levelBar.widthAnchor.constraint(equalToConstant: 0)
-        
-        NSLayoutConstraint.activate([
-            levelBar.leadingAnchor.constraint(equalTo: leadingAnchor),
-            levelBar.topAnchor.constraint(equalTo: topAnchor),
-            levelBar.bottomAnchor.constraint(equalTo: bottomAnchor),
-            levelBarWidthConstraint!
-        ])
+        // Start animation loop
+        startAnimation()
     }
     
-    /// Update the level meter display
-    /// - Parameter level: Audio level in dB (typically -60 to 0)
+    private func startAnimation() {
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0/30.0, repeats: true) { [weak self] _ in
+            self?.updateWave()
+        }
+    }
+    
+    private func stopAnimation() {
+        animationTimer?.invalidate()
+        animationTimer = nil
+    }
+    
+    private func updateWave() {
+        wavePhase += 0.15
+        if wavePhase > CGFloat.pi * 2 {
+            wavePhase -= CGFloat.pi * 2
+        }
+        
+        // Update the wave path
+        let path = createWavePath()
+        
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        waveLayer.path = path.cgPath
+        CATransaction.commit()
+    }
+    
+    private func createWavePath() -> NSBezierPath {
+        let path = NSBezierPath()
+        let width = bounds.width
+        let height = bounds.height
+        let midY = height / 2
+        
+        // Base amplitude varies with audio level
+        let baseAmplitude = height * 0.4 * currentLevel
+        
+        // Start at left middle
+        path.move(to: NSPoint(x: 0, y: midY))
+        
+        // Create smooth wave using bezier curves
+        let segmentWidth = width / CGFloat(wavePointCount - 1)
+        
+        for i in 0..<wavePointCount {
+            let x = CGFloat(i) * segmentWidth
+            
+            // Multiple sine waves for organic feel
+            let wave1 = sin(wavePhase + CGFloat(i) * 0.5) * baseAmplitude
+            let wave2 = sin(wavePhase * 1.5 + CGFloat(i) * 0.3) * baseAmplitude * 0.5
+            let wave3 = sin(wavePhase * 0.7 + CGFloat(i) * 0.7) * baseAmplitude * 0.3
+            
+            let y = midY + wave1 + wave2 + wave3
+            
+            if i == 0 {
+                path.move(to: NSPoint(x: x, y: y))
+            } else {
+                // Use smooth curve to point
+                let prevX = CGFloat(i - 1) * segmentWidth
+                let controlX = (prevX + x) / 2
+                path.curve(
+                    to: NSPoint(x: x, y: y),
+                    controlPoint1: NSPoint(x: controlX, y: path.currentPoint.y),
+                    controlPoint2: NSPoint(x: controlX, y: y)
+                )
+            }
+        }
+        
+        // Close the path to create fill
+        path.line(to: NSPoint(x: width, y: midY))
+        path.line(to: NSPoint(x: width, y: height))
+        path.line(to: NSPoint(x: 0, y: height))
+        path.close()
+        
+        return path
+    }
+    
+    override func layout() {
+        super.layout()
+        waveLayer.frame = bounds
+    }
+    
+    /// Update the waveform with current audio level (in dB)
     func updateLevel(_ level: Float) {
         // Clamp level to valid range
         let clampedLevel = max(Constants.minDB, min(Constants.maxDB, level))
         
         // Convert dB to linear percentage (0 to 1)
-        // Using a simple linear mapping from -60dB to 0dB
-        let percentage = (clampedLevel - Constants.minDB) / (Constants.maxDB - Constants.minDB)
+        var percentage = (clampedLevel - Constants.minDB) / (Constants.maxDB - Constants.minDB)
         
-        // Calculate width based on percentage
-        let newWidth = bounds.width * CGFloat(percentage)
+        // Apply some smoothing
+        if clampedLevel < Constants.silenceThreshold {
+            percentage *= 0.3 // Reduce visual when quiet
+        }
         
-        // Update color based on level
+        // Smooth transition to new level
+        let targetLevel = CGFloat(percentage)
+        currentLevel = currentLevel * 0.7 + targetLevel * 0.3
+        
+        // Update wave color based on level
         let color: NSColor
         if clampedLevel < Constants.silenceThreshold {
-            // Below silence threshold - show as dim/gray-ish
-            color = .systemGray
+            color = NSColor.Wispflow.textSecondary.withAlphaComponent(0.3)
         } else if clampedLevel < -20 {
-            // Normal speaking level - green
-            color = .systemGreen
+            color = NSColor.Wispflow.success
         } else if clampedLevel < -6 {
-            // Getting louder - yellow
-            color = .systemYellow
+            color = NSColor.Wispflow.accent
         } else {
-            // Very loud / near clipping - red
-            color = .systemRed
+            color = NSColor.Wispflow.accent
         }
         
-        // Animate the update
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.05  // Fast update for responsive metering
-            context.allowsImplicitAnimation = true
-            self.levelBarWidthConstraint?.constant = newWidth
-            self.levelBar.layer?.backgroundColor = color.cgColor
-            self.layoutSubtreeIfNeeded()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        waveLayer.strokeColor = color.cgColor
+        waveLayer.fillColor = color.withAlphaComponent(0.3).cgColor
+        CATransaction.commit()
+    }
+    
+    deinit {
+        stopAnimation()
+    }
+}
+
+// MARK: - Hover Glow Button
+
+/// Cancel button with elegant hover glow effect
+final class HoverGlowButton: NSButton {
+    
+    /// Glow layer for hover effect
+    private let glowLayer = CALayer()
+    
+    /// Tracking area for hover
+    private var hoverTrackingArea: NSTrackingArea?
+    
+    /// Whether button is hovered
+    private var isHovered = false
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupButton()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupButton()
+    }
+    
+    private func setupButton() {
+        wantsLayer = true
+        isBordered = false
+        
+        // Configure button appearance
+        let xImage = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Cancel recording")
+        image = xImage
+        imagePosition = .imageOnly
+        contentTintColor = NSColor.Wispflow.textSecondary
+        
+        // Configure glow layer
+        glowLayer.backgroundColor = NSColor.Wispflow.accent.withAlphaComponent(0.0).cgColor
+        glowLayer.cornerRadius = 11
+        layer?.insertSublayer(glowLayer, at: 0)
+        
+        updateTrackingAreas()
+    }
+    
+    override func layout() {
+        super.layout()
+        glowLayer.frame = bounds.insetBy(dx: -4, dy: -4)
+        glowLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+    }
+    
+    override func updateTrackingAreas() {
+        if let area = hoverTrackingArea {
+            removeTrackingArea(area)
         }
+        
+        hoverTrackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self,
+            userInfo: nil
+        )
+        
+        if let area = hoverTrackingArea {
+            addTrackingArea(area)
+        }
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        animateHover(true)
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        animateHover(false)
+    }
+    
+    private func animateHover(_ hover: Bool) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.allowsImplicitAnimation = true
+            
+            if hover {
+                contentTintColor = NSColor.Wispflow.accent
+                glowLayer.backgroundColor = NSColor.Wispflow.accent.withAlphaComponent(0.2).cgColor
+                glowLayer.shadowColor = NSColor.Wispflow.accent.cgColor
+                glowLayer.shadowOpacity = 0.5
+                glowLayer.shadowRadius = 8
+                glowLayer.shadowOffset = .zero
+            } else {
+                contentTintColor = NSColor.Wispflow.textSecondary
+                glowLayer.backgroundColor = NSColor.Wispflow.accent.withAlphaComponent(0.0).cgColor
+                glowLayer.shadowOpacity = 0
+            }
+        }
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        // Scale down on press
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.1
+            self.layer?.setAffineTransform(CGAffineTransform(scaleX: 0.9, y: 0.9))
+        }
+        super.mouseDown(with: event)
+    }
+    
+    override func mouseUp(with event: NSEvent) {
+        // Scale back to normal
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.1
+            self.layer?.setAffineTransform(.identity)
+        }
+        super.mouseUp(with: event)
     }
 }

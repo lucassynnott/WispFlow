@@ -99,15 +99,15 @@ As a user, I want an elegant menu bar presence that feels premium.
 - [x] Consistent typography and spacing
 - [x] Warm ivory background tint
 
-### [ ] US-403: Beautiful Recording Indicator
+### [x] US-403: Beautiful Recording Indicator
 As a user, I want a stunning recording indicator that's a joy to look at.
-- Redesign as elegant floating pill with frosted glass effect
-- Smooth slide-down animation on appear, slide-up on dismiss
-- Live audio waveform visualization (smooth wave, not bars)
-- Warm coral recording dot with gentle pulse
-- Elegant cancel button (X) with hover glow
-- Show recording duration with elegant typography
-- Drop shadow for floating effect
+- [x] Redesign as elegant floating pill with frosted glass effect
+- [x] Smooth slide-down animation on appear, slide-up on dismiss
+- [x] Live audio waveform visualization (smooth wave, not bars)
+- [x] Warm coral recording dot with gentle pulse
+- [x] Elegant cancel button (X) with hover glow
+- [x] Show recording duration with elegant typography
+- [x] Drop shadow for floating effect
 
 ### [ ] US-404: Modern Settings Window
 As a user, I want a settings window that feels like a premium app.
