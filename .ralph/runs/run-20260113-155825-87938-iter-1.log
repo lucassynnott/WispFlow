@@ -1,0 +1,13 @@
+Done. I've completed the planning phase:
+
+**Summary of changes:**
+
+1. **Updated PRD** (`/Users/lucasnolan/WispFlow/.agents/tasks/prd.md`):
+   - Added **Routing Policy** section as required
+   - Converted MVP scope items into 7 properly formatted user stories with `### [ ] US-XXX:` markers (US-001 through US-007)
+
+2. **Created Implementation Plan** (`/Users/lucasnolan/WispFlow/.ralph/IMPLEMENTATION_PLAN.md`):
+   - 27 self-contained tasks grouped by the 7 user stories
+   - Each task includes Scope, Acceptance criteria, and Verification commands
+   - Prioritized in dependency order: project scaffolding → menu bar → hotkey → audio → Whisper → LLM cleanup → text insertion → settings
+   - Added Notes section covering project setup decisions, risks, and dependencies to evaluate
