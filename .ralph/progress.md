@@ -284,3 +284,47 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-163956-8021-ite
   - SMAppService.mainApp.status returns .enabled/.notRegistered/.notFound for checking state
   - Use .onChange(of:) modifier with oldValue/newValue for toggle state changes in SwiftUI
 ---
+
+## [2026-01-13 17:20] - US-101: Debug Audio Capture
+Thread: codex exec session
+Run: 20260113-171403-13989 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: ea70278 feat(US-101): implement debug audio capture
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/AudioManager.swift (modified - audio level monitoring, silence detection, stats logging)
+  - Sources/WispFlow/RecordingIndicatorWindow.swift (modified - added AudioLevelMeterView)
+  - Sources/WispFlow/AppDelegate.swift (modified - connected level meter, added warning handlers)
+  - .agents/tasks/prd-v2.md (new - PRD for v0.2)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status for US-101)
+- What was implemented:
+  - Real-time audio level meter (AudioLevelMeterView):
+    - Horizontal bar showing current audio level in dB
+    - Color-coded: gray (<-40dB), green (-40 to -20dB), yellow (-20 to -6dB), red (>-6dB)
+    - Connected via Combine subscription to AudioManager's @Published currentAudioLevel
+  - Audio buffer statistics logging:
+    - AudioBufferStats struct with sample count, duration, peak/RMS levels, min/max samples
+    - Formatted console output table after each recording stops
+  - Silence detection and warning:
+    - -40dB threshold (Constants.silenceThresholdDB)
+    - onSilenceDetected callback fires if recording peak is below threshold
+    - User alert with actionable troubleshooting steps
+  - Audio duration display:
+    - Recording indicator briefly shows duration (e.g., "1.5s") after recording stops
+    - AudioCaptureResult extended with peakLevel, sampleCount, wasSilent properties
+  - Minimum 0.5s recording enforcement:
+    - Constants.minimumRecordingDuration = 0.5
+    - onRecordingTooShort callback for short recordings
+    - User alert explaining minimum duration requirement
+- **Learnings for future iterations:**
+  - Amplitude to dB conversion: 20 * log10(amplitude), clamped to -60..0 range
+  - Combine's @Published + sink pattern enables real-time UI updates from audio callbacks
+  - Audio level meter animation with 0.05s duration gives responsive visual feedback
+  - Silent audio detection should skip transcription to avoid wasting compute
+  - CoreAudio samples are Float32 in range [-1.0, 1.0]; absolute value gives amplitude
+---
