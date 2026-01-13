@@ -58,27 +58,31 @@ The implementation should proceed in dependency order: project scaffolding → m
 
 ---
 
-### US-002: Global Hotkey Recording
+### US-002: Global Hotkey Recording ✅
 
-- [ ] Implement global hotkey listener
+- [x] Implement global hotkey listener
   - Scope: Create `HotkeyManager.swift` using CGEvent tap or NSEvent.addGlobalMonitorForEvents. Default hotkey: Cmd+Shift+Space.
   - Acceptance: Hotkey triggers callback when pressed from any application
   - Verification: Focus different app (e.g., Finder), press hotkey, verify callback fires
+  - **Completed**: HotkeyManager.swift using NSEvent.addGlobalMonitorForEvents and addLocalMonitorForEvents. Default hotkey: Cmd+Shift+Space (⌘⇧Space). Includes configurable hotkey support.
 
-- [ ] Connect hotkey to recording toggle
+- [x] Connect hotkey to recording toggle
   - Scope: Wire hotkey callback to toggle recording state in the app's state management.
   - Acceptance: Pressing global hotkey toggles recording on/off
   - Verification: Press hotkey from various apps and observe recording state toggle
+  - **Completed**: HotkeyManager.onHotkeyPressed callback connected to statusBarController.toggle() in AppDelegate.swift.
 
-- [ ] Create floating recording indicator
+- [x] Create floating recording indicator
   - Scope: Create `RecordingIndicatorWindow.swift` as a floating NSPanel/NSWindow. Show pill-shaped overlay with recording icon and cancel button. Position near cursor or screen corner.
   - Acceptance: Indicator appears when recording starts, disappears when stopped
   - Verification: Start recording and verify indicator appears; stop and verify it disappears
+  - **Completed**: RecordingIndicatorWindow.swift as NSPanel with pill-shaped overlay. Uses NSVisualEffectView for blur background. Positioned at top center of screen. Shows/hides with animation on recording state change.
 
-- [ ] Add cancel button to indicator
+- [x] Add cancel button to indicator
   - Scope: Add X button to recording indicator that stops recording and discards audio.
   - Acceptance: Clicking cancel stops recording without inserting text
   - Verification: Start recording, click cancel, verify recording stops and no text is inserted
+  - **Completed**: Cancel button (xmark.circle.fill SF Symbol) with onCancel callback that sets recording state to idle.
 
 ---
 

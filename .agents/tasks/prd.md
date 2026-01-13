@@ -110,12 +110,12 @@ As a user, I want the app to run as a menu bar application so I can access it wi
 - [x] Right-click for settings menu
 - [x] Launch at login option
 
-### [ ] US-002: Global Hotkey Recording
+### [x] US-002: Global Hotkey Recording
 As a user, I want to press a global hotkey to start/stop recording so I can dictate from any application.
-- Global hotkey activation (default: Cmd+Shift+Space)
-- Hotkey works in any app (CGEvent tap or NSEvent.addGlobalMonitorForEvents)
-- Visual indicator when recording (floating pill/badge)
-- Cancel button on recording indicator
+- [x] Global hotkey activation (default: Cmd+Shift+Space)
+- [x] Hotkey works in any app (CGEvent tap or NSEvent.addGlobalMonitorForEvents)
+- [x] Visual indicator when recording (floating pill/badge)
+- [x] Cancel button on recording indicator
 
 ### [ ] US-003: Audio Capture
 As a user, I want the app to capture my microphone audio so it can transcribe my speech.

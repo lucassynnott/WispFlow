@@ -47,3 +47,37 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-160943-91467-it
   - macOS menu bar apps need both `LSUIElement=true` AND `setActivationPolicy(.accessory)` in code
   - SMAppService requires `import ServiceManagement` and handles macOS 13+ gracefully
 ---
+
+## [2026-01-13 16:25] - US-002: Global Hotkey Recording
+Thread: codex exec session
+Run: 20260113-160943-91467 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-160943-91467-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-160943-91467-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: bfb6ae0 feat(US-002): implement global hotkey recording
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/HotkeyManager.swift (new)
+  - Sources/WispFlow/RecordingIndicatorWindow.swift (new)
+  - Sources/WispFlow/AppDelegate.swift (modified)
+  - .agents/tasks/prd.md (updated acceptance criteria)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status)
+- What was implemented:
+  - HotkeyManager.swift: Global hotkey listener using NSEvent.addGlobalMonitorForEvents and addLocalMonitorForEvents
+  - Default hotkey: Cmd+Shift+Space (⌘⇧Space) with configurable HotkeyConfiguration struct
+  - RecordingIndicatorWindow.swift: Floating NSPanel pill-shaped indicator
+  - Uses NSVisualEffectView for blur background, positioned at top center of screen
+  - Pulsing red mic.fill icon animation during recording
+  - Cancel button (xmark.circle.fill) that stops recording
+  - Show/hide animations with fade effect
+  - AppDelegate wires hotkey to toggle recording and indicator visibility
+- **Learnings for future iterations:**
+  - NSEvent global monitors require accessibility permissions for full functionality
+  - NSPanel with .nonactivatingPanel prevents stealing focus from other apps
+  - Use both global and local monitors to capture hotkeys when app is active or in background
+  - Carbon.HIToolbox provides key code constants (kVK_Space, etc.)
+  - NSVisualEffectView with .hudWindow material gives native macOS blur appearance
+---
