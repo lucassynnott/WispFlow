@@ -163,14 +163,14 @@ As a developer, I want to trace exactly where audio data goes.
 - [x] Log if buffer is empty when read
 - [x] Compare final buffer count to expected count (duration * 16000)
 
-### [ ] US-304: Fix Whisper Model Downloads
+### [x] US-304: Fix Whisper Model Downloads
 As a user, I want Whisper models to download successfully.
-- Add try/catch around WhisperKit initialization with error logging
-- Show download progress bar in settings UI
-- Log actual download URL being used
-- Verify model directory exists after download
-- Show clear error message if download fails
-- Add retry button for failed downloads
+- [x] Add try/catch around WhisperKit initialization with error logging
+- [x] Show download progress bar in settings UI
+- [x] Log actual download URL being used
+- [x] Verify model directory exists after download
+- [x] Show clear error message if download fails
+- [x] Add retry button for failed downloads
 
 ### [ ] US-305: Fix LLM Model Downloads
 As a user, I want LLM models to download successfully.

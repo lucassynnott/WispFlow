@@ -283,6 +283,7 @@ struct TranscriptionSettingsView: View {
     @Binding var isLoadingModel: Bool
     @Binding var showDeleteConfirmation: Bool
     @Binding var modelToDelete: WhisperManager.ModelSize?
+    @State private var showErrorAlert: Bool = false
     
     var body: some View {
         Form {
@@ -343,6 +344,19 @@ struct TranscriptionSettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
+                    // US-304: Download progress bar (shown during download)
+                    if case .downloading(let progress) = whisperManager.modelStatus {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ProgressView(value: progress, total: 1.0)
+                                .progressViewStyle(.linear)
+                                .frame(maxWidth: 300)
+                            Text("\(Int(progress * 100))% complete")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.top, 4)
+                    }
+                    
                     // Action buttons
                     HStack(spacing: 12) {
                         // Load/Download button
@@ -351,6 +365,10 @@ struct TranscriptionSettingsView: View {
                                 isLoadingModel = true
                                 await whisperManager.loadModel()
                                 isLoadingModel = false
+                                // US-304: Show error alert if download failed
+                                if case .error = whisperManager.modelStatus {
+                                    showErrorAlert = true
+                                }
                             }
                         }) {
                             HStack {
@@ -367,6 +385,40 @@ struct TranscriptionSettingsView: View {
                         }
                         .disabled(isLoadingModel || whisperManager.modelStatus == .ready)
                         .buttonStyle(.borderedProminent)
+                        
+                        // US-304: Retry button (shown when there's an error)
+                        if case .error = whisperManager.modelStatus {
+                            Button(action: {
+                                Task {
+                                    isLoadingModel = true
+                                    await whisperManager.retryLoadModel()
+                                    isLoadingModel = false
+                                    // Show error alert if retry also failed
+                                    if case .error = whisperManager.modelStatus {
+                                        showErrorAlert = true
+                                    }
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Retry Download")
+                                }
+                            }
+                            .disabled(isLoadingModel)
+                            .buttonStyle(.bordered)
+                            
+                            // Show error details button
+                            Button(action: {
+                                showErrorAlert = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                    Text("Error Details")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .foregroundColor(.red)
+                        }
                         
                         // Delete button (if model is downloaded)
                         if whisperManager.isModelDownloaded(whisperManager.selectedModel) {
@@ -421,6 +473,16 @@ struct TranscriptionSettingsView: View {
             }
         }
         .padding()
+        // US-304: Error alert with detailed message
+        .alert("Download Failed", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let errorMessage = whisperManager.lastErrorMessage {
+                Text(errorMessage)
+            } else {
+                Text(whisperManager.statusMessage)
+            }
+        }
     }
     
     private var buttonTitle: String {

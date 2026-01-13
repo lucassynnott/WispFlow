@@ -1,0 +1,19 @@
+There are still 3 unchecked stories (US-304, US-305, US-306) remaining in the PRD, so this is not the final story. The task for US-303 is complete.
+
+## Summary
+
+Successfully implemented **US-303: Buffer Integrity Logging** with the following changes:
+
+1. **Log when masterBuffer is created/cleared** - Added prominent boxed logs in `startCapturing()` showing previous/current counts, and in `stopCapturing()` and `cancelCapturing()` after buffer operations
+
+2. **Log every append with sample count and running total** - Enhanced tap callback logging to show first 5 appends, then every 10th, with format: `[US-303] APPEND #N: +X samples | masterBuffer: before → after total | level: Y.YdB`
+
+3. **Log when buffer is read for transcription** - Added boxed header when `getMasterBufferDataWithStats()` is called, showing samples retrieved
+
+4. **Log if buffer is empty when read** - Added explicit warning box with possible causes (no callbacks, empty/zero buffers, unexpected clear)
+
+5. **Compare final buffer count to expected count (duration * 16000)** - Added boxed comparison showing duration, expected/actual samples, difference, variance %, and status indicator (✓/⚠️/❌)
+
+**Commits:**
+- `bb5cad7` feat(US-303): add buffer integrity logging with trace points and count verification
+- `6d536fd` docs: update progress log for US-303

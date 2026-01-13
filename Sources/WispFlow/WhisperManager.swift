@@ -183,6 +183,9 @@ final class WhisperManager: ObservableObject {
     /// Status messages for UI display
     @Published private(set) var statusMessage: String = "No model loaded"
     
+    /// Last error message for UI display (detailed)
+    @Published private(set) var lastErrorMessage: String?
+    
     /// Model download and caching directory
     private var modelsDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -240,8 +243,36 @@ final class WhisperManager: ObservableObject {
             return
         }
         
+        // Clear any previous error
+        lastErrorMessage = nil
+        
         // Check if model is downloaded
         let isDownloaded = isModelDownloaded(selectedModel)
+        
+        // US-304: Verify model directory exists and is writable before download
+        if !verifyModelsDirectory() {
+            let errorMsg = "Cannot access model storage directory. Please check disk permissions."
+            modelStatus = .error(errorMsg)
+            statusMessage = errorMsg
+            lastErrorMessage = "Model directory issue:\n\(modelsDirectory.path)\n\nThe directory could not be created or is not writable. This may be due to disk permissions or space issues."
+            print("╔═══════════════════════════════════════════════════════════════╗")
+            print("║ [US-304] MODEL DIRECTORY ERROR                                ║")
+            print("╠═══════════════════════════════════════════════════════════════╣")
+            print("║ Directory: \(modelsDirectory.path)")
+            print("║ Error: Directory not writable or cannot be created")
+            print("╚═══════════════════════════════════════════════════════════════╝")
+            ErrorLogger.shared.log(
+                "Model directory verification failed",
+                category: .model,
+                severity: .error,
+                context: [
+                    "directory": modelsDirectory.path,
+                    "exists": FileManager.default.fileExists(atPath: modelsDirectory.path),
+                    "isWritable": FileManager.default.isWritableFile(atPath: modelsDirectory.path)
+                ]
+            )
+            return
+        }
         
         if isDownloaded {
             modelStatus = .loading
@@ -249,8 +280,19 @@ final class WhisperManager: ObservableObject {
         } else {
             modelStatus = .downloading(progress: 0.0)
             downloadProgress = 0.0
-            statusMessage = "Downloading \(selectedModel.displayName)..."
+            statusMessage = "Connecting to model repository..."
         }
+        
+        // US-304: Log comprehensive model load start info
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║ [US-304] WHISPER MODEL DOWNLOAD/LOAD START                    ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Model: \(selectedModel.rawValue) (\(selectedModel.modelPattern))")
+        print("║ Model Directory: \(modelsDirectory.path)")
+        print("║ Already Downloaded: \(isDownloaded)")
+        print("║ Repository: \(Constants.modelRepo)")
+        print("║ Expected Download URL: https://huggingface.co/\(Constants.modelRepo)")
+        print("╚═══════════════════════════════════════════════════════════════╝")
         
         do {
             print("WhisperManager: Starting model load for \(selectedModel.rawValue)")
@@ -267,15 +309,50 @@ final class WhisperManager: ObservableObject {
             // WhisperKit downloads models automatically if not present
             // Update status to loading once download would start
             if !isDownloaded {
-                // Set to downloading state while WhisperKit initializes
+                // US-304: Show intermediate status messages during download
                 // Note: WhisperKit doesn't expose progress callbacks directly,
-                // so we simulate progress stages during the download
+                // so we show status stages during the download
                 modelStatus = .downloading(progress: 0.1)
                 downloadProgress = 0.1
-                statusMessage = "Downloading \(selectedModel.displayName)..."
+                statusMessage = "Downloading model files from Hugging Face..."
+                
+                // Update status message after a brief delay to show progress
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                    if case .downloading = self.modelStatus {
+                        self.modelStatus = .downloading(progress: 0.3)
+                        self.downloadProgress = 0.3
+                        self.statusMessage = "Downloading \(self.selectedModel.displayName) (~\(self.getEstimatedSize()))..."
+                    }
+                }
+                
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                    if case .downloading = self.modelStatus {
+                        self.modelStatus = .downloading(progress: 0.5)
+                        self.downloadProgress = 0.5
+                        self.statusMessage = "Still downloading... this may take a few minutes"
+                    }
+                }
             }
             
             whisperKit = try await WhisperKit(config)
+            
+            // US-304: Verify model files exist after download
+            let verificationResult = verifyModelFilesAfterDownload()
+            if !verificationResult.success {
+                print("╔═══════════════════════════════════════════════════════════════╗")
+                print("║ [US-304] WARNING: Model verification incomplete               ║")
+                print("╠═══════════════════════════════════════════════════════════════╣")
+                print("║ \(verificationResult.message)")
+                print("╚═══════════════════════════════════════════════════════════════╝")
+            } else {
+                print("╔═══════════════════════════════════════════════════════════════╗")
+                print("║ [US-304] MODEL VERIFICATION SUCCESS                           ║")
+                print("╠═══════════════════════════════════════════════════════════════╣")
+                print("║ \(verificationResult.message)")
+                print("╚═══════════════════════════════════════════════════════════════╝")
+            }
             
             // Update progress after successful download/load
             downloadProgress = 1.0
@@ -284,21 +361,163 @@ final class WhisperManager: ObservableObject {
             print("WhisperManager: Model loaded successfully")
             
         } catch {
+            // US-304: Enhanced error logging with full context
             let errorMessage = "Failed to load model: \(error.localizedDescription)"
+            let detailedError = createDetailedErrorMessage(error: error)
+            
             modelStatus = .error(errorMessage)
             statusMessage = errorMessage
+            lastErrorMessage = detailedError
             downloadProgress = 0.0
-            print("WhisperManager: \(errorMessage)")
             
-            // Log model loading error
+            print("╔═══════════════════════════════════════════════════════════════╗")
+            print("║ [US-304] MODEL DOWNLOAD/LOAD FAILED                           ║")
+            print("╠═══════════════════════════════════════════════════════════════╣")
+            print("║ Model: \(selectedModel.rawValue)")
+            print("║ Error Type: \(type(of: error))")
+            print("║ Error: \(error.localizedDescription)")
+            print("║ Models Directory: \(modelsDirectory.path)")
+            print("║ Directory Exists: \(FileManager.default.fileExists(atPath: modelsDirectory.path))")
+            print("║ Directory Writable: \(FileManager.default.isWritableFile(atPath: modelsDirectory.path))")
+            print("╚═══════════════════════════════════════════════════════════════╝")
+            
+            // Log model loading error with comprehensive context
             ErrorLogger.shared.logModelError(error, modelInfo: [
                 "model": selectedModel.rawValue,
                 "modelPattern": selectedModel.modelPattern,
-                "modelsDirectory": modelsDirectory.path
+                "modelsDirectory": modelsDirectory.path,
+                "directoryExists": FileManager.default.fileExists(atPath: modelsDirectory.path),
+                "directoryWritable": FileManager.default.isWritableFile(atPath: modelsDirectory.path),
+                "wasDownloaded": isDownloaded,
+                "errorType": String(describing: type(of: error)),
+                "fullError": String(describing: error)
             ])
             
             onError?(errorMessage)
         }
+    }
+    
+    /// Get estimated model size for display
+    private func getEstimatedSize() -> String {
+        switch selectedModel {
+        case .tiny: return "75MB"
+        case .base: return "145MB"
+        case .small: return "485MB"
+        case .medium: return "1.5GB"
+        }
+    }
+    
+    /// Verify model directory exists and is writable
+    /// - Returns: true if directory is ready for use
+    private func verifyModelsDirectory() -> Bool {
+        let fm = FileManager.default
+        
+        // Try to create directory if it doesn't exist
+        if !fm.fileExists(atPath: modelsDirectory.path) {
+            do {
+                try fm.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
+                print("[US-304] Created model directory: \(modelsDirectory.path)")
+            } catch {
+                print("[US-304] Failed to create model directory: \(error)")
+                return false
+            }
+        }
+        
+        // Check if writable
+        return fm.isWritableFile(atPath: modelsDirectory.path)
+    }
+    
+    /// Verify model files exist after download
+    /// - Returns: Tuple with success flag and descriptive message
+    private func verifyModelFilesAfterDownload() -> (success: Bool, message: String) {
+        let modelPath = modelsDirectory.appendingPathComponent(selectedModel.modelPattern)
+        let fm = FileManager.default
+        
+        guard fm.fileExists(atPath: modelPath.path) else {
+            return (false, "Model directory not found at: \(modelPath.path)")
+        }
+        
+        // List files in model directory
+        do {
+            let contents = try fm.contentsOfDirectory(atPath: modelPath.path)
+            if contents.isEmpty {
+                return (false, "Model directory is empty: \(modelPath.path)")
+            }
+            
+            // Calculate total size
+            var totalSize: UInt64 = 0
+            for file in contents {
+                let filePath = modelPath.appendingPathComponent(file)
+                if let attrs = try? fm.attributesOfItem(atPath: filePath.path),
+                   let fileSize = attrs[.size] as? UInt64 {
+                    totalSize += fileSize
+                }
+            }
+            
+            let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(totalSize), countStyle: .file)
+            return (true, "Model verified: \(contents.count) files, total size: \(sizeStr)")
+        } catch {
+            return (false, "Failed to verify model directory: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Create a detailed error message for UI display
+    /// - Parameter error: The error that occurred
+    /// - Returns: User-friendly detailed error message
+    private func createDetailedErrorMessage(error: Error) -> String {
+        let errorString = String(describing: error).lowercased()
+        
+        var message = "Failed to download/load the \(selectedModel.displayName) model.\n\n"
+        
+        // Detect specific error types
+        if errorString.contains("network") || errorString.contains("connection") || errorString.contains("url") || errorString.contains("nsurlerror") {
+            message += "Cause: Network connection issue\n\n"
+            message += "Suggestions:\n"
+            message += "• Check your internet connection\n"
+            message += "• Verify you can access huggingface.co\n"
+            message += "• Try again in a few minutes\n"
+            message += "• Check if a firewall is blocking the connection"
+        } else if errorString.contains("space") || errorString.contains("disk") || errorString.contains("storage") {
+            message += "Cause: Insufficient disk space\n\n"
+            message += "Suggestions:\n"
+            message += "• Free up disk space\n"
+            message += "• Try a smaller model (Tiny or Base)\n"
+            message += "• Check available space in ~/Library/Application Support/WispFlow"
+        } else if errorString.contains("permission") || errorString.contains("access denied") {
+            message += "Cause: Permission denied\n\n"
+            message += "Suggestions:\n"
+            message += "• Check file permissions for ~/Library/Application Support/WispFlow\n"
+            message += "• Try restarting the application\n"
+            message += "• Run as administrator if needed"
+        } else if errorString.contains("timeout") {
+            message += "Cause: Download timed out\n\n"
+            message += "Suggestions:\n"
+            message += "• Check your internet connection speed\n"
+            message += "• Try a smaller model first\n"
+            message += "• Retry the download when network is faster"
+        } else {
+            message += "Cause: \(error.localizedDescription)\n\n"
+            message += "Suggestions:\n"
+            message += "• Restart the application and try again\n"
+            message += "• Check your internet connection\n"
+            message += "• Try deleting the model and re-downloading\n"
+            message += "• Check Console.app for detailed error logs"
+        }
+        
+        message += "\n\nModel directory: \(modelsDirectory.path)"
+        
+        return message
+    }
+    
+    /// Retry loading the model after an error
+    func retryLoadModel() async {
+        // Reset status before retry
+        modelStatus = .notDownloaded
+        statusMessage = "Retrying..."
+        lastErrorMessage = nil
+        downloadProgress = 0.0
+        
+        await loadModel()
     }
     
     /// Check if a model is downloaded
