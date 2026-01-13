@@ -373,3 +373,49 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-it
   - Context-aware error messages (based on peak/RMS analysis) help users understand root cause
   - Float32 normalization: divide all samples by peak amplitude if peak > 1.0
 ---
+
+## [2026-01-13 17:50] - US-103: Improve Model Loading
+Thread: codex exec session
+Run: 20260113-171403-13989 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 766ecfe feat(US-103): improve model loading with status indicators
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/StatusBarController.swift (modified - model status observation, icon/menu updates)
+  - Sources/WispFlow/AppDelegate.swift (modified - block recording until model ready)
+  - Sources/WispFlow/WhisperManager.swift (modified - enhanced download progress tracking)
+  - .agents/tasks/prd-v2.md (updated acceptance criteria for US-103)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status for US-103)
+- What was implemented:
+  - Model status observation in StatusBarController:
+    - setupModelStatusObserver() subscribes to WhisperManager.$modelStatus using Combine
+    - Task { @MainActor in } wrapper for proper concurrency handling
+    - currentModelStatus property tracks latest status
+  - Menu bar icon reflects model status:
+    - waveform.slash (not loaded), arrow.down.circle (downloading), arrow.clockwise.circle (loading)
+    - waveform (ready), exclamationmark.triangle (error)
+    - Dynamic tooltip shows detailed status message
+  - Model status menu item:
+    - Added at top of menu with tag 100 for identification
+    - Emoji indicators: 🟢 (ready), 🔄 (loading/downloading), 🔵 (downloaded), ⚪ (not downloaded), 🔴 (error)
+    - updateModelStatusMenuItem() updates on status changes and menu open
+  - Block recording until model ready:
+    - toggleRecordingFromHotkey() checks whisperManager.isReady before allowing recording
+    - showModelNotReadyAlert() displays context-aware messages based on model status
+    - Alert includes "Open Settings" button for easy access
+  - Enhanced WhisperManager loading:
+    - loadModel() distinguishes between downloading (new model) and loading (cached model)
+    - Sets downloadProgress and modelStatus to .downloading(progress:) during download
+    - Note: WhisperKit doesn't expose granular download progress, status changes at key stages
+- **Learnings for future iterations:**
+  - Combine publishers from @MainActor classes require Task { @MainActor in } wrapper for access
+  - NSMenuItem.tag allows identifying specific menu items for updates
+  - Model status should be prominently visible before user attempts recording
+  - Context-aware error messages help users understand what action to take
+  - WhisperKit's WhisperKitConfig doesn't expose download progress callbacks
+---
