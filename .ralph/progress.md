@@ -1445,3 +1445,58 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-it
   - Singleton pattern with ObservableObject enables app-wide toast access
   - Progress bar indicator helps users know when toast will dismiss
 ---
+
+## [2026-01-13 21:28] - US-410: Micro-interactions & Polish
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 10)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-10.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-10.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 3dc442a feat(US-410): add micro-interactions and polish with animated components
+- Post-commit status: clean
+- Verification:
+  - Command: swift build -> PASS
+- Files changed:
+  - Sources/WispFlow/DesignSystem.swift
+  - Sources/WispFlow/SettingsWindow.swift
+  - Sources/WispFlow/ToastView.swift
+  - .agents/tasks/prd-v5.md
+  - .ralph/IMPLEMENTATION_PLAN.md
+- What was implemented:
+  - Added new micro-interaction components to DesignSystem.swift:
+    - AnimatedCheckmark: Draws a success checkmark with spring animation
+    - CheckmarkShape: Custom Shape for the checkmark path drawing
+    - LoadingSpinner: Rotating arc animation for loading states
+    - PulsingDot: Pulsing circle for activity/recording indicators
+    - InteractiveScaleStyle: Generic ButtonStyle with scale animation (0.95)
+    - HoverHighlight: ViewModifier for easy hover highlighting with animated background
+    - TabContentTransition: ViewModifier for smooth tab content opacity+scale transitions
+    - SuccessFlashOverlay: Full-screen success flash with animated checkmark
+    - BounceOnAppear: ViewModifier for entrance bounce animations
+    - WispflowAnimation.tabTransition: New 0.25s easeInOut animation preset
+  - Enhanced SettingsWindow.swift tab switching:
+    - Added SettingsTab enum for state-based tab management
+    - Applied .tabContentTransition() to all 6 settings tabs
+    - Added .animation(WispflowAnimation.tabTransition, value: selectedTab)
+  - Enhanced feature row hover states in SettingsWindow.swift:
+    - DebugFeatureRow, TranscriptionFeatureRow, CleanupFeatureRow
+    - InsertionFeatureRow, AudioInfoRow
+    - Each now has: @State isHovering, animated icon/text color changes
+    - Subtle accentLight background highlight on hover
+  - Integrated AnimatedCheckmark in ToastView.swift:
+    - Success toasts now show animated checkmark instead of static icon
+    - Added showCheckmark @State for triggering animation on appear
+  - Confirmed existing button press animations in WispflowButtonStyle:
+    - Scale to 0.97 on press with 0.1s easeOut animation
+    - Hover state color transitions
+  - Confirmed existing toggle animations in WispflowToggleStyle:
+    - Thumb slides with spring(response: 0.3, dampingFraction: 0.7)
+    - Color transition with 0.2s easeInOut animation
+- **Learnings for future iterations:**
+  - Button press and toggle animations were already implemented in previous stories (US-401)
+  - SwiftUI TabView animation requires explicit .animation() modifier with tracked state
+  - Custom Shape with .trim(from:to:) enables draw-in animations for paths
+  - Feature rows benefit from consistent hover state patterns for visual feedback
+  - AnimatedCheckmark works well as toast icon replacement for success notifications
+---
