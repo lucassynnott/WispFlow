@@ -579,3 +579,50 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-it
   - deinit cannot call @MainActor methods directly; invalidate timers inline instead
   - Step-by-step instructions reduce user confusion for permission flow
 ---
+
+## [2026-01-13 18:30] - US-202: Fix Audio Buffer Pipeline
+Thread: codex exec session
+Run: 20260113-181417-30393 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: c4ec7ab feat(US-202): fix audio buffer pipeline for accurate capture and silence detection
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/AudioManager.swift (modified - dB calculation fix, buffer logging, threshold change)
+  - Sources/WispFlow/RecordingIndicatorWindow.swift (modified - threshold update to -55dB)
+  - Sources/WispFlow/AppDelegate.swift (modified - dynamic threshold in error messages)
+  - .agents/tasks/prd-v3.md (updated acceptance criteria for US-202)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status for US-202)
+- What was implemented:
+  - Silence threshold lowered from -40dB to -55dB:
+    - AudioManager.Constants.silenceThresholdDB changed to -55.0
+    - RecordingIndicatorWindow.AudioLevelMeterView.Constants.silenceThreshold changed to -55.0
+    - More permissive detection for quieter but valid audio
+  - Fixed dB calculation to handle zero values safely:
+    - amplitudeToDecibels() now uses max(amplitude, 1e-10) floor
+    - Formula: 20 * log10(max(amplitude, 1e-10))
+    - Output clamped to [-100, 0] dB range instead of [-60, 0]
+    - Prevents NaN or -Infinity for zero amplitude audio
+  - Buffer verification logging:
+    - Added comment confirming level meter and transcription buffer use SAME input buffer
+    - Logs buffer append count and total frames every 10th buffer to avoid spam
+    - Track bufferAppendCount and totalFramesAppended in tap callback
+  - Sample values logged before silence check:
+    - combineBuffersToDataWithStats() now logs first 10 and last 10 sample values
+    - Logs percentage of zero samples (abs < 1e-7)
+    - Sample count verification: warns if collected count doesn't match expected
+  - Dynamic threshold in error messages:
+    - AppDelegate.showSilenceWarning() uses AudioManager.silenceThreshold
+    - ErrorLogger context uses actual threshold value
+    - No hardcoded -40dB references in user-facing messages
+- **Learnings for future iterations:**
+  - log10(0) = -Infinity, so always floor amplitude with 1e-10 minimum
+  - Same audio buffer feeds both level meter AND transcription buffer (unified data path)
+  - Buffer sample count verification catches potential data loss during conversion
+  - Zero sample percentage helps diagnose silence vs. signal issues
+  - Dynamic threshold references prevent stale hardcoded values
+---
