@@ -772,3 +772,43 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-193017-47944-it
   - Logging sample counts at EVERY stage (tap callback → buffer append → capture stop → transcription) makes debugging straightforward
   - Using `Array(UnsafeBufferPointer(...))` efficiently extracts Float samples from AVAudioPCMBuffer
 ---
+
+## [2026-01-13 19:45] - US-302: Audio Tap Verification
+Thread: codex exec session
+Run: 20260113-193017-47944 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-193017-47944-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-193017-47944-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 6cc4ad5 feat(US-302): add audio tap verification with callback tracking and alerts
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/AudioManager.swift (tap verification, 2s timer, empty/zero detection)
+  - .agents/tasks/prd-v4.md (mark US-302 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status for US-302)
+- What was implemented:
+  - Added `tapCallbackCount`, `emptyCallbackCount`, `zeroDataCallbackCount` counters for tracking
+  - Added 2-second timer alert (`noCallbackAlertTimer`) that fires if no callbacks received after starting
+  - Timer logs prominent boxed warning with possible causes (device issues, engine problems, permissions)
+  - Added `onNoTapCallbacks` callback for external notification of no-callback condition
+  - First tap callback now logs comprehensive boxed format details:
+    - Input buffer: frame count, sample rate, channels
+    - Converted buffer: frame count, sample rate, channels, format type
+    - Sample count extracted
+  - Enhanced empty data detection: logs first occurrence immediately, then every 10th
+  - Added zero-data detection: checks if ALL samples are near-zero (< 1e-7 threshold)
+  - Zero-data callbacks logged with first occurrence, then every 10th
+  - Added `logTapCallbackStats()` method for summary after recording:
+    - Total tap callbacks, duration, callbacks per second
+    - Expected callbacks (approximation), empty count, zero-data count
+  - Counters reset at start of each recording session
+  - Timer properly cleaned up in both `stopCapturing()` and `cancelCapturing()`
+- **Learnings for future iterations:**
+  - 2-second timer catches audio capture issues early (device not providing data, engine problems)
+  - Tracking empty and zero-data callbacks separately helps diagnose different failure modes
+  - Box-style logging with ╔═══╗ borders makes important info visually stand out in console
+  - Timer scheduling requires proper cleanup in both normal stop and cancel paths
+  - Expected callbacks calculation: duration * sampleRate / bufferSize gives rough approximation
+---
