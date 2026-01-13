@@ -127,21 +127,21 @@ As a user, I want clear error messages instead of BLANK_AUDIO so I know what wen
 - [x] Add retry option for failed transcriptions
 - [x] Log errors to .ralph/errors.log for debugging
 
-### [ ] US-105: Audio Debug Mode
+### [x] US-105: Audio Debug Mode
 As a developer, I want to debug audio capture so I can fix transcription issues.
-- Add "Debug Mode" toggle in settings
-- Show audio waveform visualization
-- Display raw transcription before cleanup
-- Option to export audio as WAV file
-- Show detailed logs in a debug window
+- [x] Add "Debug Mode" toggle in settings
+- [x] Show audio waveform visualization
+- [x] Display raw transcription before cleanup
+- [x] Option to export audio as WAV file
+- [x] Show detailed logs in a debug window
 
-### [ ] US-106: Local LLM Text Cleanup
+### [x] US-106: Local LLM Text Cleanup
 As a user, I want AI-powered text cleanup using a local model so my text is polished without cloud APIs.
-- Integrate llama.cpp or MLX LLM
-- Download small model (Phi-3-mini or similar)
-- Create cleanup system prompt
-- Process transcription through LLM
-- Fallback to rule-based cleanup if LLM unavailable
+- [x] Integrate llama.cpp or MLX LLM
+- [x] Download small model (Phi-3-mini or similar)
+- [x] Create cleanup system prompt
+- [x] Process transcription through LLM
+- [x] Fallback to rule-based cleanup if LLM unavailable
 
 ## Success Criteria
 

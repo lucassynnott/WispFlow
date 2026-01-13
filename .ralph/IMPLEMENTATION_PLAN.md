@@ -157,64 +157,75 @@ WispFlow v0.1 (US-001 through US-007) is complete with core functionality: menu 
 
 ### US-105: Audio Debug Mode
 
-- [ ] Add Debug Mode toggle in Settings
+- [x] Add Debug Mode toggle in Settings
   - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` to add "Debug Mode" section with toggle switch. Store in UserDefaults. Add `isDebugMode` property to AppDelegate or create DebugManager.
   - Acceptance: Debug mode can be enabled/disabled in Settings
   - Verification: `swift build` passes; toggle debug mode in settings, verify setting persists
+  - **DONE:** Created `DebugManager.swift` singleton with `@Published var isDebugModeEnabled` property persisted to UserDefaults. Added `DebugSettingsView` tab in Settings with toggle, debug tools buttons, and feature list. Integrated DebugManager throughout AppDelegate.
 
-- [ ] Show audio waveform visualization
+- [x] Show audio waveform visualization
   - Scope: Create `Sources/WispFlow/AudioWaveformView.swift` SwiftUI view that displays audio buffer as waveform. Show in debug panel or recording indicator when debug mode enabled.
   - Acceptance: Audio waveform visible during/after recording in debug mode
   - Verification: `swift build` passes; enable debug mode, record audio, observe waveform
+  - **DONE:** Created `AudioWaveformView.swift` with bar-based waveform visualization, color-coded amplitude levels (gray/green/yellow/red), and time labels. Also created `CompactWaveformView` for inline display. Waveform shown in Debug tab of Settings and in Debug Window Audio tab.
 
-- [ ] Display raw transcription before cleanup
+- [x] Display raw transcription before cleanup
   - Scope: Modify `Sources/WispFlow/AppDelegate.swift` or create debug panel to show raw WhisperKit output before text cleanup when debug mode enabled.
   - Acceptance: Can compare raw transcription vs cleaned text in debug mode
   - Verification: `swift build` passes; enable debug, transcribe, verify raw output shown
+  - **DONE:** Added `logRawTranscription()` and `logCleanedTranscription()` methods to DebugManager. AppDelegate logs raw transcription after WhisperKit returns and cleaned transcription after cleanup. Debug window Transcription tab shows side-by-side comparison with "Changes Made" analysis.
 
-- [ ] Add audio export as WAV file
+- [x] Add audio export as WAV file
   - Scope: Create `Sources/WispFlow/AudioExporter.swift` utility to convert Float32 audio data to WAV format and save to file. Add "Export Audio" button to debug panel or Settings.
   - Acceptance: User can export recorded audio as WAV file for offline analysis
   - Verification: `swift build` passes; record audio, export, verify WAV file is playable
+  - **DONE:** Created `AudioExporter.swift` with WAV header generation, Float32-to-Int16 conversion, and proper file writing. Includes `exportWithSavePanel()` method with NSSavePanel. Export buttons available in Debug Settings tab and Debug Window Audio tab.
 
-- [ ] Add detailed debug logging window
+- [x] Add detailed debug logging window
   - Scope: Create `Sources/WispFlow/DebugLogWindow.swift` NSWindow that displays real-time log messages. Show audio stats, transcription results, model status. Only visible in debug mode.
   - Acceptance: Debug window shows detailed logs during recording/transcription
   - Verification: `swift build` passes; enable debug mode, open debug window, verify log output
+  - **DONE:** Created `DebugLogWindow.swift` with `DebugLogView` containing three tabs: Logs (scrollable, filterable log entries with auto-scroll), Audio (waveform + stats + export), and Transcription (raw vs cleaned comparison). `DebugLogWindowController` manages window lifecycle. Accessible via "Open Debug Window" button in Settings Debug tab.
 
 ---
 
 ### US-106: Local LLM Text Cleanup
 
-- [ ] Research and select local LLM framework
+- [x] Research and select local LLM framework
   - Scope: Evaluate llama.cpp Swift bindings vs MLX Swift for local LLM inference. Consider: SPM compatibility, model size, inference speed, memory usage. Document choice in Notes.
   - Acceptance: Clear decision on framework with justification documented
   - Verification: Document framework choice and reasoning in implementation plan Notes section
+  - **DONE:** Selected llama.swift (mattt/llama.swift) package which provides semantically versioned access to llama.cpp. Chosen for SPM compatibility, cross-platform support, and active maintenance. Added to Package.swift with LlamaSwift product dependency.
 
-- [ ] Integrate local LLM framework
+- [x] Integrate local LLM framework
   - Scope: Add LLM dependency to `Package.swift`. Create `Sources/WispFlow/LLMManager.swift` wrapper for model loading and inference.
   - Acceptance: LLM framework compiles and links with app
   - Verification: `swift build` passes with LLM dependency
+  - **DONE:** Created `LLMManager.swift` with full llama.cpp integration via llama.swift. Includes model/context management, tokenization, batch processing, and text generation using greedy sampling.
 
-- [ ] Implement model download and management
+- [x] Implement model download and management
   - Scope: Add small LLM model (Phi-3-mini, Gemma 2B, or similar) download capability to LLMManager. Store in Application Support. Add model selection to Settings.
   - Acceptance: User can download and manage LLM models in Settings
   - Verification: `swift build` passes; download model from Settings, verify file exists
+  - **DONE:** LLMManager supports 3 model sizes (Qwen 2.5 1.5B, Phi-3 Mini, Gemma 2B) with Hugging Face download URLs. Models stored in ~/Library/Application Support/WispFlow/LLMModels/. Download includes progress tracking via URLSessionDownloadDelegate.
 
-- [ ] Create text cleanup prompt system
+- [x] Create text cleanup prompt system
   - Scope: Create prompt template in LLMManager for text cleanup: remove fillers, fix grammar, maintain meaning. Test with sample transcriptions.
   - Acceptance: LLM produces cleaned text that maintains meaning while improving grammar
   - Verification: `swift build` passes; test cleanup prompt with sample text
+  - **DONE:** Created comprehensive system prompt with 5 cleanup rules and 4 formatting guidelines. Prompt template uses chat format with system/user/assistant roles.
 
-- [ ] Integrate LLM with TextCleanupManager
+- [x] Integrate LLM with TextCleanupManager
   - Scope: Modify `Sources/WispFlow/TextCleanupManager.swift` to use LLMManager when available, fallback to rule-based cleanup if LLM unavailable or disabled.
   - Acceptance: Text cleanup uses LLM when available, falls back to rules otherwise
   - Verification: `swift build` passes; test with/without LLM, verify both paths work
+  - **DONE:** Added `aiPowered` cleanup mode to TextCleanupManager. When selected, tries LLM first via connected llmManager, falls back to thorough rule-based cleanup if LLM unavailable or fails.
 
-- [ ] Add LLM cleanup mode toggle
+- [x] Add LLM cleanup mode toggle
   - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` to add toggle between "Rule-based" and "AI-powered" cleanup modes. Persist setting.
   - Acceptance: User can choose between rule-based and LLM cleanup
   - Verification: `swift build` passes; toggle modes, verify cleanup behavior changes
+  - **DONE:** Updated SettingsWindow with LLM model selection, status display, download/load buttons, and delete capability. TextCleanupSettingsView shows LLM settings panel when AI-Powered mode selected.
 
 ---
 

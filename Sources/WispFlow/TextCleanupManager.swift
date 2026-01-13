@@ -12,6 +12,7 @@ final class TextCleanupManager: ObservableObject {
         case basic = "basic"
         case standard = "standard"
         case thorough = "thorough"
+        case aiPowered = "ai-powered"
         
         var id: String { rawValue }
         
@@ -20,6 +21,7 @@ final class TextCleanupManager: ObservableObject {
             case .basic: return "Basic (Fast)"
             case .standard: return "Standard (Balanced)"
             case .thorough: return "Thorough (Comprehensive)"
+            case .aiPowered: return "AI-Powered (Local LLM)"
             }
         }
         
@@ -28,7 +30,13 @@ final class TextCleanupManager: ObservableObject {
             case .basic: return "Quick cleanup: removes common filler words only."
             case .standard: return "Balanced cleanup: removes fillers, fixes basic punctuation."
             case .thorough: return "Full cleanup: removes all fillers, fixes grammar and formatting."
+            case .aiPowered: return "Uses local LLM for intelligent text cleanup. Falls back to thorough mode if unavailable."
             }
+        }
+        
+        /// Whether this mode uses LLM
+        var usesLLM: Bool {
+            return self == .aiPowered
         }
     }
     
@@ -148,6 +156,11 @@ final class TextCleanupManager: ObservableObject {
     /// Called when an error occurs
     var onError: ((String) -> Void)?
     
+    // MARK: - LLM Integration
+    
+    /// LLM Manager for AI-powered cleanup
+    var llmManager: LLMManager?
+    
     // MARK: - Initialization
     
     init() {
@@ -188,7 +201,31 @@ final class TextCleanupManager: ObservableObject {
         
         print("TextCleanupManager: Cleaning up text with mode \(selectedMode.rawValue): \(text)")
         
-        let cleanedText = performCleanup(trimmedText)
+        var cleanedText: String
+        
+        // If AI-powered mode is selected, try LLM first
+        if selectedMode == .aiPowered {
+            if let llm = llmManager, llm.isReady {
+                statusMessage = "AI cleanup in progress..."
+                if let llmResult = await llm.cleanupText(trimmedText) {
+                    cleanedText = llmResult
+                    print("TextCleanupManager: LLM cleanup successful")
+                } else {
+                    // LLM failed, fall back to thorough rule-based cleanup
+                    print("TextCleanupManager: LLM cleanup failed, falling back to rule-based")
+                    statusMessage = "Falling back to rule-based cleanup..."
+                    cleanedText = performCleanup(trimmedText, forcedMode: .thorough)
+                }
+            } else {
+                // LLM not available, fall back to thorough rule-based cleanup
+                print("TextCleanupManager: LLM not available, falling back to rule-based")
+                statusMessage = "LLM unavailable, using rule-based cleanup..."
+                cleanedText = performCleanup(trimmedText, forcedMode: .thorough)
+            }
+        } else {
+            // Use rule-based cleanup
+            cleanedText = performCleanup(trimmedText)
+        }
         
         cleanupStatus = .completed(cleanedText)
         statusMessage = "Cleanup complete"
@@ -199,14 +236,18 @@ final class TextCleanupManager: ObservableObject {
     }
     
     /// Perform the actual text cleanup
-    private func performCleanup(_ text: String) -> String {
+    /// - Parameters:
+    ///   - text: The text to clean up
+    ///   - forcedMode: Optional mode to force (used for fallback from AI mode)
+    private func performCleanup(_ text: String, forcedMode: CleanupMode? = nil) -> String {
         var cleaned = text
+        let modeToUse = forcedMode ?? selectedMode
         
         // Step 1: Remove filler words based on mode
-        cleaned = removeFillerWords(cleaned)
+        cleaned = removeFillerWords(cleaned, mode: modeToUse)
         
         // Step 2: Fix contractions (standard and thorough modes)
-        if selectedMode != .basic {
+        if modeToUse != .basic {
             cleaned = fixContractions(cleaned)
         }
         
@@ -217,7 +258,7 @@ final class TextCleanupManager: ObservableObject {
         cleaned = fixCapitalization(cleaned)
         
         // Step 5: Fix punctuation (thorough mode)
-        if selectedMode == .thorough {
+        if modeToUse == .thorough || modeToUse == .aiPowered {
             cleaned = fixPunctuation(cleaned)
         }
         
@@ -228,17 +269,18 @@ final class TextCleanupManager: ObservableObject {
     }
     
     /// Remove filler words based on current mode
-    private func removeFillerWords(_ text: String) -> String {
+    private func removeFillerWords(_ text: String, mode: CleanupMode? = nil) -> String {
         var cleaned = text
+        let modeToUse = mode ?? selectedMode
         
         // Determine which patterns to apply based on mode
         let applicablePatterns = Self.fillerPatterns.filter { pattern in
-            switch selectedMode {
+            switch modeToUse {
             case .basic:
                 return pattern.mode == .basic
             case .standard:
                 return pattern.mode == .basic || pattern.mode == .standard
-            case .thorough:
+            case .thorough, .aiPowered:
                 return true  // All patterns
             }
         }
@@ -378,7 +420,7 @@ final class TextCleanupManager: ObservableObject {
     
     /// Ensure text ends with proper punctuation
     private func ensureProperEnding(_ text: String) -> String {
-        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !cleaned.isEmpty else { return cleaned }
         

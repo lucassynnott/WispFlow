@@ -8,12 +8,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var audioManager: AudioManager?
     private var whisperManager: WhisperManager?
     private var textCleanupManager: TextCleanupManager?
+    private var llmManager: LLMManager?
     private var textInserter: TextInserter?
     private var settingsWindowController: SettingsWindowController?
+    private var debugManager: DebugManager?
     
     // Store last audio data for retry functionality
     private var lastAudioData: Data?
     private var lastAudioSampleRate: Double = 16000.0
+    
+    // Track transcription timing for debug
+    private var transcriptionStartTime: Date?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize audio manager
@@ -52,22 +57,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         
-        // Initialize Whisper manager, text cleanup manager, text inserter, and auto-load models on main actor
+        // Initialize Whisper manager, text cleanup manager, LLM manager, text inserter, and auto-load models on main actor
         Task { @MainActor in
             setupWhisperManager()
             setupTextCleanupManager()
+            setupLLMManager()
             setupTextInserter()
+            setupDebugManager()
             
             // Provide whisper manager to status bar controller
             statusBarController?.whisperManager = whisperManager
             
+            // Connect LLM manager to text cleanup manager
+            textCleanupManager?.llmManager = llmManager
+            
             // Set up settings window controller with all managers
-            if let whisper = whisperManager, let cleanup = textCleanupManager, let inserter = textInserter, let hotkey = hotkeyManager {
+            if let whisper = whisperManager, let cleanup = textCleanupManager, let inserter = textInserter, let hotkey = hotkeyManager, let debug = debugManager, let llm = llmManager {
                 settingsWindowController = SettingsWindowController(
                     whisperManager: whisper,
                     textCleanupManager: cleanup,
+                    llmManager: llm,
                     textInserter: inserter,
-                    hotkeyManager: hotkey
+                    hotkeyManager: hotkey,
+                    debugManager: debug
                 )
             }
             
@@ -77,6 +89,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             
             // Text cleanup is ready immediately (rule-based, no model download needed)
             print("Text cleanup ready with mode: \(textCleanupManager?.selectedMode.rawValue ?? "unknown")")
+            
+            // If AI-powered cleanup is selected and LLM model is downloaded, load it
+            if textCleanupManager?.selectedMode == .aiPowered {
+                if llmManager?.isModelDownloaded(llmManager?.selectedModel ?? .qwen1_5b) == true {
+                    print("Auto-loading LLM model for AI-powered cleanup...")
+                    await llmManager?.loadModel()
+                }
+            }
             
             // Check accessibility permission on launch (without prompt)
             if let inserter = textInserter {
@@ -207,6 +227,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @MainActor
+    private func setupLLMManager() {
+        llmManager = LLMManager()
+        
+        // Set up callbacks
+        llmManager?.onCleanupComplete = { text in
+            print("LLM cleanup complete: \(text)")
+        }
+        
+        llmManager?.onError = { error in
+            print("LLM error: \(error)")
+            ErrorLogger.shared.log(
+                "LLM error: \(error)",
+                category: .model,
+                severity: .error,
+                context: ["component": "LLMManager"]
+            )
+        }
+    }
+    
+    @MainActor
     private func setupTextInserter() {
         textInserter = TextInserter()
         
@@ -218,6 +258,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         textInserter?.onError = { error in
             print("Text insertion error: \(error)")
         }
+    }
+    
+    @MainActor
+    private func setupDebugManager() {
+        debugManager = DebugManager.shared
+        
+        // Log initialization
+        debugManager?.addLogEntry(
+            category: .system,
+            message: "WispFlow initialized",
+            details: "Audio: \(audioManager != nil ? "OK" : "Missing"), Whisper: \(whisperManager != nil ? "OK" : "Missing")"
+        )
     }
     
     private func openSettings() {
@@ -321,6 +373,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Show recording duration info
                 print("Stopped recording - Duration: \(String(format: "%.2f", result.duration))s, Data: \(result.audioData.count) bytes, Peak: \(String(format: "%.1f", result.peakLevel))dB, Samples: \(result.sampleCount)")
                 
+                // Store audio data in debug manager for visualization
+                Task { @MainActor in
+                    debugManager?.storeAudioData(result.audioData, sampleRate: result.sampleRate)
+                }
+                
                 // Update indicator to show duration briefly
                 recordingIndicator?.updateStatus(String(format: "%.1fs", result.duration))
                 recordingIndicator?.showWithAnimation()
@@ -385,6 +442,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         lastAudioData = audioData
         lastAudioSampleRate = sampleRate
         
+        // Track transcription start time for debug
+        transcriptionStartTime = Date()
+        
         // Update recording indicator to show transcribing status
         recordingIndicator?.updateStatus("Transcribing...")
         recordingIndicator?.showWithAnimation()
@@ -394,11 +454,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let transcribedText = await whisper.transcribe(audioData: audioData, sampleRate: sampleRate) {
                 print("Transcription result: \(transcribedText)")
                 
+                // Log raw transcription to debug manager
+                debugManager?.logRawTranscription(transcribedText, model: whisper.selectedModel.rawValue)
+                
                 if !transcribedText.isEmpty {
                     // Clear stored audio data on successful transcription
                     lastAudioData = nil
-                    // Pass to text cleanup (US-005)
-                    await processTextCleanup(transcribedText)
+                    // Pass to text cleanup (US-005), including raw text for debug comparison
+                    await processTextCleanup(transcribedText, rawTranscription: transcribedText)
                 } else {
                     // Empty transcription (no speech) - don't clear audio data yet (allows retry)
                     recordingIndicator?.hideWithAnimation()
@@ -488,7 +551,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @MainActor
-    private func processTextCleanup(_ transcribedText: String) async {
+    private func processTextCleanup(_ transcribedText: String, rawTranscription: String? = nil) async {
         guard let cleanup = textCleanupManager else {
             print("TextCleanupManager not available, using raw text")
             recordingIndicator?.hideWithAnimation()
@@ -506,6 +569,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let cleanedText = await cleanup.cleanupText(transcribedText)
         
         print("Final text (after cleanup): \(cleanedText)")
+        
+        // Log cleaned transcription to debug manager
+        debugManager?.logCleanedTranscription(cleanedText, mode: cleanup.selectedMode.rawValue)
+        
+        // Calculate processing time and store transcription data for debug
+        if let startTime = transcriptionStartTime {
+            let processingTime = Date().timeIntervalSince(startTime)
+            debugManager?.storeTranscriptionData(
+                raw: rawTranscription ?? transcribedText,
+                cleaned: cleanedText,
+                processingTime: processingTime,
+                model: whisperManager?.selectedModel.rawValue ?? "unknown"
+            )
+        }
         
         // Hide the indicator and perform text insertion
         recordingIndicator?.updateStatus("Inserting...")
