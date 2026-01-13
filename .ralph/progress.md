@@ -526,3 +526,56 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-174413-19163-it
   - Greedy sampling is simple: find token with highest logit value
   - Small models (1-4B parameters) can run on most Macs but larger models need memory consideration
 ---
+
+## [2026-01-13 18:20] - US-201: Fix Accessibility Permission Detection
+Thread: codex exec session
+Run: 20260113-181417-30393 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: a360310 feat(US-201): implement accessibility permission detection fix
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/TextInserter.swift (modified - permission polling, observer, @Published property)
+  - Sources/WispFlow/SettingsWindow.swift (modified - checkmark/x indicator, Check Again button, instructions)
+  - .agents/tasks/prd-v3.md (updated acceptance criteria for US-201)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status for US-201)
+- What was implemented:
+  - NSApplication.didBecomeActiveNotification observer:
+    - setupAppActivationObserver() in TextInserter init
+    - Re-checks permission via recheckPermission() when app becomes active
+    - Useful when user returns from System Settings after granting permission
+  - Polling timer for permission status:
+    - 1-second interval Timer (Constants.permissionPollingInterval)
+    - startPermissionPolling() creates timer that calls recheckPermission()
+    - Starts automatically if permission not granted at init
+    - Stops when permission is granted to avoid CPU waste
+  - "Check Again" button in Settings:
+    - Added to TextInsertionSettingsView when permission not granted
+    - Calls textInserter.recheckPermission() for manual re-check
+    - Placed next to "Open System Settings" button
+  - @Published hasAccessibilityPermission property:
+    - Changed from computed property to @Published private(set) var
+    - Updated by recheckPermission() based on AXIsProcessTrusted()
+    - Triggers automatic SwiftUI updates when status changes
+  - Real-time permission status with checkmark/x indicator:
+    - SF Symbol checkmark.circle.fill (green) for granted
+    - SF Symbol xmark.circle.fill (red) for not granted
+    - Color-coded background and text
+  - "Permission Granted!" success message:
+    - onPermissionGranted callback fires when permission status changes to granted
+    - Animated green badge with checkmark.seal.fill icon
+    - Auto-hides after 3 seconds
+  - Step-by-step permission instructions:
+    - Numbered steps: 1) Open System Settings, 2) Enable toggle, 3) Return to app
+    - "Open System Settings" button opens Privacy & Security > Accessibility pane
+- **Learnings for future iterations:**
+  - AXIsProcessTrusted() may return cached values on some macOS versions
+  - Polling is reliable fallback when system notifications aren't available for permission changes
+  - onPermissionGranted callback enables celebration UI when user successfully grants permission
+  - deinit cannot call @MainActor methods directly; invalidate timers inline instead
+  - Step-by-step instructions reduce user confusion for permission flow
+---
