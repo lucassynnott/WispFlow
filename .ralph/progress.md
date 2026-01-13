@@ -1228,3 +1228,53 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-it
   - Description text indented with padding(.leading, Spacing.xxl + Spacing.md) aligns with toggle label
   - Hero section pattern (centered content in card) works well for About/branding areas
 ---
+
+## [2026-01-13 21:10] - US-406: Audio Settings Tab Polish
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 6)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-6.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-6.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: ecac9a1 feat(US-406): add audio settings tab polish with design system integration
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/SettingsWindow.swift (added AudioSettingsView + supporting components)
+  - Sources/WispFlow/AppDelegate.swift (pass audioManager to SettingsWindowController)
+  - .agents/tasks/prd-v5.md (mark US-406 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status for US-406)
+- What was implemented:
+  - AudioSettingsView struct with 4 polished cards:
+    - Audio Input Device card with AudioDevicePicker component
+    - Audio Level Preview card with live AudioLevelMeterView and preview controls
+    - Input Level Sensitivity card with CustomSlider for gain adjustment
+    - About Audio Capture card with privacy info
+  - AudioDevicePicker component:
+    - Elegant dropdown with animated expand/collapse
+    - Device-specific icons based on device name (AirPods, laptop, USB, etc.)
+    - Hover states and selection checkmarks
+    - System Default label for default device
+  - AudioDeviceRow for dropdown items with hover highlighting
+  - AudioLevelMeterView with 30-segment visual meter:
+    - Color-coded segments: coral (low), green (good), red (loud)
+    - Smooth animation based on current audio level
+  - Live preview functionality:
+    - Start/Stop Preview button that toggles audio capture
+    - Real-time level display with dB value and status badge
+    - Status indicators: Good (green), Quiet (yellow), Silent (gray), Too Loud (red)
+  - CustomSlider with coral accent:
+    - Gradient-filled track with animated thumb
+    - Hover and drag states with shadow effects
+    - Range 0.5x-2.0x for visual gain adjustment
+  - AudioInfoRow for info section formatting
+  - Updated SettingsWindowController to accept AudioManager
+  - Added Audio tab to TabView with speaker.wave.2 icon
+- **Learnings for future iterations:**
+  - Custom dropdown pickers in SwiftUI need careful state management for animation
+  - Device icon selection based on device name parsing provides better UX
+  - Live audio preview requires proper cleanup on view disappear
+  - Timer-based level reading at 0.05s intervals provides smooth meter updates
+  - Gain slider affects visual display only, not actual audio capture
+---
