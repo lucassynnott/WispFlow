@@ -240,3 +240,47 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-163956-8021-ite
   - Clipboard restore needs delay to ensure paste completes before restoration
   - usleep() with microseconds (50_000 = 50ms) for brief keystroke delays
 ---
+
+## [2026-01-13 16:55] - US-007: Settings Persistence
+Thread: codex exec session
+Run: 20260113-163956-8021 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-163956-8021-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-163956-8021-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 47f3c13 feat(US-007): implement settings persistence
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/HotkeyManager.swift (modified - added persistence)
+  - Sources/WispFlow/SettingsWindow.swift (modified - added General tab with hotkey config)
+  - Sources/WispFlow/AppDelegate.swift (modified - pass hotkeyManager to settings)
+  - .agents/tasks/prd.md (updated acceptance criteria)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status)
+- What was implemented:
+  - HotkeyManager persistence: save/load keyCode and modifiers to UserDefaults
+  - HotkeyConfiguration now Codable and Equatable for storage and comparison
+  - Added modifiers computed property to convert stored UInt to NSEvent.ModifierFlags
+  - HotkeyRecorderView: SwiftUI component for recording custom hotkey combinations
+  - Uses NSEvent.addLocalMonitorForEvents to capture key presses in settings window
+  - Requires at least one modifier key (Cmd/Shift/Option/Control)
+  - Escape key cancels recording without changing hotkey
+  - GeneralSettingsView: Complete settings tab with hotkey config, launch at login toggle, about section
+  - Launch at login toggle uses SMAppService.mainApp.register/unregister
+  - Reset button restores default hotkey (⇧⌘Space)
+  - All settings now persist between sessions via their respective managers:
+    - HotkeyManager: hotkeyKeyCode, hotkeyModifiers
+    - WhisperManager: selectedWhisperModel
+    - TextCleanupManager: selectedCleanupMode, textCleanupEnabled
+    - TextInserter: preserveClipboard, clipboardRestoreDelay
+    - AudioManager: selectedAudioInputDeviceUID
+    - Launch at login: SMAppService (system-managed)
+- **Learnings for future iterations:**
+  - NSEvent.ModifierFlags.rawValue returns UInt, which can be stored in UserDefaults
+  - Create convenience init for HotkeyConfiguration that accepts NSEvent.ModifierFlags
+  - ObservableObject conformance requires `import Combine` implicitly via SwiftUI
+  - @Published private(set) allows read access but controlled writes
+  - SMAppService.mainApp.status returns .enabled/.notRegistered/.notFound for checking state
+  - Use .onChange(of:) modifier with oldValue/newValue for toggle state changes in SwiftUI
+---
