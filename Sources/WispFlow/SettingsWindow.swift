@@ -19,6 +19,17 @@ struct SettingsView: View {
     @State private var showLLMDeleteConfirmation = false
     @State private var modelToDelete: WhisperManager.ModelSize?
     @State private var llmModelToDelete: LLMManager.ModelSize?
+    @State private var selectedTab: SettingsTab = .general
+    
+    // Settings tab enum for better tab management
+    enum SettingsTab: Hashable {
+        case general
+        case audio
+        case transcription
+        case textCleanup
+        case textInsertion
+        case debug
+    }
     
     var body: some View {
         ZStack {
@@ -26,18 +37,22 @@ struct SettingsView: View {
             Color.Wispflow.background
                 .ignoresSafeArea()
             
-            TabView {
+            TabView(selection: $selectedTab) {
                 // General tab (hotkey, launch at login)
                 GeneralSettingsView(hotkeyManager: hotkeyManager)
-                .tabItem {
-                    Label("General", systemImage: "gear")
-                }
+                    .tabContentTransition()
+                    .tag(SettingsTab.general)
+                    .tabItem {
+                        Label("General", systemImage: "gear")
+                    }
                 
                 // Audio tab (US-406)
                 AudioSettingsView(audioManager: audioManager)
-                .tabItem {
-                    Label("Audio", systemImage: "speaker.wave.2")
-                }
+                    .tabContentTransition()
+                    .tag(SettingsTab.audio)
+                    .tabItem {
+                        Label("Audio", systemImage: "speaker.wave.2")
+                    }
                 
                 // Transcription tab
                 TranscriptionSettingsView(
@@ -46,6 +61,8 @@ struct SettingsView: View {
                     showDeleteConfirmation: $showDeleteConfirmation,
                     modelToDelete: $modelToDelete
                 )
+                .tabContentTransition()
+                .tag(SettingsTab.transcription)
                 .tabItem {
                     Label("Transcription", systemImage: "waveform")
                 }
@@ -59,23 +76,30 @@ struct SettingsView: View {
                     showLLMDeleteConfirmation: $showLLMDeleteConfirmation,
                     llmModelToDelete: $llmModelToDelete
                 )
+                .tabContentTransition()
+                .tag(SettingsTab.textCleanup)
                 .tabItem {
                     Label("Text Cleanup", systemImage: "text.badge.checkmark")
                 }
                 
                 // Text Insertion tab
                 TextInsertionSettingsView(textInserter: textInserter)
-                .tabItem {
-                    Label("Text Insertion", systemImage: "doc.on.clipboard")
-                }
+                    .tabContentTransition()
+                    .tag(SettingsTab.textInsertion)
+                    .tabItem {
+                        Label("Text Insertion", systemImage: "doc.on.clipboard")
+                    }
                 
                 // Debug tab
                 DebugSettingsView(debugManager: debugManager, onOpenDebugWindow: onOpenDebugWindow)
-                .tabItem {
-                    Label("Debug", systemImage: "ladybug")
-                }
+                    .tabContentTransition()
+                    .tag(SettingsTab.debug)
+                    .tabItem {
+                        Label("Debug", systemImage: "ladybug")
+                    }
             }
             .background(Color.Wispflow.background)
+            .animation(WispflowAnimation.tabTransition, value: selectedTab)
         }
         .frame(width: 620, height: 560)
         .alert("Delete Model?", isPresented: $showDeleteConfirmation, presenting: modelToDelete) { model in
@@ -418,15 +442,27 @@ struct DebugSettingsView: View {
 struct DebugFeatureRow: View {
     let icon: String
     let text: String
+    @State private var isHovering = false
     
     var body: some View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
                 .frame(width: 16)
             Text(text)
                 .font(Font.Wispflow.caption)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.textPrimary : Color.Wispflow.textSecondary)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.small)
+                .fill(isHovering ? Color.Wispflow.accentLight.opacity(0.5) : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
         }
     }
 }
@@ -1264,15 +1300,27 @@ struct LanguageRow: View {
 struct TranscriptionFeatureRow: View {
     let icon: String
     let text: String
+    @State private var isHovering = false
     
     var body: some View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
                 .frame(width: 16)
             Text(text)
                 .font(Font.Wispflow.caption)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.textPrimary : Color.Wispflow.textSecondary)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.small)
+                .fill(isHovering ? Color.Wispflow.accentLight.opacity(0.5) : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
         }
     }
 }
@@ -2290,15 +2338,27 @@ struct CleanupStatusBadge: View {
 struct CleanupFeatureRow: View {
     let icon: String
     let text: String
+    @State private var isHovering = false
     
     var body: some View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
                 .frame(width: 16)
             Text(text)
                 .font(Font.Wispflow.caption)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.textPrimary : Color.Wispflow.textSecondary)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.small)
+                .fill(isHovering ? Color.Wispflow.accentLight.opacity(0.5) : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
         }
     }
 }
@@ -2502,15 +2562,27 @@ struct TextInsertionSettingsView: View {
 struct InsertionFeatureRow: View {
     let icon: String
     let text: String
+    @State private var isHovering = false
     
     var body: some View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
                 .frame(width: 16)
             Text(text)
                 .font(Font.Wispflow.caption)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.textPrimary : Color.Wispflow.textSecondary)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.small)
+                .fill(isHovering ? Color.Wispflow.accentLight.opacity(0.5) : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
         }
     }
 }
@@ -3473,15 +3545,27 @@ struct CustomSlider: View {
 struct AudioInfoRow: View {
     let icon: String
     let text: String
+    @State private var isHovering = false
     
     var body: some View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
                 .frame(width: 16)
             Text(text)
                 .font(Font.Wispflow.caption)
-                .foregroundColor(Color.Wispflow.textSecondary)
+                .foregroundColor(isHovering ? Color.Wispflow.textPrimary : Color.Wispflow.textSecondary)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.small)
+                .fill(isHovering ? Color.Wispflow.accentLight.opacity(0.5) : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
         }
     }
 }

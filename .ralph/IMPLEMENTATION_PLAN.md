@@ -544,41 +544,74 @@ As a user, I want elegant notifications for app events.
 ### US-410: Micro-interactions & Polish
 As a user, I want delightful micro-interactions throughout the app.
 
-- [ ] Add button press animations
-  - Scope: Ensure WispflowButtonStyle includes scale animation
-  - Press: scale to 0.97
-  - Release: spring back to 1.0
-  - Duration: 0.1s ease-out
-  - Acceptance: Buttons visually respond to press
-  - Verification: `swift build` passes
+- [x] Add button press animations
+  - Scope: WispflowButtonStyle in DesignSystem.swift already includes scale animation
+  - Press: scale to 0.97 ✓
+  - Release: spring back to 1.0 ✓
+  - Duration: 0.1s ease-out ✓
+  - Acceptance: Buttons visually respond to press ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Add toggle switch animations
-  - Scope: Ensure WispflowToggleStyle has smooth transition
-  - Thumb slides smoothly
-  - Color transition is animated
-  - Acceptance: Toggles animate smoothly
-  - Verification: `swift build` passes
+- [x] Add toggle switch animations
+  - Scope: WispflowToggleStyle in DesignSystem.swift already has smooth transition
+  - Thumb slides smoothly with spring animation ✓
+  - Color transition is animated (0.2s easeInOut) ✓
+  - Acceptance: Toggles animate smoothly ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Add tab switching transitions
-  - Scope: Modify TabView in SettingsWindow.swift
-  - Add subtle fade/slide between tabs (if SwiftUI supports)
-  - At minimum ensure tabs switch without jarring
-  - Acceptance: Tab switching feels smooth
-  - Verification: `swift build` passes
+- [x] Add tab switching transitions
+  - Scope: Modified TabView in SettingsWindow.swift
+  - Added SettingsTab enum for state tracking
+  - Applied .tabContentTransition() to all tabs for opacity+scale transitions
+  - Added .animation(WispflowAnimation.tabTransition, value: selectedTab)
+  - Created TabContentTransition ViewModifier in DesignSystem.swift
+  - Acceptance: Tab switching feels smooth ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Add hover states on all interactive elements
-  - Scope: Audit all buttons, toggles, cards in SettingsWindow.swift
-  - Add `.onHover` modifiers for color changes
-  - Subtle background shift on hover
-  - Acceptance: Interactive elements respond to hover
-  - Verification: `swift build` passes
+- [x] Add hover states on all interactive elements
+  - Scope: Audited and updated all feature rows in SettingsWindow.swift
+  - Updated DebugFeatureRow, TranscriptionFeatureRow, CleanupFeatureRow, InsertionFeatureRow, AudioInfoRow
+  - Each now has .onHover with animated color and background changes
+  - Icon color changes from textSecondary to accent on hover
+  - Text color changes from textSecondary to textPrimary on hover
+  - Added subtle accentLight background highlight on hover
+  - Created HoverHighlight ViewModifier in DesignSystem.swift for reusable hover effects
+  - Acceptance: Interactive elements respond to hover ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Add success checkmark animation
-  - Scope: Create reusable animated checkmark component
-  - Green checkmark that draws in
-  - Use for successful operations (transcription, download complete)
-  - Acceptance: Checkmark animation plays for success states
-  - Verification: `swift build` passes
+- [x] Add success checkmark animation
+  - Scope: Created AnimatedCheckmark component in DesignSystem.swift
+  - CheckmarkShape custom Shape for draw-in animation
+  - Green checkmark (Color.Wispflow.success) that draws in with spring animation
+  - Background circle scales in, then checkmark path draws
+  - Integrated into WispflowToast for success notifications
+  - Also created LoadingSpinner for loading states
+  - Also created PulsingDot for activity indicators
+  - Also created SuccessFlashOverlay for full-screen success feedback
+  - Also created BounceOnAppear modifier for entrance animations
+  - Acceptance: Checkmark animation plays for success states ✓
+  - Verification: `swift build` passes ✓
+
+**Implementation Notes (US-410):**
+- Button press animations (scale 0.97) and toggle animations already existed in DesignSystem.swift
+- Added new micro-interaction components to DesignSystem.swift:
+  - AnimatedCheckmark: Draws a checkmark with spring animation
+  - CheckmarkShape: Custom Shape for the checkmark path
+  - LoadingSpinner: Rotating arc for loading states
+  - PulsingDot: Pulsing circle for activity indicators
+  - InteractiveScaleStyle: Generic button style with scale animation
+  - HoverHighlight: ViewModifier for easy hover highlighting
+  - TabContentTransition: ViewModifier for smooth tab transitions
+  - SuccessFlashOverlay: Full-screen success flash with checkmark
+  - BounceOnAppear: ViewModifier for entrance animations
+  - WispflowAnimation.tabTransition: New animation preset for tab switches
+- Updated SettingsWindow.swift:
+  - Added SettingsTab enum for tab state management
+  - Applied tabContentTransition() to all 6 settings tabs
+  - Added tab transition animation
+  - Enhanced all 5 feature row types with hover effects
+- Updated ToastView.swift:
+  - Success toasts now show AnimatedCheckmark instead of static icon
 
 ---
 

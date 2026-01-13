@@ -486,4 +486,243 @@ enum WispflowAnimation {
     
     /// Slide animation for toast/panel entrances
     static let slide = Animation.spring(response: 0.4, dampingFraction: 0.8)
+    
+    /// Tab transition animation
+    static let tabTransition = Animation.easeInOut(duration: 0.25)
+}
+
+// MARK: - Animated Success Checkmark
+
+/// Animated success checkmark with draw-in animation
+struct AnimatedCheckmark: View {
+    @State private var isAnimating = false
+    var size: CGFloat = 60
+    var strokeWidth: CGFloat = 4
+    var color: Color = Color.Wispflow.success
+    var onComplete: (() -> Void)? = nil
+    
+    var body: some View {
+        ZStack {
+            // Background circle
+            Circle()
+                .fill(color.opacity(0.15))
+                .frame(width: size, height: size)
+                .scaleEffect(isAnimating ? 1.0 : 0.0)
+                .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isAnimating)
+            
+            // Checkmark path
+            CheckmarkShape()
+                .trim(from: 0, to: isAnimating ? 1 : 0)
+                .stroke(color, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round, lineJoin: .round))
+                .frame(width: size * 0.4, height: size * 0.4)
+                .animation(.easeOut(duration: 0.35).delay(0.15), value: isAnimating)
+        }
+        .onAppear {
+            withAnimation {
+                isAnimating = true
+            }
+            // Call completion after animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                onComplete?()
+            }
+        }
+    }
+}
+
+/// Custom checkmark shape for draw animation
+struct CheckmarkShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.width
+        let height = rect.height
+        
+        // Start from bottom-left of check, go to bottom-center, then up to top-right
+        path.move(to: CGPoint(x: width * 0.1, y: height * 0.5))
+        path.addLine(to: CGPoint(x: width * 0.4, y: height * 0.85))
+        path.addLine(to: CGPoint(x: width * 0.9, y: height * 0.15))
+        
+        return path
+    }
+}
+
+// MARK: - Loading Spinner
+
+/// Animated loading spinner with smooth rotation
+struct LoadingSpinner: View {
+    @State private var isAnimating = false
+    var size: CGFloat = 24
+    var lineWidth: CGFloat = 3
+    var color: Color = Color.Wispflow.accent
+    
+    var body: some View {
+        Circle()
+            .trim(from: 0.2, to: 1.0)
+            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .frame(width: size, height: size)
+            .rotationEffect(Angle(degrees: isAnimating ? 360 : 0))
+            .animation(
+                .linear(duration: 1.0)
+                .repeatForever(autoreverses: false),
+                value: isAnimating
+            )
+            .onAppear {
+                isAnimating = true
+            }
+    }
+}
+
+// MARK: - Pulsing Dot
+
+/// Pulsing dot indicator for recording or activity states
+struct PulsingDot: View {
+    @State private var isPulsing = false
+    var size: CGFloat = 10
+    var color: Color = Color.Wispflow.accent
+    
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: size, height: size)
+            .scaleEffect(isPulsing ? 1.2 : 0.9)
+            .opacity(isPulsing ? 1.0 : 0.7)
+            .animation(
+                .easeInOut(duration: 0.8)
+                .repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear {
+                isPulsing = true
+            }
+    }
+}
+
+// MARK: - Interactive Scale Button Style
+
+/// Button style with scale animation for any interactive element
+struct InteractiveScaleStyle: ButtonStyle {
+    var scaleAmount: CGFloat = 0.95
+    var animationDuration: Double = 0.1
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scaleAmount : 1.0)
+            .animation(.easeOut(duration: animationDuration), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Hover Highlight Modifier
+
+/// View modifier that adds hover highlighting effect
+struct HoverHighlight: ViewModifier {
+    @State private var isHovering = false
+    var hoverColor: Color = Color.Wispflow.accentLight
+    var cornerRadius: CGFloat = CornerRadius.small
+    
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(isHovering ? hoverColor : Color.clear)
+            )
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isHovering = hovering
+                }
+            }
+    }
+}
+
+extension View {
+    /// Apply hover highlighting effect
+    func hoverHighlight(color: Color = Color.Wispflow.accentLight, cornerRadius: CGFloat = CornerRadius.small) -> some View {
+        self.modifier(HoverHighlight(hoverColor: color, cornerRadius: cornerRadius))
+    }
+}
+
+// MARK: - Tab Content Transition
+
+/// View modifier for smooth tab content transitions
+struct TabContentTransition: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .transition(.asymmetric(
+                insertion: .opacity.combined(with: .scale(scale: 0.98)),
+                removal: .opacity.combined(with: .scale(scale: 1.02))
+            ))
+    }
+}
+
+extension View {
+    /// Apply tab content transition animation
+    func tabContentTransition() -> some View {
+        self.modifier(TabContentTransition())
+    }
+}
+
+// MARK: - Success Flash Overlay
+
+/// Temporary success flash overlay for positive feedback
+struct SuccessFlashOverlay: View {
+    @Binding var isShowing: Bool
+    var message: String = "Success!"
+    var duration: TimeInterval = 1.5
+    
+    var body: some View {
+        if isShowing {
+            VStack(spacing: Spacing.md) {
+                AnimatedCheckmark(size: 50)
+                
+                Text(message)
+                    .font(Font.Wispflow.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            .padding(Spacing.xl)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.large)
+                    .fill(.ultraThinMaterial)
+            )
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.large)
+                    .fill(Color.Wispflow.background.opacity(0.8))
+            )
+            .wispflowShadow(.floating)
+            .transition(.scale.combined(with: .opacity))
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+                    withAnimation(WispflowAnimation.smooth) {
+                        isShowing = false
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Bounce Animation Modifier
+
+/// View modifier that adds a subtle bounce effect on appear
+struct BounceOnAppear: ViewModifier {
+    @State private var hasAppeared = false
+    var delay: Double = 0
+    
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(hasAppeared ? 1.0 : 0.9)
+            .opacity(hasAppeared ? 1.0 : 0)
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                        hasAppeared = true
+                    }
+                }
+            }
+    }
+}
+
+extension View {
+    /// Apply bounce animation on appear
+    func bounceOnAppear(delay: Double = 0) -> some View {
+        self.modifier(BounceOnAppear(delay: delay))
+    }
 }

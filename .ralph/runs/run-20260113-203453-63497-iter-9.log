@@ -1,0 +1,30 @@
+There is still one unchecked story (US-410: Micro-interactions & Polish), so we should NOT output the completion signal. US-409 is complete.
+
+## Summary
+
+Successfully implemented **US-409: Toast Notification System** with all acceptance criteria met:
+
+1. **Created WispflowToast view component** (`Sources/WispFlow/ToastView.swift`) with:
+   - Frosted glass background using `.ultraThinMaterial` with warm tint overlay
+   - Icon + message + optional action button layout
+   - Progress bar for auto-dismiss timer visualization
+   - Dismiss button with hover state
+
+2. **Slide-in from top-right animation** using `WispflowAnimation.slide` with asymmetric insertion/removal transitions
+
+3. **Auto-dismiss with timer** - Configurable duration per toast type (3s success/info, 4s error), with hover-pause functionality
+
+4. **Success/Error/Info variants** with correct colors:
+   - Success: sage green (#81B29A)
+   - Error: coral (#E07A5F) 
+   - Info: gray (#636E72)
+
+5. **ToastManager singleton** for queue-based toast management (max 3 visible, overflow queued)
+
+6. **ToastWindowController** for floating toast display above all windows
+
+7. **Integrated with AppDelegate** via `setupToastSystem()` and notification observer for settings action
+
+Commits:
+- `8a6758c` feat(US-409): add toast notification system with frosted glass design
+- `e27b355` docs: update progress log for US-409

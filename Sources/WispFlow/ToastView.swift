@@ -250,18 +250,36 @@ struct WispflowToast: View {
     @State private var isHovering = false
     @State private var progress: Double = 1.0
     @State private var progressTimer: Timer?
+    @State private var showCheckmark = false
     
     var body: some View {
         HStack(spacing: Spacing.md) {
-            // Icon
+            // Icon - use animated checkmark for success type
             ZStack {
-                Circle()
-                    .fill(toast.type.backgroundColor.opacity(0.2))
-                    .frame(width: 36, height: 36)
-                
-                Image(systemName: toast.icon ?? toast.type.defaultIcon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(toast.type.backgroundColor)
+                if toast.type == .success && showCheckmark {
+                    // Animated checkmark for success
+                    AnimatedCheckmark(
+                        size: 36,
+                        strokeWidth: 3,
+                        color: toast.type.backgroundColor
+                    )
+                } else {
+                    Circle()
+                        .fill(toast.type.backgroundColor.opacity(0.2))
+                        .frame(width: 36, height: 36)
+                    
+                    Image(systemName: toast.icon ?? toast.type.defaultIcon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(toast.type.backgroundColor)
+                }
+            }
+            .onAppear {
+                // Trigger animated checkmark for success toasts
+                if toast.type == .success {
+                    withAnimation {
+                        showCheckmark = true
+                    }
+                }
             }
             
             // Content
