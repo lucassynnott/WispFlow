@@ -419,3 +419,56 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-it
   - Context-aware error messages help users understand what action to take
   - WhisperKit's WhisperKitConfig doesn't expose download progress callbacks
 ---
+
+## [2026-01-13 18:00] - US-104: Better Error Handling
+Thread: codex exec session
+Run: 20260113-171403-13989 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 54e3d2e feat(US-104): implement better error handling with retry support
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors or warnings)
+- Files changed:
+  - Sources/WispFlow/ErrorLogger.swift (new - error logging utility)
+  - Sources/WispFlow/WhisperManager.swift (modified - TranscriptionError enum, onTranscriptionError callback)
+  - Sources/WispFlow/AppDelegate.swift (modified - error handling, retry support)
+  - .agents/tasks/prd-v2.md (updated acceptance criteria for US-104)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status for US-104)
+- What was implemented:
+  - ErrorLogger.swift: Error logging utility for debugging:
+    - Singleton pattern with ErrorLogger.shared
+    - Logs to ~/.ralph/errors.log with timestamps
+    - ErrorCategory enum: audio, transcription, model, textCleanup, textInsertion, permission, general
+    - ErrorSeverity enum: info, warning, error, critical
+    - Specialized methods: logTranscriptionError(), logAudioError(), logModelError(), logBlankAudioResult(), logPermissionError()
+    - Context dictionary support for additional debugging info
+    - Thread-safe writing via DispatchQueue
+  - TranscriptionError enum in WhisperManager:
+    - Cases: modelNotLoaded, noSpeechDetected, audioValidationFailed, whisperKitError, blankAudioResult, unknownError
+    - User-friendly errorDescription and recoverySuggestion for each case
+    - isRetryable property to determine if error supports retry
+  - onTranscriptionError callback:
+    - Signature: (TranscriptionError, Data?, Double) -> Void
+    - Passes audio data and sample rate for retry functionality
+    - Called for all transcription failure scenarios
+  - Retry support in AppDelegate:
+    - lastAudioData and lastAudioSampleRate properties store last recording
+    - handleTranscriptionError() shows context-aware alerts
+    - "Try Again" button for retryable errors
+    - retryLastTranscription() re-processes stored audio
+    - Audio data cleared only on successful transcription
+  - Error logging integration:
+    - AudioManager errors logged via onCaptureError callback
+    - Silence detection and recording-too-short logged
+    - Model loading errors logged with model info
+    - All transcription errors logged with audio stats
+- **Learnings for future iterations:**
+  - Keep audio data until transcription succeeds to enable retry without re-recording
+  - User-friendly error messages should explain what went wrong AND what to do next
+  - Error logging to file helps debugging issues users report
+  - isRetryable property allows UI to show appropriate buttons per error type
+  - Context dictionaries make logs more useful for debugging
+---
