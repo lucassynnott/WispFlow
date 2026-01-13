@@ -1,0 +1,19 @@
+There are still 5 unchecked stories in the PRD. The task is complete but not all stories are done.
+
+## Summary
+
+I successfully implemented **US-101: Debug Audio Capture** for WispFlow. The implementation includes:
+
+1. **Real-time audio level meter** - Added `AudioLevelMeterView` to the recording indicator with color-coded levels (gray for silent, green for normal speech, yellow for loud, red for near-clipping), connected via Combine to `AudioManager.currentAudioLevel`
+
+2. **Audio buffer statistics logging** - Added `AudioBufferStats` struct and formatted console output showing sample count, duration, sample rate, peak/RMS levels, min/max samples, and silence status
+
+3. **Silence detection warning** - Added `-40dB` threshold detection with `onSilenceDetected` callback that shows an actionable alert guiding users to check microphone settings
+
+4. **Audio duration display** - Recording indicator briefly shows duration (e.g., "1.5s") after recording stops; `AudioCaptureResult` extended with `peakLevel`, `sampleCount`, and `wasSilent` properties
+
+5. **Minimum 0.5s recording enforcement** - Added `onRecordingTooShort` callback with informational alert for recordings below the threshold
+
+Commits:
+- `ea70278` feat(US-101): implement debug audio capture
+- `45f5bf4` docs: update progress log for US-101

@@ -103,13 +103,13 @@ As a user, I want to verify my microphone is working so I can troubleshoot trans
 - [x] Show audio duration after recording stops
 - [x] Minimum 0.5s recording requirement
 
-### [ ] US-102: Fix WhisperKit Audio Format
+### [x] US-102: Fix WhisperKit Audio Format
 As a user, I want my audio properly converted for Whisper so transcription works correctly.
-- Verify 16kHz sample rate conversion
-- Ensure Float32 mono PCM format
-- Normalize audio to [-1.0, 1.0] range
-- Add audio preprocessing validation
-- Log format details before transcription
+- [x] Verify 16kHz sample rate conversion
+- [x] Ensure Float32 mono PCM format
+- [x] Normalize audio to [-1.0, 1.0] range
+- [x] Add audio preprocessing validation
+- [x] Log format details before transcription
 
 ### [ ] US-103: Improve Model Loading
 As a user, I want the Whisper model to load reliably so I can transcribe immediately.

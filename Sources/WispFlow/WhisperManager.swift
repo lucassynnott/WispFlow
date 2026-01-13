@@ -74,6 +74,33 @@ final class WhisperManager: ObservableObject {
     private struct Constants {
         static let selectedModelKey = "selectedWhisperModel"
         static let modelRepo = "argmaxinc/whisperkit-coreml"
+        static let expectedSampleRate: Double = 16000.0
+        static let minimumDuration: Double = 0.5    // seconds
+        static let maximumDuration: Double = 120.0  // seconds
+    }
+    
+    /// Audio validation error types
+    enum AudioValidationError: LocalizedError {
+        case emptyAudioData
+        case durationTooShort(actual: Double, minimum: Double)
+        case durationTooLong(actual: Double, maximum: Double)
+        case samplesOutOfRange(min: Float, max: Float)
+        case invalidSampleRate(expected: Double, actual: Double)
+        
+        var errorDescription: String? {
+            switch self {
+            case .emptyAudioData:
+                return "No audio data provided"
+            case .durationTooShort(let actual, let minimum):
+                return "Audio too short: \(String(format: "%.2f", actual))s (minimum: \(String(format: "%.1f", minimum))s)"
+            case .durationTooLong(let actual, let maximum):
+                return "Audio too long: \(String(format: "%.2f", actual))s (maximum: \(String(format: "%.1f", maximum))s)"
+            case .samplesOutOfRange(let min, let max):
+                return "Audio samples out of expected range [-1.0, 1.0]: found [\(String(format: "%.4f", min)), \(String(format: "%.4f", max))]"
+            case .invalidSampleRate(let expected, let actual):
+                return "Invalid sample rate: expected \(Int(expected))Hz, got \(Int(actual))Hz"
+            }
+        }
     }
     
     // MARK: - Properties
@@ -212,6 +239,109 @@ final class WhisperManager: ObservableObject {
         return ModelSize.allCases.filter { isModelDownloaded($0) }
     }
     
+    // MARK: - Audio Validation
+    
+    /// Validate audio data before transcription
+    /// - Parameters:
+    ///   - audioData: Raw audio data (Float32 samples)
+    ///   - sampleRate: Sample rate of the audio
+    /// - Returns: Validation error if invalid, nil if valid
+    private func validateAudioData(_ audioData: Data, sampleRate: Double) -> AudioValidationError? {
+        // Check for empty data
+        guard !audioData.isEmpty else {
+            return .emptyAudioData
+        }
+        
+        // Convert to Float samples for analysis
+        let samples = audioData.withUnsafeBytes { buffer -> [Float] in
+            let floatBuffer = buffer.bindMemory(to: Float.self)
+            return Array(floatBuffer)
+        }
+        
+        guard samples.count > 0 else {
+            return .emptyAudioData
+        }
+        
+        // Check sample rate
+        if abs(sampleRate - Constants.expectedSampleRate) > 0.01 {
+            return .invalidSampleRate(expected: Constants.expectedSampleRate, actual: sampleRate)
+        }
+        
+        // Check duration
+        let duration = Double(samples.count) / sampleRate
+        if duration < Constants.minimumDuration {
+            return .durationTooShort(actual: duration, minimum: Constants.minimumDuration)
+        }
+        if duration > Constants.maximumDuration {
+            return .durationTooLong(actual: duration, maximum: Constants.maximumDuration)
+        }
+        
+        // Check sample range
+        var minSample: Float = Float.infinity
+        var maxSample: Float = -Float.infinity
+        for sample in samples {
+            minSample = min(minSample, sample)
+            maxSample = max(maxSample, sample)
+        }
+        
+        // Allow small tolerance beyond [-1.0, 1.0] but warn for significant overflow
+        let rangeTolerance: Float = 1.1
+        if minSample < -rangeTolerance || maxSample > rangeTolerance {
+            return .samplesOutOfRange(min: minSample, max: maxSample)
+        }
+        
+        return nil
+    }
+    
+    /// Log detailed audio diagnostics before transcription
+    /// - Parameters:
+    ///   - audioData: Raw audio data (Float32 samples)
+    ///   - sampleRate: Sample rate of the audio
+    private func logAudioDiagnostics(audioData: Data, sampleRate: Double) {
+        // Convert to Float samples
+        let samples = audioData.withUnsafeBytes { buffer -> [Float] in
+            let floatBuffer = buffer.bindMemory(to: Float.self)
+            return Array(floatBuffer)
+        }
+        
+        // Calculate statistics
+        var minSample: Float = Float.infinity
+        var maxSample: Float = -Float.infinity
+        var sumSquares: Float = 0
+        var clippedCount = 0
+        
+        for sample in samples {
+            minSample = min(minSample, sample)
+            maxSample = max(maxSample, sample)
+            sumSquares += sample * sample
+            if abs(sample) > 0.99 {
+                clippedCount += 1
+            }
+        }
+        
+        let peakAmplitude = max(abs(minSample), abs(maxSample))
+        let peakDb = peakAmplitude > 0 ? 20.0 * log10(peakAmplitude) : -Float.infinity
+        let rms = samples.isEmpty ? 0 : sqrt(sumSquares / Float(samples.count))
+        let rmsDb = rms > 0 ? 20.0 * log10(rms) : -Float.infinity
+        let duration = Double(samples.count) / sampleRate
+        let clippingPercent = samples.isEmpty ? 0 : (Double(clippedCount) / Double(samples.count)) * 100
+        
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║               WHISPER AUDIO DIAGNOSTICS                       ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Byte Count:      \(String(format: "%10d", audioData.count)) bytes                        ║")
+        print("║ Sample Count:    \(String(format: "%10d", samples.count)) samples                       ║")
+        print("║ Sample Rate:     \(String(format: "%10.0f", sampleRate)) Hz                            ║")
+        print("║ Duration:        \(String(format: "%10.2f", duration)) seconds                        ║")
+        print("║ Peak Amplitude:  \(String(format: "%10.4f", peakAmplitude)) (linear)                       ║")
+        print("║ Peak Level:      \(String(format: "%10.1f", peakDb)) dB                             ║")
+        print("║ RMS Level:       \(String(format: "%10.1f", rmsDb)) dB                             ║")
+        print("║ Sample Range:    [\(String(format: "%.4f", minSample)), \(String(format: "%.4f", maxSample))]                        ║")
+        print("║ Clipping:        \(String(format: "%10.2f", clippingPercent))%                              ║")
+        print("║ Format:          Float32 mono PCM                             ║")
+        print("╚═══════════════════════════════════════════════════════════════╝")
+    }
+    
     // MARK: - Transcription
     
     /// Transcribe audio data
@@ -228,9 +358,16 @@ final class WhisperManager: ObservableObject {
             return nil
         }
         
-        guard !audioData.isEmpty else {
-            statusMessage = "No audio to transcribe"
-            transcriptionStatus = .error("No audio data provided")
+        // Log audio diagnostics before transcription
+        logAudioDiagnostics(audioData: audioData, sampleRate: sampleRate)
+        
+        // Validate audio data before transcription
+        if let validationError = validateAudioData(audioData, sampleRate: sampleRate) {
+            let errorMessage = "Audio validation failed: \(validationError.localizedDescription)"
+            statusMessage = "Invalid audio"
+            transcriptionStatus = .error(errorMessage)
+            print("WhisperManager: \(errorMessage)")
+            onError?(errorMessage)
             return nil
         }
         
@@ -239,18 +376,31 @@ final class WhisperManager: ObservableObject {
         
         do {
             // Convert Data to [Float] samples
-            let samples = audioData.withUnsafeBytes { buffer -> [Float] in
+            var samples = audioData.withUnsafeBytes { buffer -> [Float] in
                 let floatBuffer = buffer.bindMemory(to: Float.self)
                 return Array(floatBuffer)
             }
             
-            print("WhisperManager: Transcribing \(samples.count) samples (\(Double(samples.count) / sampleRate)s)")
+            // Normalize samples to [-1.0, 1.0] range if needed
+            samples = normalizeAudioSamples(samples)
+            
+            print("WhisperManager: Transcribing \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / sampleRate))s)")
             
             // Perform transcription
             let results = try await whisper.transcribe(audioArray: samples)
             
             // Extract text from results (WhisperKit returns an array of TranscriptionResult)
             let transcribedText = results.map { $0.text }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Handle BLANK_AUDIO response from WhisperKit
+            if isBlankAudioResponse(transcribedText) {
+                let errorMessage = createBlankAudioErrorMessage(audioData: audioData, sampleRate: sampleRate)
+                statusMessage = "No speech detected"
+                transcriptionStatus = .error(errorMessage)
+                print("WhisperManager: Received BLANK_AUDIO - \(errorMessage)")
+                // Return empty string instead of showing BLANK_AUDIO to user
+                return ""
+            }
             
             if transcribedText.isEmpty {
                 transcriptionStatus = .completed("")
@@ -274,6 +424,85 @@ final class WhisperManager: ObservableObject {
             onError?(errorMessage)
             return nil
         }
+    }
+    
+    /// Normalize audio samples to [-1.0, 1.0] range
+    /// - Parameter samples: Input audio samples
+    /// - Returns: Normalized audio samples
+    private func normalizeAudioSamples(_ samples: [Float]) -> [Float] {
+        guard !samples.isEmpty else { return samples }
+        
+        // Find current peak amplitude
+        var peakAmplitude: Float = 0
+        for sample in samples {
+            let absValue = abs(sample)
+            if absValue > peakAmplitude {
+                peakAmplitude = absValue
+            }
+        }
+        
+        // If already in range or silent, no normalization needed
+        if peakAmplitude <= 1.0 || peakAmplitude < 0.0001 {
+            return samples
+        }
+        
+        // Normalize by dividing by peak amplitude
+        let normalizationFactor = 1.0 / peakAmplitude
+        print("WhisperManager: Normalizing audio (peak=\(String(format: "%.4f", peakAmplitude)), factor=\(String(format: "%.4f", normalizationFactor)))")
+        
+        return samples.map { $0 * normalizationFactor }
+    }
+    
+    /// Check if transcription result is a BLANK_AUDIO response
+    /// - Parameter text: Transcription result text
+    /// - Returns: True if the response indicates blank audio
+    private func isBlankAudioResponse(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        return lowercased.contains("[blank_audio]") ||
+               lowercased.contains("[blank audio]") ||
+               lowercased.contains("blank_audio") ||
+               lowercased == "[blank]" ||
+               lowercased == "blank"
+    }
+    
+    /// Create a meaningful error message for BLANK_AUDIO responses
+    /// - Parameters:
+    ///   - audioData: The audio data that caused the issue
+    ///   - sampleRate: The sample rate used
+    /// - Returns: A user-friendly error message with possible causes
+    private func createBlankAudioErrorMessage(audioData: Data, sampleRate: Double) -> String {
+        // Convert to samples for analysis
+        let samples = audioData.withUnsafeBytes { buffer -> [Float] in
+            let floatBuffer = buffer.bindMemory(to: Float.self)
+            return Array(floatBuffer)
+        }
+        
+        // Analyze audio to determine likely cause
+        var peakAmplitude: Float = 0
+        var sumSquares: Float = 0
+        for sample in samples {
+            let absValue = abs(sample)
+            if absValue > peakAmplitude {
+                peakAmplitude = absValue
+            }
+            sumSquares += sample * sample
+        }
+        let rms = samples.isEmpty ? 0 : sqrt(sumSquares / Float(samples.count))
+        let peakDb = peakAmplitude > 0 ? 20.0 * log10(peakAmplitude) : -60.0
+        
+        var message = "No speech was detected in your recording. "
+        
+        if peakDb < -40 {
+            message += "The audio appears to be very quiet or silent. Check that your microphone is working and positioned correctly."
+        } else if peakDb < -20 {
+            message += "The audio level is low. Try speaking closer to the microphone."
+        } else if rms < 0.01 {
+            message += "Very little audio variation detected. This may indicate background noise only without speech."
+        } else {
+            message += "The audio was captured but no speech was recognized. Try speaking more clearly or check for background noise."
+        }
+        
+        return message
     }
     
     /// Reset transcription status to idle

@@ -61,30 +61,35 @@ WispFlow v0.1 (US-001 through US-007) is complete with core functionality: menu 
 
 ### US-102: Fix WhisperKit Audio Format
 
-- [ ] Validate audio format before transcription
+- [x] Validate audio format before transcription
   - Scope: Modify `Sources/WispFlow/WhisperManager.swift` to add `validateAudioData()` method that checks: sample count > 0, expected Float32 format, reasonable duration (0.5s-120s), values in [-1.0, 1.0] range.
   - Acceptance: Invalid audio data returns descriptive error instead of attempting transcription
   - Verification: `swift build` passes; test with empty/invalid data, verify validation errors
+  - **DONE:** Added `AudioValidationError` enum with cases for empty data, duration issues, out-of-range samples, and sample rate mismatch. Added `validateAudioData()` method that checks all conditions and returns descriptive errors.
 
-- [ ] Fix audio normalization to [-1.0, 1.0] range
+- [x] Fix audio normalization to [-1.0, 1.0] range
   - Scope: Modify `Sources/WispFlow/AudioManager.swift` in `combineBuffersToData()` to ensure output Float32 samples are normalized. Add `normalizeAudio()` helper if needed.
   - Acceptance: Exported audio data has samples within [-1.0, 1.0] range
   - Verification: `swift build` passes; log sample min/max values, verify normalization
+  - **DONE:** Added `normalizeAudioSamples()` method to both AudioManager and WhisperManager. AudioManager normalizes during `combineBuffersToDataWithStats()`, and WhisperManager has backup normalization in `transcribe()`. Logs normalization factor when applied.
 
-- [ ] Verify 16kHz sample rate conversion
+- [x] Verify 16kHz sample rate conversion
   - Scope: Modify `Sources/WispFlow/AudioManager.swift` to add validation in tap callback that confirms converted buffer is at 16kHz. Log warning if conversion fails.
   - Acceptance: All audio sent to WhisperKit is verified to be 16000 Hz
   - Verification: `swift build` passes; log sample rate in conversion step, verify 16000 Hz
+  - **DONE:** Added format verification logging on first converted buffer. Logs sample rate, channel count, and format type. Also logs warnings for conversion failures and errors.
 
-- [ ] Add audio preprocessing diagnostics
+- [x] Add audio preprocessing diagnostics
   - Scope: Add method `logAudioDiagnostics(audioData: Data)` to WhisperManager that logs: byte count, sample count, duration (samples/16000), peak amplitude, RMS level.
   - Acceptance: Detailed diagnostics logged before each transcription attempt
   - Verification: `swift build` passes; record and transcribe, check console for diagnostics
+  - **DONE:** Added `logAudioDiagnostics()` method that logs comprehensive diagnostics table including byte count, sample count, sample rate, duration, peak amplitude, peak/RMS levels, sample range, clipping percentage, and format.
 
-- [ ] Handle WhisperKit "[BLANK_AUDIO]" response
+- [x] Handle WhisperKit "[BLANK_AUDIO]" response
   - Scope: Modify `Sources/WispFlow/WhisperManager.swift` `transcribe()` to detect "[BLANK_AUDIO]" in results and convert to meaningful error with possible causes (silent audio, format issue, model problem).
   - Acceptance: "[BLANK_AUDIO]" is never shown to user; replaced with actionable error message
   - Verification: `swift build` passes; if BLANK_AUDIO occurs, verify helpful error shown
+  - **DONE:** Added `isBlankAudioResponse()` to detect BLANK_AUDIO variants and `createBlankAudioErrorMessage()` to generate context-aware error messages based on audio analysis (peak level, RMS). Returns empty string instead of BLANK_AUDIO.
 
 ---
 

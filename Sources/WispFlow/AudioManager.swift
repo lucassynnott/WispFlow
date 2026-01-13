@@ -458,7 +458,7 @@ final class AudioManager: NSObject, ObservableObject {
             }
             
             if let converter = converter {
-                // Convert to target format
+                // Convert to target format (16kHz mono)
                 let frameCapacity = AVAudioFrameCount(
                     Double(buffer.frameLength) * Constants.targetSampleRate / inputFormat.sampleRate
                 )
@@ -467,6 +467,7 @@ final class AudioManager: NSObject, ObservableObject {
                     pcmFormat: whisperFormat,
                     frameCapacity: frameCapacity
                 ) else {
+                    print("AudioManager: ⚠️ Failed to create converted buffer")
                     return
                 }
                 
@@ -478,10 +479,25 @@ final class AudioManager: NSObject, ObservableObject {
                 
                 converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputBlock)
                 
-                if error == nil {
+                if let error = error {
+                    print("AudioManager: ⚠️ Audio conversion error: \(error.localizedDescription)")
+                } else if convertedBuffer.frameLength > 0 {
+                    // Verify the converted buffer format matches expected format
+                    if self.audioBuffers.isEmpty {
+                        // Log format verification on first buffer
+                        let format = convertedBuffer.format
+                        print("AudioManager: ✓ Converted buffer format verified:")
+                        print("  - Sample rate: \(format.sampleRate) Hz (expected: \(Constants.targetSampleRate))")
+                        print("  - Channels: \(format.channelCount) (expected: 1)")
+                        print("  - Format: \(format.commonFormat == .pcmFormatFloat32 ? "Float32" : "Other")")
+                    }
                     self.audioBuffers.append(convertedBuffer)
                 }
             } else {
+                // No conversion needed - already at target format
+                if self.audioBuffers.isEmpty {
+                    print("AudioManager: ✓ Audio already at target format (16kHz mono Float32)")
+                }
                 self.audioBuffers.append(buffer)
             }
         }
@@ -640,31 +656,70 @@ final class AudioManager: NSObject, ObservableObject {
         return combinedData
     }
     
-    /// Combine buffers and compute statistics
+    /// Combine buffers, normalize to [-1.0, 1.0] range, and compute statistics
     private func combineBuffersToDataWithStats() -> (Data, AudioBufferStats) {
-        var combinedData = Data()
         var allSamples: [Float] = []
         
+        // First pass: collect all samples
         for buffer in audioBuffers {
             guard let channelData = buffer.floatChannelData else { continue }
             
             let frameLength = Int(buffer.frameLength)
             let dataPointer = channelData[0]
             
-            // Collect samples for statistics
             for i in 0..<frameLength {
                 allSamples.append(dataPointer[i])
             }
-            
-            // Convert Float32 samples to Data
-            let byteSize = frameLength * MemoryLayout<Float>.size
-            combinedData.append(Data(bytes: dataPointer, count: byteSize))
         }
         
-        // Calculate statistics
-        let stats = calculateBufferStatistics(samples: allSamples)
+        // Normalize samples to [-1.0, 1.0] range if necessary
+        let normalizedSamples = normalizeAudioSamples(allSamples)
+        
+        // Calculate statistics from normalized samples
+        let stats = calculateBufferStatistics(samples: normalizedSamples)
+        
+        // Convert normalized Float32 samples to Data
+        var combinedData = Data()
+        combinedData.reserveCapacity(normalizedSamples.count * MemoryLayout<Float>.size)
+        
+        for sample in normalizedSamples {
+            var sampleValue = sample
+            withUnsafeBytes(of: &sampleValue) { bytes in
+                combinedData.append(contentsOf: bytes)
+            }
+        }
         
         return (combinedData, stats)
+    }
+    
+    /// Normalize audio samples to [-1.0, 1.0] range
+    /// - Parameter samples: Input audio samples
+    /// - Returns: Normalized audio samples
+    private func normalizeAudioSamples(_ samples: [Float]) -> [Float] {
+        guard !samples.isEmpty else { return samples }
+        
+        // Find peak amplitude
+        var peakAmplitude: Float = 0
+        for sample in samples {
+            let absValue = abs(sample)
+            if absValue > peakAmplitude {
+                peakAmplitude = absValue
+            }
+        }
+        
+        // If already in range [-1.0, 1.0] or silent, no normalization needed
+        if peakAmplitude <= 1.0 {
+            if peakAmplitude > 0.0001 {
+                print("AudioManager: ✓ Audio samples already in [-1.0, 1.0] range (peak: \(String(format: "%.4f", peakAmplitude)))")
+            }
+            return samples
+        }
+        
+        // Normalize by dividing by peak amplitude
+        let normalizationFactor = 1.0 / peakAmplitude
+        print("AudioManager: ⚠️ Normalizing audio samples (peak: \(String(format: "%.4f", peakAmplitude)) -> 1.0, factor: \(String(format: "%.4f", normalizationFactor)))")
+        
+        return samples.map { $0 * normalizationFactor }
     }
     
     /// Calculate statistics from audio samples
