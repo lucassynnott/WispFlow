@@ -738,3 +738,37 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-it
   - Debug mode settings can provide useful bypass mechanisms for testing edge cases
   - Always check existing code before implementing to avoid duplicate work (threshold was already -55dB)
 ---
+
+## [2026-01-13 19:30] - US-301: Unify Audio Buffer Architecture
+Thread: codex exec session
+Run: 20260113-193017-47944 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-193017-47944-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-193017-47944-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 84401b4 feat(US-301): unify audio buffer architecture with single masterBuffer
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/AudioManager.swift (unified masterBuffer architecture)
+  - .agents/tasks/prd-v4.md (mark US-301 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status for US-301)
+- What was implemented:
+  - Replaced `audioBuffers: [AVAudioPCMBuffer]` array with unified `masterBuffer: [Float]`
+  - Added thread-safe `bufferLock` (NSLock) for concurrent masterBuffer access
+  - Audio tap callback now extracts Float samples and appends directly to masterBuffer
+  - Level meter calculates dB from the EXACT same samples added to masterBuffer (no separate data path)
+  - Added `calculatePeakLevelFromSamples(_ samples: [Float])` method for unified level calculation
+  - Added public `getAudioBuffer() -> [Float]` method that returns masterBuffer directly
+  - Added `getMasterBufferDataWithStats()` to replace old combineBuffersToDataWithStats()
+  - Removed old `combineBuffersToData()` and `combineBuffersToDataWithStats()` methods
+  - Added `tapCallbackCount` and `samplesAddedThisCallback` tracking for logging
+  - Comprehensive sample count logging at every pipeline stage
+- **Learnings for future iterations:**
+  - Previous architecture had separate paths: level meter read raw input buffer, transcription used converted buffers
+  - Unified masterBuffer ensures level meter activity = transcription buffer samples (no disconnect possible)
+  - Thread-safe access via NSLock is essential since tap callback runs on audio thread
+  - Logging sample counts at EVERY stage (tap callback → buffer append → capture stop → transcription) makes debugging straightforward
+  - Using `Array(UnsafeBufferPointer(...))` efficiently extracts Float samples from AVAudioPCMBuffer
+---
