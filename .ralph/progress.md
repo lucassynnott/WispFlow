@@ -1278,3 +1278,59 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-it
   - Timer-based level reading at 0.05s intervals provides smooth meter updates
   - Gain slider affects visual display only, not actual audio capture
 ---
+
+## [2026-01-13 21:25] - US-407: Transcription Settings Tab Polish
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 7)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-7.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-7.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 9453a74 feat(US-407): add transcription settings tab polish with design system integration
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/SettingsWindow.swift (completely redesigned TranscriptionSettingsView)
+  - .agents/tasks/prd-v5.md (mark US-407 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status for US-407)
+- What was implemented:
+  - Completely redesigned TranscriptionSettingsView with premium polish:
+    - TranscriptionStatusHero: Hero section showing model status at a glance
+    - Card-based model selection replacing radio group picker
+    - Enhanced download progress with gradient bar and shimmer
+    - Language selector with flag emoji icons
+    - About Whisper info section
+  - TranscriptionStatusHero component:
+    - Large status icon with contextual colors (success/accent/error)
+    - Status title and subtitle with model info
+    - ModelStatusBadge showing current state
+    - Loading state with ProgressView animation
+  - ModelSelectionCard component:
+    - Card-based picker with model icon, name, and specs
+    - Size/Speed/Accuracy specs using ModelSpec component
+    - Status badges (Active, Downloaded) via ModelCardBadge
+    - Selection indicator with coral accent
+    - Hover states and animations
+  - GradientProgressBar component:
+    - Coral gradient fill with shimmer effect during download
+    - Smooth animation for progress updates
+    - Rounded corners matching design system
+  - LanguagePicker component:
+    - 12 supported languages with emoji flags
+    - Auto-Detect as recommended default
+    - Elegant dropdown with hover states
+    - LanguageRow items with checkmark for selection
+  - TranscriptionLanguage enum:
+    - Auto, English, Spanish, French, German, Italian, Portuguese
+    - Japanese, Chinese, Korean, Russian, Arabic
+    - Display names and flag emoji properties
+  - ModelStatusBadge, ModelCardBadge, ModelSpec helper components
+  - TranscriptionFeatureRow for About section formatting
+- **Learnings for future iterations:**
+  - Card-based pickers provide better visual hierarchy than radio groups
+  - Hero sections at top give users immediate status feedback
+  - Flag emojis work well for language selection in macOS
+  - Model specs (size/speed/accuracy) help users make informed choices
+  - Fixed model enum mismatch: WhisperManager uses .medium not .large
+---
