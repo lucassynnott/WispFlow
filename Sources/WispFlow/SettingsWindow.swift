@@ -851,6 +851,7 @@ struct CleanupFeatureRow: View {
 
 struct TextInsertionSettingsView: View {
     @ObservedObject var textInserter: TextInserter
+    @State private var showPermissionGrantedMessage = false
     
     var body: some View {
         Form {
@@ -860,36 +861,117 @@ struct TextInsertionSettingsView: View {
                     Text("Accessibility Permission")
                         .font(.headline)
                     
-                    HStack {
-                        Circle()
-                            .fill(textInserter.hasAccessibilityPermission ? Color.green : Color.orange)
-                            .frame(width: 8, height: 8)
-                        Text(textInserter.hasAccessibilityPermission ? "Granted" : "Not Granted")
-                            .font(.caption)
+                    // Status indicator with checkmark/x icon
+                    HStack(spacing: 8) {
+                        Image(systemName: textInserter.hasAccessibilityPermission ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(textInserter.hasAccessibilityPermission ? .green : .red)
+                            .font(.system(size: 16))
+                        Text(textInserter.hasAccessibilityPermission ? "Permission Granted" : "Permission Not Granted")
+                            .font(.subheadline)
+                            .foregroundColor(textInserter.hasAccessibilityPermission ? .green : .red)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background((textInserter.hasAccessibilityPermission ? Color.green : Color.orange).opacity(0.15))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background((textInserter.hasAccessibilityPermission ? Color.green : Color.red).opacity(0.1))
                     .cornerRadius(8)
                     
+                    // Show success message when permission is granted
+                    if showPermissionGrantedMessage {
+                        HStack {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundColor(.green)
+                            Text("Permission Granted!")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                                .bold()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.green.opacity(0.15))
+                        .cornerRadius(8)
+                        .transition(.opacity.combined(with: .scale))
+                    }
+                    
                     if !textInserter.hasAccessibilityPermission {
-                        Text("WispFlow needs accessibility permission to insert text into other applications. Click the button below to grant permission.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Button(action: {
-                            _ = textInserter.requestAccessibilityPermission(showPrompt: true)
-                        }) {
-                            HStack {
-                                Image(systemName: "hand.raised")
-                                Text("Grant Permission")
+                        // Step-by-step instructions
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("How to grant permission:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .bold()
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Text("1.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 16, alignment: .trailing)
+                                    Text("Click \"Open System Settings\" below")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                HStack(alignment: .top, spacing: 8) {
+                                    Text("2.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 16, alignment: .trailing)
+                                    Text("Find WispFlow in the list and enable the toggle")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                HStack(alignment: .top, spacing: 8) {
+                                    Text("3.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 16, alignment: .trailing)
+                                    Text("Return to WispFlow - permission will be detected automatically")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .padding(.vertical, 4)
+                        
+                        // Action buttons
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                openAccessibilitySettings()
+                            }) {
+                                HStack {
+                                    Image(systemName: "gear")
+                                    Text("Open System Settings")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            
+                            Button(action: {
+                                textInserter.recheckPermission()
+                            }) {
+                                HStack {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Check Again")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     } else {
                         Text("Text insertion is enabled. Transcribed text will be automatically inserted into the active text field.")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .onAppear {
+                // Set up callback to show success message when permission is granted
+                textInserter.onPermissionGranted = {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showPermissionGrantedMessage = true
+                    }
+                    // Hide the message after 3 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPermissionGrantedMessage = false
+                        }
                     }
                 }
             }
@@ -943,6 +1025,13 @@ struct TextInsertionSettingsView: View {
             }
         }
         .padding()
+    }
+    
+    /// Open System Settings to the Accessibility pane
+    private func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 

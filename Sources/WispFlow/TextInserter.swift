@@ -30,6 +30,7 @@ final class TextInserter: ObservableObject {
         static let clipboardRestoreDelayKey = "clipboardRestoreDelay"
         static let defaultRestoreDelay: Double = 0.5  // seconds
         static let keystrokeDelay: UInt32 = 50_000    // 50ms in microseconds
+        static let permissionPollingInterval: TimeInterval = 1.0  // 1 second polling
     }
     
     // MARK: - Properties
@@ -54,6 +55,9 @@ final class TextInserter: ObservableObject {
     /// Status message for UI display
     @Published private(set) var statusMessage: String = "Ready"
     
+    /// Current accessibility permission status (updated reactively)
+    @Published private(set) var hasAccessibilityPermission: Bool = false
+    
     // MARK: - Callbacks
     
     /// Called when insertion completes successfully
@@ -62,10 +66,19 @@ final class TextInserter: ObservableObject {
     /// Called when an error occurs
     var onError: ((String) -> Void)?
     
+    /// Called when permission status changes from denied to granted
+    var onPermissionGranted: (() -> Void)?
+    
     // MARK: - Private Properties
     
     /// Stored clipboard contents for restoration
     private var savedClipboardItems: [NSPasteboardItem]?
+    
+    /// Timer for polling permission status when not granted
+    private var permissionPollingTimer: Timer?
+    
+    /// Observer for app activation to re-check permissions
+    private var appActivationObserver: NSObjectProtocol?
     
     // MARK: - Initialization
     
@@ -74,15 +87,86 @@ final class TextInserter: ObservableObject {
         preserveClipboard = UserDefaults.standard.object(forKey: Constants.preserveClipboardKey) as? Bool ?? true
         clipboardRestoreDelay = UserDefaults.standard.object(forKey: Constants.clipboardRestoreDelayKey) as? Double ?? Constants.defaultRestoreDelay
         
-        print("TextInserter initialized (preserveClipboard: \(preserveClipboard), restoreDelay: \(clipboardRestoreDelay)s)")
+        // Check initial permission status
+        hasAccessibilityPermission = AXIsProcessTrusted()
+        
+        // Set up app activation observer to re-check permissions when user returns from System Settings
+        setupAppActivationObserver()
+        
+        // Start polling if permission not yet granted
+        if !hasAccessibilityPermission {
+            startPermissionPolling()
+        }
+        
+        print("TextInserter initialized (preserveClipboard: \(preserveClipboard), restoreDelay: \(clipboardRestoreDelay)s, permission: \(hasAccessibilityPermission))")
+    }
+    
+    deinit {
+        // Invalidate timer directly without calling the main actor method
+        permissionPollingTimer?.invalidate()
+        if let observer = appActivationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+    
+    // MARK: - Permission Monitoring
+    
+    /// Set up observer for app activation to re-check permissions
+    private func setupAppActivationObserver() {
+        appActivationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.recheckPermission()
+            }
+        }
+    }
+    
+    /// Start polling for permission status
+    private func startPermissionPolling() {
+        guard permissionPollingTimer == nil else { return }
+        
+        print("TextInserter: Starting permission polling (every \(Constants.permissionPollingInterval)s)")
+        
+        permissionPollingTimer = Timer.scheduledTimer(withTimeInterval: Constants.permissionPollingInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.recheckPermission()
+            }
+        }
+    }
+    
+    /// Stop polling for permission status
+    private func stopPermissionPolling() {
+        if let timer = permissionPollingTimer {
+            timer.invalidate()
+            permissionPollingTimer = nil
+            print("TextInserter: Stopped permission polling")
+        }
+    }
+    
+    /// Re-check accessibility permission status (fresh check, not cached)
+    func recheckPermission() {
+        let previousStatus = hasAccessibilityPermission
+        let currentStatus = AXIsProcessTrusted()
+        
+        if currentStatus != previousStatus {
+            hasAccessibilityPermission = currentStatus
+            print("TextInserter: Permission status changed: \(previousStatus) -> \(currentStatus)")
+            
+            if currentStatus {
+                // Permission was just granted
+                stopPermissionPolling()
+                onPermissionGranted?()
+            } else {
+                // Permission was revoked (rare but possible)
+                startPermissionPolling()
+            }
+        }
     }
     
     // MARK: - Accessibility Permissions
-    
-    /// Check if accessibility permissions are granted
-    var hasAccessibilityPermission: Bool {
-        return AXIsProcessTrusted()
-    }
     
     /// Request accessibility permissions
     /// - Parameter showPrompt: If true, shows the system prompt for enabling accessibility

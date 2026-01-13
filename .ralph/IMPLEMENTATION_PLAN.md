@@ -1,231 +1,194 @@
-# Implementation Plan - WispFlow v0.2
+# Implementation Plan - WispFlow v0.3
 
 ## Summary
 
-WispFlow v0.1 (US-001 through US-007) is complete with core functionality: menu bar app, global hotkey, audio capture, WhisperKit transcription, rule-based text cleanup, text insertion, and settings persistence.
+WispFlow v0.2 (US-101 through US-106) is complete with debug audio capture, WhisperKit audio format fixes, model loading improvements, error handling, debug mode, and local LLM cleanup.
 
-**v0.2 focuses on fixing the critical transcription issue** where recordings return "[BLANK_AUDIO]" instead of actual text. The PRD identifies root causes in audio format/preprocessing and WhisperKit configuration. Additionally, v0.2 adds debug capabilities and local LLM cleanup.
+**v0.3 focuses on fixing two critical bugs** preventing WispFlow from working correctly:
+1. **Accessibility permission detection** - App doesn't recognize when permission is granted (requires restart)
+2. **Audio capture silence detection** - Audio is captured (level meter shows activity) but reported as silent for transcription
 
 ### Key Gaps to Address:
-1. **Audio debugging** - No audio level meter, silence detection, or waveform visualization
-2. **Audio preprocessing** - Need validation of 16kHz conversion and Float32 normalization
-3. **Model loading UX** - Auto-load exists but lacks menu bar progress indicator and "Model Ready" status
-4. **Error handling** - BLANK_AUDIO provides no helpful feedback; need meaningful error messages
-5. **Debug mode** - No audio export or diagnostic logging for troubleshooting
-6. **LLM cleanup** - Current cleanup is rule-based; PRD requests local LLM integration
+1. **Accessibility polling** - Current `AXIsProcessTrusted()` call returns cached value; no re-check mechanism after user grants permission
+2. **Audio buffer pipeline integrity** - Level meter shows activity but same data may not reach transcription buffer
+3. **Silence threshold** - Current -40dB may be too aggressive; PRD specifies -55dB
+4. **Permission UX** - No polling timer, no app activation callback, no manual "Check Again" button
+5. **Audio diagnostics** - Need to verify same buffer feeds both level meter AND transcription
 
 ### Priority Order:
-1. US-101 & US-102 (Debug Audio + Fix Format) - Critical for fixing BLANK_AUDIO
-2. US-104 (Better Error Handling) - Provide meaningful feedback
-3. US-103 (Improve Model Loading) - Better UX for model state
-4. US-105 (Audio Debug Mode) - Developer diagnostics
-5. US-106 (Local LLM Cleanup) - Enhanced feature
+1. US-201 (Accessibility Permission Detection) - Critical for text insertion to work
+2. US-202 (Audio Buffer Pipeline) - Critical for transcription to work
+3. US-205 (Silence Detection Fix) - Required to avoid false silence rejections
+4. US-204 (Permission Flow UX) - Better user guidance
+5. US-203 (Audio Capture Diagnostics) - Developer debugging
 
 ---
 
 ## Tasks
 
-### US-101: Debug Audio Capture
+### US-201: Fix Accessibility Permission Detection
+As a user, I want the app to correctly detect when I've granted accessibility permission so text insertion works.
 
-- [x] Add audio level monitoring to AudioManager
-  - Scope: Modify `Sources/WispFlow/AudioManager.swift` to compute peak audio level (dB) from captured buffers in the tap callback. Add `@Published var currentAudioLevel: Float` property.
-  - Acceptance: `currentAudioLevel` updates in real-time during recording with values in dB scale (e.g., -60 to 0)
-  - Verification: `swift build` passes; log audio levels during recording and verify they change with sound input
-  - **DONE:** Added `@Published var currentAudioLevel: Float` property, `calculatePeakLevel()` method, and `amplitudeToDecibels()` conversion. Level updates in real-time via tap callback.
+- [x] Add NSApplication.didBecomeActiveNotification observer for permission re-check
+  - Scope: Modify `Sources/WispFlow/TextInserter.swift` to add observer in init that calls `recheckPermission()` when app becomes active
+  - Acceptance: After granting permission in System Settings and returning to app, `hasAccessibilityPermission` returns true
+  - Verification: `swift build` passes; grant permission in System Settings, return to app, verify permission detected
+  - **DONE**: Added `setupAppActivationObserver()` in init that listens to `NSApplication.didBecomeActiveNotification`
 
-- [x] Add audio level meter to RecordingIndicatorWindow
-  - Scope: Modify `Sources/WispFlow/RecordingIndicatorWindow.swift` to display a visual level meter (colored bar or SF Symbol) next to the recording icon. Connect to AudioManager's audio level property.
-  - Acceptance: Level meter shows real-time audio activity when speaking into microphone
-  - Verification: `swift build` passes; start recording and observe level meter responds to voice
-  - **DONE:** Created `AudioLevelMeterView` class with color-coded levels (gray<-40dB, green, yellow, red). Added `connectAudioManager()` method using Combine to subscribe to level updates.
+- [x] Add polling timer for permission status when not granted
+  - Scope: Modify `Sources/WispFlow/TextInserter.swift` to add Timer that polls `AXIsProcessTrusted()` every 1 second when permission not yet granted
+  - Acceptance: Timer starts when permission denied, polls until granted, then stops
+  - Verification: `swift build` passes; start app without permission, grant permission in System Settings, verify detection within 2 seconds
+  - **DONE**: Added 1-second interval polling timer `permissionPollingTimer` that starts automatically when permission not granted
 
-- [x] Add silence detection and warning
-  - Scope: Modify `Sources/WispFlow/AudioManager.swift` to track if audio has been below threshold (e.g., peak < -40dB) for entire recording. Add callback `onSilenceDetected: (() -> Void)?`.
-  - Acceptance: Callback fires if recording stops with only silence detected
-  - Verification: `swift build` passes; record without speaking, verify silence warning appears
-  - **DONE:** Added `onSilenceDetected` callback, tracks `peakLevelDuringRecording`, alerts user with actionable message if peak < -40dB threshold.
+- [x] Add "Check Again" button to Settings for manual permission re-check
+  - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` `TextInsertionSettingsView` to add button that calls `recheckPermission()` and shows result
+  - Acceptance: Button visible when permission not granted; clicking re-checks and updates UI
+  - Verification: `swift build` passes; grant permission, click "Check Again", verify status updates to "Granted"
+  - **DONE**: Added "Check Again" button that calls `textInserter.recheckPermission()`
 
-- [x] Log audio buffer statistics
-  - Scope: Modify `Sources/WispFlow/AudioManager.swift` to log buffer details (sample count, duration, peak level, format) in `stopCapturing()` before returning result.
-  - Acceptance: Console output shows detailed audio statistics after each recording
-  - Verification: `swift build` passes; record audio, check console for detailed buffer stats
-  - **DONE:** Added `AudioBufferStats` struct and `logAudioBufferStatistics()` method. Logs formatted table with sample count, duration, sample rate, peak dB, RMS dB, min/max samples, and silence status.
+- [x] Make hasAccessibilityPermission @Published for reactive UI updates
+  - Scope: Modify `Sources/WispFlow/TextInserter.swift` to change `hasAccessibilityPermission` from computed property to `@Published` property updated by polling/notifications
+  - Acceptance: Settings UI updates automatically when permission status changes
+  - Verification: `swift build` passes; grant permission while Settings is open, verify UI updates automatically
+  - **DONE**: Changed from computed property to `@Published private(set) var hasAccessibilityPermission: Bool = false`
 
-- [x] Enforce minimum recording duration (0.5s)
-  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` or `AudioManager.swift` to reject recordings shorter than 0.5 seconds with appropriate feedback.
-  - Acceptance: Short recordings show "Recording too short" error instead of attempting transcription
-  - Verification: `swift build` passes; quick tap hotkey, verify minimum duration warning
-  - **DONE:** Added `minimumRecordingDuration` constant (0.5s), `onRecordingTooShort` callback, and validation in `stopCapturing()`. AppDelegate shows informational alert.
+- [x] Add real-time permission status indicator with checkmark/x
+  - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` `TextInsertionSettingsView` to show ✓ (green) or ✗ (red) icon based on permission status
+  - Acceptance: Visual indicator clearly shows current permission state
+  - Verification: `swift build` passes; verify checkmark shows when granted, x shows when denied
+  - **DONE**: Added `checkmark.circle.fill` (green) / `xmark.circle.fill` (red) SF Symbol icons
 
----
-
-### US-102: Fix WhisperKit Audio Format
-
-- [x] Validate audio format before transcription
-  - Scope: Modify `Sources/WispFlow/WhisperManager.swift` to add `validateAudioData()` method that checks: sample count > 0, expected Float32 format, reasonable duration (0.5s-120s), values in [-1.0, 1.0] range.
-  - Acceptance: Invalid audio data returns descriptive error instead of attempting transcription
-  - Verification: `swift build` passes; test with empty/invalid data, verify validation errors
-  - **DONE:** Added `AudioValidationError` enum with cases for empty data, duration issues, out-of-range samples, and sample rate mismatch. Added `validateAudioData()` method that checks all conditions and returns descriptive errors.
-
-- [x] Fix audio normalization to [-1.0, 1.0] range
-  - Scope: Modify `Sources/WispFlow/AudioManager.swift` in `combineBuffersToData()` to ensure output Float32 samples are normalized. Add `normalizeAudio()` helper if needed.
-  - Acceptance: Exported audio data has samples within [-1.0, 1.0] range
-  - Verification: `swift build` passes; log sample min/max values, verify normalization
-  - **DONE:** Added `normalizeAudioSamples()` method to both AudioManager and WhisperManager. AudioManager normalizes during `combineBuffersToDataWithStats()`, and WhisperManager has backup normalization in `transcribe()`. Logs normalization factor when applied.
-
-- [x] Verify 16kHz sample rate conversion
-  - Scope: Modify `Sources/WispFlow/AudioManager.swift` to add validation in tap callback that confirms converted buffer is at 16kHz. Log warning if conversion fails.
-  - Acceptance: All audio sent to WhisperKit is verified to be 16000 Hz
-  - Verification: `swift build` passes; log sample rate in conversion step, verify 16000 Hz
-  - **DONE:** Added format verification logging on first converted buffer. Logs sample rate, channel count, and format type. Also logs warnings for conversion failures and errors.
-
-- [x] Add audio preprocessing diagnostics
-  - Scope: Add method `logAudioDiagnostics(audioData: Data)` to WhisperManager that logs: byte count, sample count, duration (samples/16000), peak amplitude, RMS level.
-  - Acceptance: Detailed diagnostics logged before each transcription attempt
-  - Verification: `swift build` passes; record and transcribe, check console for diagnostics
-  - **DONE:** Added `logAudioDiagnostics()` method that logs comprehensive diagnostics table including byte count, sample count, sample rate, duration, peak amplitude, peak/RMS levels, sample range, clipping percentage, and format.
-
-- [x] Handle WhisperKit "[BLANK_AUDIO]" response
-  - Scope: Modify `Sources/WispFlow/WhisperManager.swift` `transcribe()` to detect "[BLANK_AUDIO]" in results and convert to meaningful error with possible causes (silent audio, format issue, model problem).
-  - Acceptance: "[BLANK_AUDIO]" is never shown to user; replaced with actionable error message
-  - Verification: `swift build` passes; if BLANK_AUDIO occurs, verify helpful error shown
-  - **DONE:** Added `isBlankAudioResponse()` to detect BLANK_AUDIO variants and `createBlankAudioErrorMessage()` to generate context-aware error messages based on audio analysis (peak level, RMS). Returns empty string instead of BLANK_AUDIO.
+- [x] Stop polling once permission is granted
+  - Scope: Modify `Sources/WispFlow/TextInserter.swift` polling timer logic to invalidate timer when permission is granted
+  - Acceptance: No unnecessary CPU usage once permission is detected
+  - Verification: `swift build` passes; grant permission, verify timer stops (check console logs)
+  - **DONE**: `recheckPermission()` calls `stopPermissionPolling()` when permission status changes to granted
 
 ---
 
-### US-103: Improve Model Loading
+### US-202: Fix Audio Buffer Pipeline
+As a user, I want my recorded audio to actually be captured so transcription works.
 
-- [x] Show model loading status in menu bar
-  - Scope: Modify `Sources/WispFlow/StatusBarController.swift` to update status item tooltip or add secondary icon state showing model status (loading spinner, checkmark, error).
-  - Acceptance: Menu bar icon/tooltip reflects model state: "Loading model...", "Model ready", "Model error"
-  - Verification: `swift build` passes; launch app, observe menu bar reflects model loading progress
-  - **DONE:** Added `setupModelStatusObserver()` to subscribe to WhisperManager's `modelStatus` using Combine. Menu bar icon changes based on status: waveform.slash (not loaded), arrow.down.circle (downloading), arrow.clockwise.circle (loading), waveform (ready), exclamationmark.triangle (error). Tooltip also updates with descriptive status.
+- [ ] Verify AudioManager.audioBuffer is same data shown in level meter
+  - Scope: Modify `Sources/WispFlow/AudioManager.swift` to add logging in tap callback confirming same buffer feeds both level meter calculation AND audioBuffers array
+  - Acceptance: Logs show identical buffer objects for level meter and storage
+  - Verification: `swift build` passes; record audio, verify console shows single buffer path
 
-- [x] Block recording until model is ready
-  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` `handleRecordingStateChange()` to check `whisperManager.isReady` before starting recording. Show alert if model not ready.
-  - Acceptance: Cannot start recording if model is not loaded; clear message guides user to wait or open settings
-  - Verification: `swift build` passes; try to record before model loads, verify blocking alert
-  - **DONE:** Added `showModelNotReadyAlert()` method that displays context-aware messages based on model status. Modified `toggleRecordingFromHotkey()` to check `whisperManager.isReady` before allowing recording to start. Alert includes "Open Settings" button.
+- [ ] Fix dB calculation to handle zero values safely
+  - Scope: Modify `Sources/WispFlow/AudioManager.swift` `amplitudeToDecibels()` to use formula `20 * log10(max(peak, 1e-10))` instead of current implementation
+  - Acceptance: dB calculation never returns NaN or -Infinity for valid audio
+  - Verification: `swift build` passes; record silence, verify dB shows -100 not -Infinity
 
-- [x] Add model loading progress indicator
-  - Scope: Modify `Sources/WispFlow/WhisperManager.swift` to expose download progress via `@Published var downloadProgress: Double`. Update StatusBarController to show progress percentage.
-  - Acceptance: During model download, progress percentage is visible in menu bar or settings
-  - Verification: `swift build` passes; download new model, observe progress updates
-  - **DONE:** Enhanced `loadModel()` to set `downloadProgress` and `modelStatus` to `.downloading(progress:)` when downloading new models. Menu bar menu item shows download progress percentage. Note: WhisperKit doesn't expose granular download progress, so status changes are at key stages.
+- [ ] Add logging of actual sample values before silence check
+  - Scope: Modify `Sources/WispFlow/AudioManager.swift` `stopCapturing()` to log first 10 and last 10 sample values before silence check
+  - Acceptance: Console shows actual sample values for debugging
+  - Verification: `swift build` passes; record audio, verify sample values logged
 
-- [x] Add "Model Ready" visual indicator
-  - Scope: Modify `Sources/WispFlow/StatusBarController.swift` to show a small badge or change icon color when model is ready. Add checkmark badge to menu item.
-  - Acceptance: User can clearly see when model is loaded and ready for transcription
-  - Verification: `swift build` passes; wait for model to load, verify visual indicator appears
-  - **DONE:** Added model status menu item at top of menu with emoji indicators: 🟢 (ready), 🔄 (loading/downloading), 🔵 (downloaded), ⚪ (not downloaded), 🔴 (error). Menu bar icon changes to "waveform" when ready vs "waveform.slash" when not. Added `updateModelStatusMenuItem()` method.
+- [ ] Ensure convertedBuffer is being appended to audioBuffers correctly
+  - Scope: Modify `Sources/WispFlow/AudioManager.swift` tap callback to log buffer append confirmation with frame count
+  - Acceptance: Each converted buffer is confirmed appended with sample count
+  - Verification: `swift build` passes; record audio, verify buffer append logs match expected counts
 
----
-
-### US-104: Better Error Handling
-
-- [x] Surface WhisperKit errors to user
-  - Scope: Modify `Sources/WispFlow/WhisperManager.swift` to catch specific WhisperKit errors and translate to user-friendly messages with actionable suggestions.
-  - Acceptance: All WhisperKit errors show helpful alerts with next steps
-  - Verification: `swift build` passes; simulate errors, verify user-friendly alerts
-  - **DONE:** Created `TranscriptionError` enum with cases for modelNotLoaded, noSpeechDetected, audioValidationFailed, whisperKitError, blankAudioResult, and unknownError. Each error has a user-friendly title and detailed recovery suggestion. Added `onTranscriptionError` callback with audio data for retry support.
-
-- [x] Add "No speech detected" error handling
-  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` or WhisperManager to detect empty/blank transcription results and show "No speech detected - check microphone" message.
-  - Acceptance: Empty transcription shows helpful error, not empty insertion
-  - Verification: `swift build` passes; record silence, verify "No speech detected" message
-  - **DONE:** WhisperManager now detects BLANK_AUDIO responses and empty transcriptions, creating detailed error messages with suggestions based on audio analysis (peak level, RMS). AppDelegate shows informational alert with microphone tips.
-
-- [x] Add "Model not loaded" specific error
-  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` `processTranscription()` to show specific error when `whisperManager.isReady` is false with button to open Settings.
-  - Acceptance: Clear error message with Settings shortcut when model not loaded
-  - Verification: `swift build` passes; delete model, try to transcribe, verify error with Settings button
-  - **DONE:** Added `handleTranscriptionError()` method that shows specific error messages for model not loaded cases. Alert includes "Open Settings" button to guide user to download/load model.
-
-- [x] Implement error logging to .ralph/errors.log
-  - Scope: Create `Sources/WispFlow/ErrorLogger.swift` utility that appends errors with timestamps to `~/.ralph/errors.log`. Integrate with all managers' `onError` callbacks.
-  - Acceptance: All errors are logged to file with timestamps for debugging
-  - Verification: `swift build` passes; trigger errors, verify entries in errors.log
-  - **DONE:** Created `ErrorLogger.swift` singleton with logging methods for different error categories (audio, transcription, model, permission). Logs include timestamps, severity levels, categories, and optional context dictionaries. Integrated with WhisperManager, AudioManager callbacks in AppDelegate.
-
-- [x] Add retry option for failed transcriptions
-  - Scope: Modify error alerts to include "Try Again" button that re-attempts transcription with the same audio data (requires keeping audio data until transcription succeeds).
-  - Acceptance: User can retry failed transcription without re-recording
-  - Verification: `swift build` passes; fail transcription, click retry, verify re-attempt
-  - **DONE:** Added `lastAudioData` and `lastAudioSampleRate` properties to AppDelegate. `handleTranscriptionError()` shows "Try Again" button for retryable errors. `retryLastTranscription()` method re-processes stored audio data. Audio data cleared only on successful transcription.
+- [ ] Add buffer sample count verification after combining
+  - Scope: Modify `Sources/WispFlow/AudioManager.swift` `combineBuffersToDataWithStats()` to verify combined sample count matches sum of individual buffer frame lengths
+  - Acceptance: Warning logged if sample count mismatch detected
+  - Verification: `swift build` passes; record audio, verify no mismatch warnings
 
 ---
 
-### US-105: Audio Debug Mode
+### US-203: Audio Capture Diagnostics
+As a developer, I want detailed audio diagnostics so I can debug capture issues.
 
-- [x] Add Debug Mode toggle in Settings
-  - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` to add "Debug Mode" section with toggle switch. Store in UserDefaults. Add `isDebugMode` property to AppDelegate or create DebugManager.
-  - Acceptance: Debug mode can be enabled/disabled in Settings
-  - Verification: `swift build` passes; toggle debug mode in settings, verify setting persists
-  - **DONE:** Created `DebugManager.swift` singleton with `@Published var isDebugModeEnabled` property persisted to UserDefaults. Added `DebugSettingsView` tab in Settings with toggle, debug tools buttons, and feature list. Integrated DebugManager throughout AppDelegate.
+- [ ] Log buffer state immediately before transcription call
+  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` `processTranscription()` to log audioData.count, expected duration, sample rate before calling whisper.transcribe()
+  - Acceptance: Full buffer state logged right before WhisperKit receives data
+  - Verification: `swift build` passes; record and transcribe, verify pre-transcription log
 
-- [x] Show audio waveform visualization
-  - Scope: Create `Sources/WispFlow/AudioWaveformView.swift` SwiftUI view that displays audio buffer as waveform. Show in debug panel or recording indicator when debug mode enabled.
-  - Acceptance: Audio waveform visible during/after recording in debug mode
-  - Verification: `swift build` passes; enable debug mode, record audio, observe waveform
-  - **DONE:** Created `AudioWaveformView.swift` with bar-based waveform visualization, color-coded amplitude levels (gray/green/yellow/red), and time labels. Also created `CompactWaveformView` for inline display. Waveform shown in Debug tab of Settings and in Debug Window Audio tab.
+- [ ] Show sample count, duration, peak level, RMS level before transcription
+  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` or create helper to compute and log these stats from audioData before transcription
+  - Acceptance: All four metrics visible in console before transcription attempt
+  - Verification: `swift build` passes; verify all four values logged
 
-- [x] Display raw transcription before cleanup
-  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` or create debug panel to show raw WhisperKit output before text cleanup when debug mode enabled.
-  - Acceptance: Can compare raw transcription vs cleaned text in debug mode
-  - Verification: `swift build` passes; enable debug, transcribe, verify raw output shown
-  - **DONE:** Added `logRawTranscription()` and `logCleanedTranscription()` methods to DebugManager. AppDelegate logs raw transcription after WhisperKit returns and cleaned transcription after cleanup. Debug window Transcription tab shows side-by-side comparison with "Changes Made" analysis.
+- [ ] Log first and last 10 samples to verify non-zero data
+  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` or WhisperManager to extract and log first 10 and last 10 Float32 samples from audioData
+  - Acceptance: Console shows actual sample values, can verify if data is zeros or valid audio
+  - Verification: `swift build` passes; record audio, verify sample values are non-zero
 
-- [x] Add audio export as WAV file
-  - Scope: Create `Sources/WispFlow/AudioExporter.swift` utility to convert Float32 audio data to WAV format and save to file. Add "Export Audio" button to debug panel or Settings.
-  - Acceptance: User can export recorded audio as WAV file for offline analysis
-  - Verification: `swift build` passes; record audio, export, verify WAV file is playable
-  - **DONE:** Created `AudioExporter.swift` with WAV header generation, Float32-to-Int16 conversion, and proper file writing. Includes `exportWithSavePanel()` method with NSSavePanel. Export buttons available in Debug Settings tab and Debug Window Audio tab.
+- [ ] Show percentage of zero vs non-zero samples
+  - Scope: Create helper function to count zero samples (abs < 1e-7) vs total and compute percentage
+  - Acceptance: Log shows "Zero samples: X% (Y/Z)" format
+  - Verification: `swift build` passes; record audio, verify zero percentage < 50%
 
-- [x] Add detailed debug logging window
-  - Scope: Create `Sources/WispFlow/DebugLogWindow.swift` NSWindow that displays real-time log messages. Show audio stats, transcription results, model status. Only visible in debug mode.
-  - Acceptance: Debug window shows detailed logs during recording/transcription
-  - Verification: `swift build` passes; enable debug mode, open debug window, verify log output
-  - **DONE:** Created `DebugLogWindow.swift` with `DebugLogView` containing three tabs: Logs (scrollable, filterable log entries with auto-scroll), Audio (waveform + stats + export), and Transcription (raw vs cleaned comparison). `DebugLogWindowController` manages window lifecycle. Accessible via "Open Debug Window" button in Settings Debug tab.
+- [ ] Add console output for all audio pipeline stages
+  - Scope: Add labeled log statements at: capture, conversion, buffer append, combine, transcription handoff
+  - Acceptance: Console shows complete audio flow with timestamps
+  - Verification: `swift build` passes; record audio, verify all stage markers visible
 
 ---
 
-### US-106: Local LLM Text Cleanup
+### US-204: Permission Flow UX
+As a user, I want clear guidance on granting permissions so I can set up the app correctly.
 
-- [x] Research and select local LLM framework
-  - Scope: Evaluate llama.cpp Swift bindings vs MLX Swift for local LLM inference. Consider: SPM compatibility, model size, inference speed, memory usage. Document choice in Notes.
-  - Acceptance: Clear decision on framework with justification documented
-  - Verification: Document framework choice and reasoning in implementation plan Notes section
-  - **DONE:** Selected llama.swift (mattt/llama.swift) package which provides semantically versioned access to llama.cpp. Chosen for SPM compatibility, cross-platform support, and active maintenance. Added to Package.swift with LlamaSwift product dependency.
+- [ ] Add step-by-step permission grant instructions in Settings
+  - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` `TextInsertionSettingsView` to show numbered steps when permission not granted
+  - Acceptance: Clear 1-2-3 steps visible explaining how to grant permission
+  - Verification: `swift build` passes; view Settings without permission, verify instructions visible
 
-- [x] Integrate local LLM framework
-  - Scope: Add LLM dependency to `Package.swift`. Create `Sources/WispFlow/LLMManager.swift` wrapper for model loading and inference.
-  - Acceptance: LLM framework compiles and links with app
-  - Verification: `swift build` passes with LLM dependency
-  - **DONE:** Created `LLMManager.swift` with full llama.cpp integration via llama.swift. Includes model/context management, tokenization, batch processing, and text generation using greedy sampling.
+- [ ] Show current permission state with colored indicator (red/green)
+  - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` to use SF Symbol with red (denied) or green (granted) color
+  - Acceptance: Color clearly indicates permission state at a glance
+  - Verification: `swift build` passes; verify red when denied, green when granted
 
-- [x] Implement model download and management
-  - Scope: Add small LLM model (Phi-3-mini, Gemma 2B, or similar) download capability to LLMManager. Store in Application Support. Add model selection to Settings.
-  - Acceptance: User can download and manage LLM models in Settings
-  - Verification: `swift build` passes; download model from Settings, verify file exists
-  - **DONE:** LLMManager supports 3 model sizes (Qwen 2.5 1.5B, Phi-3 Mini, Gemma 2B) with Hugging Face download URLs. Models stored in ~/Library/Application Support/WispFlow/LLMModels/. Download includes progress tracking via URLSessionDownloadDelegate.
+- [ ] Add direct "Open System Settings" button
+  - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` to add button that opens System Settings > Privacy & Security > Accessibility
+  - Acceptance: One-click access to correct System Settings pane
+  - Verification: `swift build` passes; click button, verify correct System Settings pane opens
 
-- [x] Create text cleanup prompt system
-  - Scope: Create prompt template in LLMManager for text cleanup: remove fillers, fix grammar, maintain meaning. Test with sample transcriptions.
-  - Acceptance: LLM produces cleaned text that maintains meaning while improving grammar
-  - Verification: `swift build` passes; test cleanup prompt with sample text
-  - **DONE:** Created comprehensive system prompt with 5 cleanup rules and 4 formatting guidelines. Prompt template uses chat format with system/user/assistant roles.
+- [ ] Show "Permission Granted!" confirmation when detected
+  - Scope: Modify `Sources/WispFlow/TextInserter.swift` or SettingsWindow to show temporary success message when permission transitions from denied to granted
+  - Acceptance: User sees confirmation that permission was successfully detected
+  - Verification: `swift build` passes; grant permission, verify success message appears
 
-- [x] Integrate LLM with TextCleanupManager
-  - Scope: Modify `Sources/WispFlow/TextCleanupManager.swift` to use LLMManager when available, fallback to rule-based cleanup if LLM unavailable or disabled.
-  - Acceptance: Text cleanup uses LLM when available, falls back to rules otherwise
-  - Verification: `swift build` passes; test with/without LLM, verify both paths work
-  - **DONE:** Added `aiPowered` cleanup mode to TextCleanupManager. When selected, tries LLM first via connected llmManager, falls back to thorough rule-based cleanup if LLM unavailable or fails.
+- [ ] Remember and skip permission prompts once granted
+  - Scope: Verify current implementation doesn't repeatedly prompt after permission is granted; add check if needed
+  - Acceptance: No permission prompts shown after permission is granted
+  - Verification: `swift build` passes; grant permission, restart app, verify no prompt
 
-- [x] Add LLM cleanup mode toggle
-  - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` to add toggle between "Rule-based" and "AI-powered" cleanup modes. Persist setting.
-  - Acceptance: User can choose between rule-based and LLM cleanup
-  - Verification: `swift build` passes; toggle modes, verify cleanup behavior changes
-  - **DONE:** Updated SettingsWindow with LLM model selection, status display, download/load buttons, and delete capability. TextCleanupSettingsView shows LLM settings panel when AI-Powered mode selected.
+---
+
+### US-205: Silence Detection Fix
+As a user, I want accurate silence detection so valid audio isn't rejected.
+
+- [ ] Change silence threshold from -40dB to -55dB
+  - Scope: Modify `Sources/WispFlow/AudioManager.swift` `Constants.silenceThresholdDB` from -40.0 to -55.0
+  - Acceptance: More permissive threshold allows quieter but valid audio to pass
+  - Verification: `swift build` passes; record quiet speech, verify not rejected as silence
+
+- [ ] Update RecordingIndicatorWindow level meter threshold to match
+  - Scope: Modify `Sources/WispFlow/RecordingIndicatorWindow.swift` `Constants.silenceThreshold` from -40 to -55
+  - Acceptance: Level meter visual threshold matches AudioManager threshold
+  - Verification: `swift build` passes; verify level meter shows gray only below -55dB
+
+- [ ] Fix peak level calculation to use actual max absolute value
+  - Scope: Verify `Sources/WispFlow/AudioManager.swift` `calculateBufferStatistics()` correctly computes max(abs(minSample), abs(maxSample))
+  - Acceptance: Peak level accurately reflects loudest sample in recording
+  - Verification: `swift build` passes; verify peak level calculation is correct
+
+- [ ] Add "Silence detected" only if ALL samples are near-zero
+  - Scope: Modify `Sources/WispFlow/AudioManager.swift` silence detection to check if >95% of samples are below threshold, not just peak
+  - Acceptance: Recordings with brief speech surrounded by silence are not rejected
+  - Verification: `swift build` passes; record short phrase, verify not marked as silence
+
+- [ ] Show actual measured dB level in error message
+  - Scope: Modify `Sources/WispFlow/AppDelegate.swift` `showSilenceWarning()` to include actual peak dB level in alert text
+  - Acceptance: User can see what level was detected vs threshold
+  - Verification: `swift build` passes; trigger silence warning, verify shows actual dB value
+
+- [ ] Update all -40dB references in error messages to -55dB
+  - Scope: Search and update all hardcoded -40dB strings in AppDelegate, SettingsWindow, WhisperManager
+  - Acceptance: All user-facing messages reflect correct -55dB threshold
+  - Verification: `swift build` passes; verify no -40dB references remain in user messages
 
 ---
 
@@ -233,30 +196,27 @@ WispFlow v0.1 (US-001 through US-007) is complete with core functionality: menu 
 
 ### Discoveries
 
-1. **Current AudioManager** already converts to 16kHz mono Float32 format via AVAudioConverter. However, the converter may silently fail or produce empty buffers - need validation.
+1. **Accessibility permission issue** - `AXIsProcessTrusted()` returns a cached value. macOS doesn't provide a notification when accessibility permission changes, so polling or app activation callbacks are the only solutions.
 
-2. **WhisperManager.transcribe()** already handles empty results but returns empty string rather than meaningful error. The "[BLANK_AUDIO]" issue likely occurs in WhisperKit itself when audio format is incorrect.
+2. **Audio buffer path verified** - Current code uses the same tap callback for both level meter updates AND buffer storage. The issue is likely in the dB calculation or threshold, not separate data paths.
 
-3. **Current implementation** does not preserve audio data after transcription attempt, making retry impossible. Need to cache audio until transcription succeeds.
+3. **Current silence threshold** - The -40dB threshold in `AudioManager.swift` line 56 is too aggressive. Normal speech typically peaks at -20dB to -6dB, but quiet speakers or distant microphones can peak at -35dB to -45dB.
 
-4. **Rule-based TextCleanupManager** is already comprehensive with 3 cleanup modes. LLM integration (US-106) should be additive, not replacement.
+4. **Level meter vs transcription buffer** - Both use the same `audioBuffers` array populated in the tap callback. The level meter calculates from the raw input buffer, while transcription uses the converted 16kHz buffer. This is correct but worth verifying.
+
+5. **Settings UI permission state** - Current implementation uses a computed property `hasAccessibilityPermission` which doesn't trigger SwiftUI updates when permission changes externally. Need to make it @Published.
 
 ### Risks
 
-1. **Local LLM memory usage** - Running both WhisperKit and LLM may strain memory on 8GB Macs. Consider model size limits and sequential (not parallel) inference.
+1. **Polling overhead** - 1-second polling timer for accessibility permission is minimal CPU cost but should be stopped once permission is granted.
 
-2. **Audio format edge cases** - Some microphones may produce non-standard formats that AVAudioConverter doesn't handle well. Debug mode will help identify these.
+2. **Threshold sensitivity** - Changing from -40dB to -55dB will allow more quiet audio through, potentially including environmental noise. This is acceptable per PRD requirements.
 
-3. **WhisperKit dependency** - WhisperKit requires macOS 14.0+ which limits user base. Cannot downgrade.
+3. **Cached permission value** - macOS may cache `AXIsProcessTrusted()` result. The app activation callback should force a fresh check.
 
-### Framework Evaluation for US-106
+### Technical Notes
 
-**llama.cpp Swift**
-- Pros: Mature, well-tested, cross-platform
-- Cons: C++ core, bridging complexity
-
-**MLX Swift**
-- Pros: Apple-native, optimized for Apple Silicon
-- Cons: Apple Silicon only, newer/less tested
-
-Recommendation: Start with llama.cpp for broader compatibility, evaluate MLX if performance issues arise on Apple Silicon.
+- `AXIsProcessTrusted()` is the standard API for checking accessibility permission
+- `NSApplication.didBecomeActiveNotification` fires when app comes to foreground
+- Audio dB calculation: `20 * log10(amplitude)` where amplitude is in [0.0, 1.0] range
+- WhisperKit expects 16kHz mono Float32 audio with samples in [-1.0, 1.0] range

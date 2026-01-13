@@ -1,0 +1,27 @@
+All tasks are complete. Let me provide a summary:
+
+## Summary
+
+Successfully implemented **US-106: Local LLM Text Cleanup** for WispFlow. The implementation includes:
+
+### Key Changes:
+1. **Added llama.swift dependency** - Provides access to llama.cpp for local LLM inference via Swift Package Manager
+2. **Created LLMManager.swift** - Full LLM lifecycle management including:
+   - 3 model sizes: Qwen 2.5 1.5B, Phi-3 Mini, Gemma 2B (quantized GGUF formats)
+   - Model download from Hugging Face with progress tracking
+   - Model loading using llama.cpp APIs
+   - Text generation with tokenization, batch processing, and greedy sampling
+3. **Added AI-Powered cleanup mode** - New cleanup mode in TextCleanupManager that uses LLM when available
+4. **Implemented automatic fallback** - If LLM unavailable or fails, falls back to thorough rule-based cleanup
+5. **Updated Settings UI** - LLM model selection, status display, download/load/delete buttons in the Text Cleanup tab
+
+### Verification:
+- `swift build` passes successfully (with expected Sendable warnings for OpaquePointer)
+
+### Commits:
+- `bc5e741` - feat(US-106): implement local LLM text cleanup with llama.cpp
+- `10689a1` - docs: update progress log for US-106
+
+All 6 stories in the PRD v0.2 are now complete (US-101 through US-106).
+
+<promise>COMPLETE</promise>

@@ -1,0 +1,19 @@
+The implementation plan is complete. Let me provide a summary of what was accomplished:
+
+## Summary
+
+I created the **Implementation Plan for WispFlow v0.3** at `/Users/lucasnolan/WispFlow/.ralph/IMPLEMENTATION_PLAN.md`. This plan addresses two critical bugs identified in the PRD:
+
+1. **Accessibility Permission Detection** (US-201) - The app currently doesn't recognize when the user grants accessibility permission because `AXIsProcessTrusted()` returns a cached value. The plan includes:
+   - Adding NSApplication.didBecomeActiveNotification observer
+   - Implementing a polling timer (1-second interval)
+   - Adding a "Check Again" button
+   - Making the permission property @Published for reactive UI
+
+2. **Audio Buffer Pipeline & Silence Detection** (US-202, US-205) - Audio is captured (level meter shows activity) but falsely reported as silent. The plan includes:
+   - Verifying the buffer pipeline integrity
+   - Fixing dB calculation for edge cases
+   - Changing the silence threshold from -40dB to -55dB (more permissive)
+   - Adding comprehensive audio diagnostics
+
+The plan has 5 user stories with 26 self-contained, independently shippable tasks. Each task includes scope (what/where), acceptance criteria, and verification commands. The PRD already had correct story markers and Routing Policy section.
