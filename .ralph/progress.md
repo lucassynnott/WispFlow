@@ -670,3 +670,34 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-it
   - Zero sample percentage helps identify silence vs. signal issues early
   - Dual logging in Stage 4 and Stage 5 provides redundant verification points
 ---
+
+## [2026-01-13 19:05] - US-204: Permission Flow UX
+Thread: codex exec session
+Run: 20260113-181417-30393 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-181417-30393-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 2986e27 docs: update progress log for US-204
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - .agents/tasks/prd-v3.md (updated acceptance criteria for US-204)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status for US-204)
+  - .ralph/progress.md (appended progress entry)
+- What was implemented:
+  - All US-204 acceptance criteria were already implemented in previous commits:
+    - Step-by-step permission grant instructions (numbered 1-2-3 steps) in TextInsertionSettingsView
+    - Colored indicator (red/green) using SF Symbols checkmark.circle.fill/xmark.circle.fill with tinted backgrounds
+    - "Open System Settings" button opening x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility
+    - "Permission Granted!" animated confirmation message via onPermissionGranted callback (3-second auto-hide)
+    - Permission status tracked in hasAccessibilityPermission; prompts skipped once granted
+  - This iteration verified the implementation and updated documentation to mark US-204 complete
+- **Learnings for future iterations:**
+  - Some stories may be implicitly completed during related feature work (US-204 was done as part of US-201)
+  - Always audit existing code before implementing to avoid duplicate work
+  - TextInserter.onPermissionGranted callback provides clean separation between model and UI
+  - NSApplication.didBecomeActiveNotification + polling timer ensures permission detection even without explicit user action
+  - Use x-apple.systempreferences: URL scheme for direct System Settings deep links
+---
