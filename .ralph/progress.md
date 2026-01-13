@@ -1022,3 +1022,49 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-193017-47944-it
   - Separate Quick Export (to Documents) from Save Panel export gives flexibility
   - Auto-save toggle provides hands-free debugging workflow for audio issues
 ---
+
+## [2026-01-13 20:40] - US-401: Design System Foundation
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 919bc59 feat(US-401): add design system foundation with colors, typography, and reusable styles
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/DesignSystem.swift (new - complete design system implementation)
+  - .agents/tasks/prd-v5.md (updated - US-401 marked complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated - US-401 tasks marked complete)
+- What was implemented:
+  - Color.Wispflow namespace with all color palette definitions:
+    - background (#FEFCF8 warm ivory), surface (white), accent (#E07A5F coral)
+    - success (#81B29A sage), textPrimary (#2D3436), textSecondary (#636E72)
+    - border (#E8E4DF), error (#D64545), warning (#E09F3E)
+    - Light opacity variants: accentLight, successLight, errorLight
+  - NSColor.Wispflow namespace for AppKit components with matching colors
+  - Font.Wispflow namespace with typography styles:
+    - largeTitle (28pt bold rounded), title (20pt semibold rounded)
+    - headline (16pt semibold rounded), body (14pt regular)
+    - caption (12pt medium), small (11pt regular), mono (13pt monospaced)
+  - NSFont.Wispflow namespace for AppKit equivalents
+  - Spacing enum: xs (4), sm (8), md (12), lg (16), xl (24), xxl (32)
+  - CornerRadius enum: small (8), medium (12), large (16), extraLarge (22)
+  - ShadowStyle enum with card/floating/subtle presets and .wispflowShadow() modifier
+  - WispflowButtonStyle with primary/secondary/ghost variants:
+    - Press animation (scale 0.97), hover states with color changes
+    - Static convenience properties: .primary, .secondary, .ghost
+  - WispflowCardStyle ViewModifier with .wispflowCard() extension:
+    - White background, configurable padding, soft shadow
+  - WispflowToggleStyle with coral accent and smooth animations
+  - WispflowTextFieldStyle with warm styling and focus glow
+  - WispflowAnimation presets: quick (0.1s), standard (0.2s), smooth (0.3s), spring, slide
+- **Learnings for future iterations:**
+  - Use nested struct for namespace (Color.Wispflow) rather than extension on Color
+  - ButtonStyle requires @State for isHovering since makeBody is called repeatedly
+  - ViewModifier provides reusable styling via .modifier() or convenience extension
+  - ToggleStyle makeBody receives configuration with isOn binding for custom controls
+  - Animation presets centralize timing values for consistent micro-interactions
+---
