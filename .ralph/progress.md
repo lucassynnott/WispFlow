@@ -472,3 +472,57 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-171403-13989-it
   - isRetryable property allows UI to show appropriate buttons per error type
   - Context dictionaries make logs more useful for debugging
 ---
+
+## [2026-01-13 17:45] - US-106: Local LLM Text Cleanup
+Thread: codex exec session
+Run: 20260113-174413-19163 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-174413-19163-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-174413-19163-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: bc5e741 feat(US-106): implement local LLM text cleanup with llama.cpp
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete with warnings about Sendable OpaquePointer)
+- Files changed:
+  - Package.swift (modified - added llama.swift dependency)
+  - Sources/WispFlow/LLMManager.swift (new - complete LLM management)
+  - Sources/WispFlow/TextCleanupManager.swift (modified - added aiPowered mode, LLM integration)
+  - Sources/WispFlow/AppDelegate.swift (modified - LLMManager setup, TextCleanupManager connection)
+  - Sources/WispFlow/SettingsWindow.swift (modified - LLM settings UI, model management)
+  - .agents/tasks/prd-v2.md (updated acceptance criteria for US-106)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status for US-106)
+- What was implemented:
+  - llama.swift dependency (mattt/llama.swift):
+    - Provides semantically versioned access to llama.cpp
+    - Added to Package.swift with LlamaSwift product dependency
+  - LLMManager.swift: Complete LLM integration:
+    - ModelSize enum: Qwen 2.5 1.5B, Phi-3 Mini, Gemma 2B (all quantized GGUF)
+    - Hugging Face model download with progress tracking via URLSessionDownloadDelegate
+    - Models stored in ~/Library/Application Support/WispFlow/LLMModels/
+    - Model loading using llama.cpp: llama_backend_init, llama_model_load_from_file, llama_init_from_model
+    - Text generation: tokenization, batch processing, greedy sampling, EOS detection
+    - System prompt optimized for text cleanup tasks
+  - AI-Powered cleanup mode:
+    - Added CleanupMode.aiPowered to TextCleanupManager
+    - cleanupText() tries LLM first when AI-Powered selected
+    - Automatic fallback to thorough rule-based cleanup if LLM unavailable
+    - llmManager property connects TextCleanupManager to LLMManager
+  - Settings UI for LLM:
+    - LLMStatusBadge component showing model status
+    - TextCleanupSettingsView shows LLM settings panel when AI-Powered selected
+    - LLM model selection picker with download status indicators
+    - Download & Load / Delete buttons for model management
+    - Delete confirmation alert
+  - Integration:
+    - AppDelegate creates LLMManager and connects to TextCleanupManager
+    - Auto-loads LLM model on startup if AI-Powered mode selected
+    - Error logging for LLM failures
+- **Learnings for future iterations:**
+  - llama.swift provides low-level llama.cpp access, requires manual tokenization/batch management
+  - OpaquePointer doesn't conform to Sendable, causing Swift 6 warnings when crossing actor boundaries
+  - Model download from Hugging Face: https://huggingface.co/{repo}/resolve/main/{filename}
+  - llama.cpp context needs explicit cleanup in deinit (can't call actor-isolated methods)
+  - Greedy sampling is simple: find token with highest logit value
+  - Small models (1-4B parameters) can run on most Macs but larger models need memory consideration
+---
