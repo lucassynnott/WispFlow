@@ -20,50 +20,57 @@ struct SettingsView: View {
     @State private var llmModelToDelete: LLMManager.ModelSize?
     
     var body: some View {
-        TabView {
-            // General tab (hotkey, launch at login)
-            GeneralSettingsView(hotkeyManager: hotkeyManager)
-            .tabItem {
-                Label("General", systemImage: "gear")
-            }
+        ZStack {
+            // Warm ivory background
+            Color.Wispflow.background
+                .ignoresSafeArea()
             
-            // Transcription tab
-            TranscriptionSettingsView(
-                whisperManager: whisperManager,
-                isLoadingModel: $isLoadingWhisperModel,
-                showDeleteConfirmation: $showDeleteConfirmation,
-                modelToDelete: $modelToDelete
-            )
-            .tabItem {
-                Label("Transcription", systemImage: "waveform")
+            TabView {
+                // General tab (hotkey, launch at login)
+                GeneralSettingsView(hotkeyManager: hotkeyManager)
+                .tabItem {
+                    Label("General", systemImage: "gear")
+                }
+                
+                // Transcription tab
+                TranscriptionSettingsView(
+                    whisperManager: whisperManager,
+                    isLoadingModel: $isLoadingWhisperModel,
+                    showDeleteConfirmation: $showDeleteConfirmation,
+                    modelToDelete: $modelToDelete
+                )
+                .tabItem {
+                    Label("Transcription", systemImage: "waveform")
+                }
+                
+                // Text Cleanup tab
+                TextCleanupSettingsView(
+                    textCleanupManager: textCleanupManager,
+                    llmManager: llmManager,
+                    isLoadingModel: $isLoadingCleanupModel,
+                    isLoadingLLMModel: $isLoadingLLMModel,
+                    showLLMDeleteConfirmation: $showLLMDeleteConfirmation,
+                    llmModelToDelete: $llmModelToDelete
+                )
+                .tabItem {
+                    Label("Text Cleanup", systemImage: "text.badge.checkmark")
+                }
+                
+                // Text Insertion tab
+                TextInsertionSettingsView(textInserter: textInserter)
+                .tabItem {
+                    Label("Text Insertion", systemImage: "doc.on.clipboard")
+                }
+                
+                // Debug tab
+                DebugSettingsView(debugManager: debugManager, onOpenDebugWindow: onOpenDebugWindow)
+                .tabItem {
+                    Label("Debug", systemImage: "ladybug")
+                }
             }
-            
-            // Text Cleanup tab
-            TextCleanupSettingsView(
-                textCleanupManager: textCleanupManager,
-                llmManager: llmManager,
-                isLoadingModel: $isLoadingCleanupModel,
-                isLoadingLLMModel: $isLoadingLLMModel,
-                showLLMDeleteConfirmation: $showLLMDeleteConfirmation,
-                llmModelToDelete: $llmModelToDelete
-            )
-            .tabItem {
-                Label("Text Cleanup", systemImage: "text.badge.checkmark")
-            }
-            
-            // Text Insertion tab
-            TextInsertionSettingsView(textInserter: textInserter)
-            .tabItem {
-                Label("Text Insertion", systemImage: "doc.on.clipboard")
-            }
-            
-            // Debug tab
-            DebugSettingsView(debugManager: debugManager, onOpenDebugWindow: onOpenDebugWindow)
-            .tabItem {
-                Label("Debug", systemImage: "ladybug")
-            }
+            .background(Color.Wispflow.background)
         }
-        .frame(width: 520, height: 580)
+        .frame(width: 620, height: 560)
         .alert("Delete Model?", isPresented: $showDeleteConfirmation, presenting: modelToDelete) { model in
             Button("Delete", role: .destructive) {
                 Task {
@@ -96,40 +103,49 @@ struct DebugSettingsView: View {
     @State private var isPlayingAudio = false
     
     var body: some View {
-        Form {
-            Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Debug Mode toggle
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                // Debug Mode toggle card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Debug Mode")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     Toggle("Enable Debug Mode", isOn: $debugManager.isDebugModeEnabled)
-                        .toggleStyle(.switch)
+                        .toggleStyle(WispflowToggleStyle())
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     Text("When enabled, WispFlow will log detailed information about audio capture, transcription, and text cleanup. Use this to troubleshoot transcription issues.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                     
                     // Silence detection override (only available in debug mode)
                     if debugManager.isDebugModeEnabled {
                         Divider()
+                            .background(Color.Wispflow.border)
                         
                         Toggle("Disable Silence Detection", isOn: $debugManager.isSilenceDetectionDisabled)
-                            .toggleStyle(.switch)
+                            .toggleStyle(WispflowToggleStyle())
+                            .font(Font.Wispflow.body)
+                            .foregroundColor(Color.Wispflow.textPrimary)
                         
                         Text("When enabled, audio will not be rejected for being too quiet. Useful for testing with silent or near-silent recordings.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
                         
                         // US-306: Auto-save recordings toggle
                         Divider()
+                            .background(Color.Wispflow.border)
                         
                         Toggle("Auto-Save Recordings", isOn: $debugManager.isAutoSaveEnabled)
-                            .toggleStyle(.switch)
+                            .toggleStyle(WispflowToggleStyle())
+                            .font(Font.Wispflow.body)
+                            .foregroundColor(Color.Wispflow.textPrimary)
                         
                         Text("When enabled, each recording will be automatically saved to Documents/WispFlow/DebugRecordings/ for later analysis.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
                         
                         if debugManager.isAutoSaveEnabled {
                             Button(action: {
@@ -140,22 +156,20 @@ struct DebugSettingsView: View {
                                     Text("Open Recordings Folder")
                                 }
                             }
-                            .buttonStyle(.bordered)
-                            .padding(.top, 4)
+                            .buttonStyle(WispflowButtonStyle.secondary)
+                            .padding(.top, Spacing.xs)
                         }
                     }
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Debug window button
+                .wispflowCard()
+                
+                // Debug Tools card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Debug Tools")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
-                    HStack(spacing: 12) {
+                    HStack(spacing: Spacing.md) {
                         Button(action: {
                             onOpenDebugWindow?()
                         }) {
@@ -163,9 +177,8 @@ struct DebugSettingsView: View {
                                 Image(systemName: "rectangle.and.text.magnifyingglass")
                                 Text("Open Debug Window")
                             }
-                            .frame(minWidth: 140)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(WispflowButtonStyle.primary)
                         .disabled(!debugManager.isDebugModeEnabled)
                         
                         Button(action: exportLastAudio) {
@@ -173,23 +186,21 @@ struct DebugSettingsView: View {
                                 Image(systemName: "square.and.arrow.up")
                                 Text("Export Audio")
                             }
-                            .frame(minWidth: 100)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(WispflowButtonStyle.secondary)
                         .disabled(!debugManager.isDebugModeEnabled || debugManager.lastRawAudioData == nil)
                     }
                     
                     // US-306: Quick export to Documents
                     if debugManager.isDebugModeEnabled && debugManager.lastRawAudioData != nil {
-                        HStack(spacing: 12) {
+                        HStack(spacing: Spacing.md) {
                             Button(action: quickExportToDocuments) {
                                 HStack {
                                     Image(systemName: "doc.badge.arrow.up")
                                     Text("Quick Export")
                                 }
-                                .frame(minWidth: 100)
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(WispflowButtonStyle.secondary)
                             .help("Export to Documents/WispFlow/DebugRecordings/")
                             
                             // US-306: Playback button (only if there's an exported file)
@@ -199,10 +210,8 @@ struct DebugSettingsView: View {
                                         Image(systemName: isPlayingAudio ? "stop.fill" : "play.fill")
                                         Text(isPlayingAudio ? "Stop" : "Play")
                                     }
-                                    .frame(minWidth: 80)
                                 }
-                                .buttonStyle(.bordered)
-                                .tint(isPlayingAudio ? .red : .green)
+                                .buttonStyle(WispflowButtonStyle(variant: isPlayingAudio ? .ghost : .secondary))
                                 
                                 Button(action: {
                                     AudioExporter.shared.revealLastExportInFinder()
@@ -212,42 +221,41 @@ struct DebugSettingsView: View {
                                         Text("Show in Finder")
                                     }
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(WispflowButtonStyle.secondary)
                             }
                         }
                     }
                     
                     if !debugManager.isDebugModeEnabled {
                         Text("Enable Debug Mode to access debug tools")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
                     }
                     
                     // US-306: Show last export path if available
                     if let path = exportedFilePath {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
                             Text("Last Export:")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .font(Font.Wispflow.caption)
+                                .foregroundColor(Color.Wispflow.textSecondary)
                             Text(path)
-                                .font(.caption2)
-                                .foregroundColor(.blue)
+                                .font(Font.Wispflow.small)
+                                .foregroundColor(Color.Wispflow.accent)
                                 .lineLimit(2)
                                 .truncationMode(.middle)
                         }
-                        .padding(.top, 8)
+                        .padding(.top, Spacing.sm)
                     }
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 12) {
+                .wispflowCard()
+                
+                // Debug Features card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Debug Features")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
                         DebugFeatureRow(icon: "waveform", text: "Audio waveform visualization")
                         DebugFeatureRow(icon: "doc.text", text: "Raw transcription before cleanup")
                         DebugFeatureRow(icon: "square.and.arrow.up", text: "Export audio as WAV file")
@@ -256,39 +264,39 @@ struct DebugSettingsView: View {
                         DebugFeatureRow(icon: "chart.bar", text: "Audio level statistics")
                     }
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    // Last recording info
+                .wispflowCard()
+                
+                // Last Recording card
+                VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("Last Recording")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     if let audioData = debugManager.lastAudioData {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
                             HStack {
                                 Text("Duration:")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.Wispflow.textSecondary)
                                 Text(String(format: "%.2f seconds", audioData.duration))
+                                    .foregroundColor(Color.Wispflow.textPrimary)
                             }
-                            .font(.caption)
+                            .font(Font.Wispflow.caption)
                             
                             HStack {
                                 Text("Peak Level:")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.Wispflow.textSecondary)
                                 Text(String(format: "%.1f dB", audioData.peakLevel))
-                                    .foregroundColor(audioData.peakLevel > -55 ? .green : .orange)
+                                    .foregroundColor(audioData.peakLevel > -55 ? Color.Wispflow.success : Color.Wispflow.warning)
                             }
-                            .font(.caption)
+                            .font(Font.Wispflow.caption)
                             
                             HStack {
                                 Text("Samples:")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.Wispflow.textSecondary)
                                 Text("\(audioData.samples.count)")
+                                    .foregroundColor(Color.Wispflow.textPrimary)
                             }
-                            .font(.caption)
+                            .font(Font.Wispflow.caption)
                             
                             // Mini waveform
                             CompactWaveformView(
@@ -296,17 +304,21 @@ struct DebugSettingsView: View {
                                 sampleRate: audioData.sampleRate
                             )
                             .frame(height: 40)
-                            .padding(.top, 4)
+                            .padding(.top, Spacing.xs)
                         }
                     } else {
                         Text("No recording data available")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
                     }
                 }
+                .wispflowCard()
+                
+                Spacer()
             }
+            .padding(Spacing.xl)
         }
-        .padding()
+        .background(Color.Wispflow.background)
         .alert("Export Result", isPresented: $showExportSuccess) {
             Button("OK", role: .cancel) {}
             if let _ = exportedFilePath {
@@ -401,13 +413,13 @@ struct DebugFeatureRow: View {
     let text: String
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.Wispflow.textSecondary)
                 .frame(width: 16)
             Text(text)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
         }
     }
 }
@@ -422,16 +434,17 @@ struct TranscriptionSettingsView: View {
     @State private var showErrorAlert: Bool = false
     
     var body: some View {
-        Form {
-            Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Model selection
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                // Model selection card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Whisper Model")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     Text("Select a model size. Larger models are more accurate but slower and use more memory.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                     
                     Picker("Model Size", selection: Binding(
                         get: { whisperManager.selectedModel },
@@ -444,9 +457,10 @@ struct TranscriptionSettingsView: View {
                         ForEach(WhisperManager.ModelSize.allCases) { model in
                             HStack {
                                 Text(model.displayName)
+                                    .foregroundColor(Color.Wispflow.textPrimary)
                                 if whisperManager.isModelDownloaded(model) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                                        .foregroundColor(Color.Wispflow.success)
                                         .font(.caption)
                                 }
                             }
@@ -457,44 +471,58 @@ struct TranscriptionSettingsView: View {
                     
                     // Model description
                     Text(whisperManager.selectedModel.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 20)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .padding(.leading, Spacing.xl)
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 12) {
+                .wispflowCard()
+                
+                // Status and Actions card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     // Status display
                     HStack {
                         Text("Status:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .font(Font.Wispflow.body)
+                            .foregroundColor(Color.Wispflow.textSecondary)
                         
                         StatusBadge(status: whisperManager.modelStatus)
                     }
                     
                     Text(whisperManager.statusMessage)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                     
                     // US-304: Download progress bar (shown during download)
                     if case .downloading(let progress) = whisperManager.modelStatus {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ProgressView(value: progress, total: 1.0)
-                                .progressViewStyle(.linear)
-                                .frame(maxWidth: 300)
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
+                            // Custom gradient progress bar
+                            GeometryReader { geometry in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: CornerRadius.small / 2)
+                                        .fill(Color.Wispflow.border)
+                                    RoundedRectangle(cornerRadius: CornerRadius.small / 2)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color.Wispflow.accent.opacity(0.8), Color.Wispflow.accent],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .frame(width: geometry.size.width * CGFloat(progress))
+                                }
+                            }
+                            .frame(height: 8)
+                            .frame(maxWidth: 300)
+                            
                             Text("\(Int(progress * 100))% complete")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .font(Font.Wispflow.small)
+                                .foregroundColor(Color.Wispflow.textSecondary)
                         }
-                        .padding(.top, 4)
+                        .padding(.top, Spacing.xs)
                     }
                     
                     // Action buttons
-                    HStack(spacing: 12) {
+                    HStack(spacing: Spacing.md) {
                         // Load/Download button
                         Button(action: {
                             Task {
@@ -517,10 +545,9 @@ struct TranscriptionSettingsView: View {
                                 }
                                 Text(buttonTitle)
                             }
-                            .frame(minWidth: 120)
                         }
                         .disabled(isLoadingModel || whisperManager.modelStatus == .ready)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(WispflowButtonStyle.primary)
                         
                         // US-304: Retry button (shown when there's an error)
                         if case .error = whisperManager.modelStatus {
@@ -541,7 +568,7 @@ struct TranscriptionSettingsView: View {
                                 }
                             }
                             .disabled(isLoadingModel)
-                            .buttonStyle(.bordered)
+                            .buttonStyle(WispflowButtonStyle.secondary)
                             
                             // Show error details button
                             Button(action: {
@@ -552,8 +579,7 @@ struct TranscriptionSettingsView: View {
                                     Text("Error Details")
                                 }
                             }
-                            .buttonStyle(.bordered)
-                            .foregroundColor(.red)
+                            .buttonStyle(WispflowButtonStyle.ghost)
                         }
                         
                         // Delete button (if model is downloaded)
@@ -568,47 +594,52 @@ struct TranscriptionSettingsView: View {
                                 }
                             }
                             .disabled(isLoadingModel)
-                            .buttonStyle(.bordered)
+                            .buttonStyle(WispflowButtonStyle.secondary)
                         }
                     }
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
+                .wispflowCard()
+                
+                // Downloaded Models card
+                VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("Downloaded Models")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     let downloadedModels = whisperManager.getDownloadedModels()
                     if downloadedModels.isEmpty {
                         Text("No models downloaded yet")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
                     } else {
                         ForEach(downloadedModels) { model in
                             HStack {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                                    .foregroundColor(Color.Wispflow.success)
                                 Text(model.displayName)
-                                    .font(.caption)
+                                    .font(Font.Wispflow.caption)
+                                    .foregroundColor(Color.Wispflow.textPrimary)
                                 Spacer()
                                 if model == whisperManager.selectedModel && whisperManager.modelStatus == .ready {
                                     Text("Active")
-                                        .font(.caption2)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.blue.opacity(0.2))
-                                        .cornerRadius(4)
+                                        .font(Font.Wispflow.small)
+                                        .padding(.horizontal, Spacing.sm)
+                                        .padding(.vertical, Spacing.xs)
+                                        .background(Color.Wispflow.accentLight)
+                                        .foregroundColor(Color.Wispflow.accent)
+                                        .cornerRadius(CornerRadius.small / 2)
                                 }
                             }
                         }
                     }
                 }
+                .wispflowCard()
+                
+                Spacer()
             }
+            .padding(Spacing.xl)
         }
-        .padding()
+        .background(Color.Wispflow.background)
         // US-304: Error alert with detailed message
         .alert("Download Failed", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) {}
@@ -660,31 +691,32 @@ struct StatusBadge: View {
     let status: WhisperManager.ModelStatus
     
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Spacing.xs) {
             Circle()
                 .fill(statusColor)
                 .frame(width: 8, height: 8)
             Text(statusText)
-                .font(.caption)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(statusColor)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
         .background(statusColor.opacity(0.15))
-        .cornerRadius(8)
+        .cornerRadius(CornerRadius.small)
     }
     
     private var statusColor: Color {
         switch status {
         case .notDownloaded:
-            return .gray
+            return Color.Wispflow.textSecondary
         case .downloading, .loading:
-            return .orange
+            return Color.Wispflow.warning
         case .downloaded:
-            return .blue
+            return Color.Wispflow.accent
         case .ready:
-            return .green
+            return Color.Wispflow.success
         case .error:
-            return .red
+            return Color.Wispflow.error
         }
     }
     
@@ -722,167 +754,258 @@ struct TextCleanupSettingsView: View {
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Cleanup toggle section
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle("Enable Text Cleanup", isOn: Binding(
-                            get: { textCleanupManager.isCleanupEnabled },
-                            set: { textCleanupManager.isCleanupEnabled = $0 }
-                        ))
-                        .toggleStyle(.switch)
-                        
-                        Text("When enabled, transcribed text will be cleaned up to remove filler words, fix grammar, and improve formatting.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                // Cleanup toggle card
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    Toggle("Enable Text Cleanup", isOn: Binding(
+                        get: { textCleanupManager.isCleanupEnabled },
+                        set: { textCleanupManager.isCleanupEnabled = $0 }
+                    ))
+                    .toggleStyle(WispflowToggleStyle())
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    Text("When enabled, transcribed text will be cleaned up to remove filler words, fix grammar, and improve formatting.")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                 }
+                .wispflowCard()
                 
-                // Mode selection section
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Cleanup Mode")
-                            .font(.headline)
-                        
-                        Text("Select a cleanup mode. AI-Powered uses a local LLM for intelligent cleanup.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Picker("Cleanup Mode", selection: $textCleanupManager.selectedMode) {
-                            ForEach(TextCleanupManager.CleanupMode.allCases) { mode in
-                                HStack {
-                                    Text(mode.displayName)
-                                    if mode == .aiPowered {
-                                        if llmManager.modelStatus == .ready {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundColor(.green)
-                                                .font(.caption)
-                                        } else if llmManager.isModelDownloaded(llmManager.selectedModel) {
-                                            Image(systemName: "circle.fill")
-                                                .foregroundColor(.blue)
-                                                .font(.caption)
-                                        }
+                // Mode selection card
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    Text("Cleanup Mode")
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    Text("Select a cleanup mode. AI-Powered uses a local LLM for intelligent cleanup.")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    
+                    Picker("Cleanup Mode", selection: $textCleanupManager.selectedMode) {
+                        ForEach(TextCleanupManager.CleanupMode.allCases) { mode in
+                            HStack {
+                                Text(mode.displayName)
+                                    .foregroundColor(Color.Wispflow.textPrimary)
+                                if mode == .aiPowered {
+                                    if llmManager.modelStatus == .ready {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(Color.Wispflow.success)
+                                            .font(.caption)
+                                    } else if llmManager.isModelDownloaded(llmManager.selectedModel) {
+                                        Image(systemName: "circle.fill")
+                                            .foregroundColor(Color.Wispflow.accent)
+                                            .font(.caption)
                                     }
                                 }
-                                .tag(mode)
                             }
+                            .tag(mode)
                         }
-                        .pickerStyle(.radioGroup)
-                        .disabled(!textCleanupManager.isCleanupEnabled)
-                        
-                        Text(textCleanupManager.selectedMode.description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 20)
                     }
+                    .pickerStyle(.radioGroup)
+                    .disabled(!textCleanupManager.isCleanupEnabled)
+                    
+                    Text(textCleanupManager.selectedMode.description)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .padding(.leading, Spacing.xl)
                 }
+                .wispflowCard()
                 
                 // LLM Settings (only shown when AI-Powered mode is selected)
                 if textCleanupManager.selectedMode == .aiPowered {
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Local LLM Settings")
-                                .font(.headline)
-                            
-                            // LLM Model selection
-                            Picker("LLM Model", selection: Binding(
-                                get: { llmManager.selectedModel },
-                                set: { llmManager.selectModel($0) }
-                            )) {
-                                ForEach(LLMManager.ModelSize.allCases) { model in
-                                    HStack {
-                                        Text(model.displayName)
-                                        if llmManager.isModelDownloaded(model) {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundColor(.green)
-                                                .font(.caption)
-                                        }
+                    VStack(alignment: .leading, spacing: Spacing.md) {
+                        Text("Local LLM Settings")
+                            .font(Font.Wispflow.headline)
+                            .foregroundColor(Color.Wispflow.textPrimary)
+                        
+                        // LLM Model selection
+                        Picker("LLM Model", selection: Binding(
+                            get: { llmManager.selectedModel },
+                            set: { llmManager.selectModel($0) }
+                        )) {
+                            ForEach(LLMManager.ModelSize.allCases) { model in
+                                HStack {
+                                    Text(model.displayName)
+                                        .foregroundColor(Color.Wispflow.textPrimary)
+                                    if llmManager.isModelDownloaded(model) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(Color.Wispflow.success)
+                                            .font(.caption)
                                     }
-                                    .tag(model)
                                 }
+                                .tag(model)
                             }
-                            .pickerStyle(.radioGroup)
+                        }
+                        .pickerStyle(.radioGroup)
+                        
+                        Text(llmManager.selectedModel.description)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
+                            .padding(.leading, Spacing.xl)
+                        
+                        Divider()
+                            .background(Color.Wispflow.border)
+                        
+                        // LLM Status
+                        HStack {
+                            Text("LLM Status:")
+                                .font(Font.Wispflow.body)
+                                .foregroundColor(Color.Wispflow.textSecondary)
                             
-                            Text(llmManager.selectedModel.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 20)
-                            
-                            Divider()
-                            
-                            // LLM Status
-                            HStack {
-                                Text("LLM Status:")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                            LLMStatusBadge(status: llmManager.modelStatus)
+                        }
+                        
+                        Text(llmManager.statusMessage)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
+                        
+                        // US-305: Download progress bar
+                        if case .downloading(let progress) = llmManager.modelStatus {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
+                                // Custom gradient progress bar
+                                GeometryReader { geometry in
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: CornerRadius.small / 2)
+                                            .fill(Color.Wispflow.border)
+                                        RoundedRectangle(cornerRadius: CornerRadius.small / 2)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color.Wispflow.accent.opacity(0.8), Color.Wispflow.accent],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .frame(width: geometry.size.width * CGFloat(progress))
+                                    }
+                                }
+                                .frame(height: 8)
+                                .frame(maxWidth: 300)
                                 
-                                LLMStatusBadge(status: llmManager.modelStatus)
+                                Text("\(Int(progress * 100))% downloaded")
+                                    .font(Font.Wispflow.small)
+                                    .foregroundColor(Color.Wispflow.textSecondary)
                             }
-                            
-                            Text(llmManager.statusMessage)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            // US-305: Download progress bar
-                            if case .downloading(let progress) = llmManager.modelStatus {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    ProgressView(value: progress)
-                                        .progressViewStyle(.linear)
-                                    Text("\(Int(progress * 100))% downloaded")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
+                        }
+                        
+                        // Action buttons
+                        HStack(spacing: Spacing.md) {
+                            // Main action button (Download/Load/Retry)
+                            if case .error = llmManager.modelStatus {
+                                // US-305: Retry button for failed downloads
+                                Button(action: {
+                                    Task {
+                                        isLoadingLLMModel = true
+                                        await llmManager.retryDownload()
+                                        isLoadingLLMModel = false
+                                        // Show error alert if retry also failed
+                                        if case .error = llmManager.modelStatus {
+                                            showLLMErrorAlert = true
+                                        }
+                                    }
+                                }) {
+                                    HStack {
+                                        if isLoadingLLMModel {
+                                            ProgressView()
+                                                .scaleEffect(0.7)
+                                                .frame(width: 16, height: 16)
+                                        } else {
+                                            Image(systemName: "arrow.clockwise")
+                                        }
+                                        Text("Retry Download")
+                                    }
                                 }
+                                .disabled(isLoadingLLMModel)
+                                .buttonStyle(WispflowButtonStyle(variant: .primary))
+                                
+                                // Error details button
+                                Button(action: {
+                                    showLLMErrorAlert = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "exclamationmark.triangle")
+                                        Text("Error Details")
+                                    }
+                                }
+                                .buttonStyle(WispflowButtonStyle.ghost)
+                            } else {
+                                Button(action: {
+                                    Task {
+                                        isLoadingLLMModel = true
+                                        await llmManager.loadModel()
+                                        isLoadingLLMModel = false
+                                        // Show error alert if download failed
+                                        if case .error = llmManager.modelStatus {
+                                            showLLMErrorAlert = true
+                                        }
+                                    }
+                                }) {
+                                    HStack {
+                                        if isLoadingLLMModel {
+                                            ProgressView()
+                                                .scaleEffect(0.7)
+                                                .frame(width: 16, height: 16)
+                                        } else {
+                                            Image(systemName: llmButtonIconName)
+                                        }
+                                        Text(llmButtonTitle)
+                                    }
+                                }
+                                .disabled(isLoadingLLMModel || llmManager.modelStatus == .ready)
+                                .buttonStyle(WispflowButtonStyle.primary)
                             }
                             
-                            // Action buttons
-                            HStack(spacing: 12) {
-                                // Main action button (Download/Load/Retry)
-                                if case .error = llmManager.modelStatus {
-                                    // US-305: Retry button for failed downloads
-                                    Button(action: {
-                                        Task {
-                                            isLoadingLLMModel = true
-                                            await llmManager.retryDownload()
-                                            isLoadingLLMModel = false
-                                            // Show error alert if retry also failed
-                                            if case .error = llmManager.modelStatus {
-                                                showLLMErrorAlert = true
-                                            }
-                                        }
-                                    }) {
-                                        HStack {
-                                            if isLoadingLLMModel {
-                                                ProgressView()
-                                                    .scaleEffect(0.7)
-                                                    .frame(width: 16, height: 16)
-                                            } else {
-                                                Image(systemName: "arrow.clockwise")
-                                            }
-                                            Text("Retry Download")
-                                        }
-                                        .frame(minWidth: 140)
+                            // Delete button (if model is downloaded)
+                            if llmManager.isModelDownloaded(llmManager.selectedModel) {
+                                Button(action: {
+                                    llmModelToDelete = llmManager.selectedModel
+                                    showLLMDeleteConfirmation = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "trash")
+                                        Text("Delete")
                                     }
-                                    .disabled(isLoadingLLMModel)
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.orange)
+                                }
+                                .disabled(isLoadingLLMModel)
+                                .buttonStyle(WispflowButtonStyle.secondary)
+                            }
+                        }
+                        
+                        // US-305: Manual model path option as fallback
+                        Divider()
+                            .background(Color.Wispflow.border)
+                        
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            Text("Manual Model Path (Fallback)")
+                                .font(Font.Wispflow.body)
+                                .fontWeight(.medium)
+                                .foregroundColor(Color.Wispflow.textPrimary)
+                            
+                            Text("If automatic downloads fail, you can manually download a GGUF model file and specify its path here.")
+                                .font(Font.Wispflow.caption)
+                                .foregroundColor(Color.Wispflow.textSecondary)
+                            
+                            Toggle("Use custom model path", isOn: $llmManager.useCustomModelPath)
+                                .toggleStyle(WispflowToggleStyle())
+                                .font(Font.Wispflow.body)
+                                .foregroundColor(Color.Wispflow.textPrimary)
+                            
+                            if llmManager.useCustomModelPath {
+                                HStack {
+                                    TextField("Path to .gguf file", text: $llmManager.customModelPath)
+                                        .textFieldStyle(.roundedBorder)
                                     
-                                    // Error details button
-                                    Button(action: {
-                                        showLLMErrorAlert = true
-                                    }) {
-                                        HStack {
-                                            Image(systemName: "exclamationmark.triangle")
-                                            Text("Error Details")
-                                        }
+                                    Button("Browse...") {
+                                        showFilePicker = true
                                     }
-                                    .buttonStyle(.bordered)
-                                } else {
+                                    .buttonStyle(WispflowButtonStyle.secondary)
+                                }
+                                
+                                if !llmManager.customModelPath.isEmpty {
                                     Button(action: {
                                         Task {
                                             isLoadingLLMModel = true
-                                            await llmManager.loadModel()
+                                            await llmManager.loadModelFromCustomPath()
                                             isLoadingLLMModel = false
-                                            // Show error alert if download failed
                                             if case .error = llmManager.modelStatus {
                                                 showLLMErrorAlert = true
                                             }
@@ -894,87 +1017,18 @@ struct TextCleanupSettingsView: View {
                                                     .scaleEffect(0.7)
                                                     .frame(width: 16, height: 16)
                                             } else {
-                                                Image(systemName: llmButtonIconName)
+                                                Image(systemName: "play.circle")
                                             }
-                                            Text(llmButtonTitle)
+                                            Text("Load Custom Model")
                                         }
-                                        .frame(minWidth: 140)
                                     }
                                     .disabled(isLoadingLLMModel || llmManager.modelStatus == .ready)
-                                    .buttonStyle(.borderedProminent)
-                                }
-                                
-                                // Delete button (if model is downloaded)
-                                if llmManager.isModelDownloaded(llmManager.selectedModel) {
-                                    Button(action: {
-                                        llmModelToDelete = llmManager.selectedModel
-                                        showLLMDeleteConfirmation = true
-                                    }) {
-                                        HStack {
-                                            Image(systemName: "trash")
-                                            Text("Delete")
-                                        }
-                                    }
-                                    .disabled(isLoadingLLMModel)
-                                    .buttonStyle(.bordered)
-                                }
-                            }
-                            
-                            // US-305: Manual model path option as fallback
-                            Divider()
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Manual Model Path (Fallback)")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                
-                                Text("If automatic downloads fail, you can manually download a GGUF model file and specify its path here.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                
-                                Toggle("Use custom model path", isOn: $llmManager.useCustomModelPath)
-                                    .toggleStyle(.switch)
-                                
-                                if llmManager.useCustomModelPath {
-                                    HStack {
-                                        TextField("Path to .gguf file", text: $llmManager.customModelPath)
-                                            .textFieldStyle(.roundedBorder)
-                                        
-                                        Button("Browse...") {
-                                            showFilePicker = true
-                                        }
-                                        .buttonStyle(.bordered)
-                                    }
-                                    
-                                    if !llmManager.customModelPath.isEmpty {
-                                        Button(action: {
-                                            Task {
-                                                isLoadingLLMModel = true
-                                                await llmManager.loadModelFromCustomPath()
-                                                isLoadingLLMModel = false
-                                                if case .error = llmManager.modelStatus {
-                                                    showLLMErrorAlert = true
-                                                }
-                                            }
-                                        }) {
-                                            HStack {
-                                                if isLoadingLLMModel {
-                                                    ProgressView()
-                                                        .scaleEffect(0.7)
-                                                        .frame(width: 16, height: 16)
-                                                } else {
-                                                    Image(systemName: "play.circle")
-                                                }
-                                                Text("Load Custom Model")
-                                            }
-                                        }
-                                        .disabled(isLoadingLLMModel || llmManager.modelStatus == .ready)
-                                        .buttonStyle(.borderedProminent)
-                                    }
+                                    .buttonStyle(WispflowButtonStyle.primary)
                                 }
                             }
                         }
                     }
+                    .wispflowCard()
                     // US-305: Error alert
                     .alert("LLM Download Error", isPresented: $showLLMErrorAlert) {
                         Button("OK", role: .cancel) { }
@@ -1013,44 +1067,46 @@ struct TextCleanupSettingsView: View {
                     }
                 }
                 
-                // Status section
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Rule-based Status:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            CleanupStatusBadge(status: textCleanupManager.modelStatus)
-                        }
+                // Status card
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    HStack {
+                        Text("Rule-based Status:")
+                            .font(Font.Wispflow.body)
+                            .foregroundColor(Color.Wispflow.textSecondary)
                         
-                        Text(textCleanupManager.statusMessage)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        CleanupStatusBadge(status: textCleanupManager.modelStatus)
                     }
+                    
+                    Text(textCleanupManager.statusMessage)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                 }
+                .wispflowCard()
                 
-                // Feature list section
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("What Text Cleanup Does")
-                            .font(.headline)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            CleanupFeatureRow(icon: "minus.circle", text: "Removes filler words (um, uh, like, you know)")
-                            CleanupFeatureRow(icon: "checkmark.circle", text: "Fixes grammar and punctuation")
-                            CleanupFeatureRow(icon: "textformat", text: "Proper capitalization")
-                            CleanupFeatureRow(icon: "text.alignleft", text: "Natural text formatting")
-                            if textCleanupManager.selectedMode == .aiPowered {
-                                CleanupFeatureRow(icon: "brain", text: "AI-powered intelligent cleanup")
-                                CleanupFeatureRow(icon: "arrow.uturn.backward", text: "Automatic fallback if LLM unavailable")
-                            }
+                // Feature list card
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text("What Text Cleanup Does")
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        CleanupFeatureRow(icon: "minus.circle", text: "Removes filler words (um, uh, like, you know)")
+                        CleanupFeatureRow(icon: "checkmark.circle", text: "Fixes grammar and punctuation")
+                        CleanupFeatureRow(icon: "textformat", text: "Proper capitalization")
+                        CleanupFeatureRow(icon: "text.alignleft", text: "Natural text formatting")
+                        if textCleanupManager.selectedMode == .aiPowered {
+                            CleanupFeatureRow(icon: "brain", text: "AI-powered intelligent cleanup")
+                            CleanupFeatureRow(icon: "arrow.uturn.backward", text: "Automatic fallback if LLM unavailable")
                         }
                     }
                 }
+                .wispflowCard()
+                
+                Spacer()
             }
-            .padding()
+            .padding(Spacing.xl)
         }
+        .background(Color.Wispflow.background)
     }
     
     private var llmButtonTitle: String {
@@ -1092,31 +1148,32 @@ struct LLMStatusBadge: View {
     let status: LLMManager.ModelStatus
     
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Spacing.xs) {
             Circle()
                 .fill(statusColor)
                 .frame(width: 8, height: 8)
             Text(statusText)
-                .font(.caption)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(statusColor)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
         .background(statusColor.opacity(0.15))
-        .cornerRadius(8)
+        .cornerRadius(CornerRadius.small)
     }
     
     private var statusColor: Color {
         switch status {
         case .notDownloaded:
-            return .gray
+            return Color.Wispflow.textSecondary
         case .downloading, .loading:
-            return .orange
+            return Color.Wispflow.warning
         case .downloaded:
-            return .blue
+            return Color.Wispflow.accent
         case .ready:
-            return .green
+            return Color.Wispflow.success
         case .error:
-            return .red
+            return Color.Wispflow.error
         }
     }
     
@@ -1144,31 +1201,32 @@ struct CleanupStatusBadge: View {
     let status: TextCleanupManager.ModelStatus
     
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Spacing.xs) {
             Circle()
                 .fill(statusColor)
                 .frame(width: 8, height: 8)
             Text(statusText)
-                .font(.caption)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(statusColor)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
         .background(statusColor.opacity(0.15))
-        .cornerRadius(8)
+        .cornerRadius(CornerRadius.small)
     }
     
     private var statusColor: Color {
         switch status {
         case .notDownloaded:
-            return .gray
+            return Color.Wispflow.textSecondary
         case .downloading, .loading:
-            return .orange
+            return Color.Wispflow.warning
         case .downloaded:
-            return .blue
+            return Color.Wispflow.accent
         case .ready:
-            return .green
+            return Color.Wispflow.success
         case .error:
-            return .red
+            return Color.Wispflow.error
         }
     }
     
@@ -1197,13 +1255,13 @@ struct CleanupFeatureRow: View {
     let text: String
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.Wispflow.textSecondary)
                 .frame(width: 16)
             Text(text)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
         }
     }
 }
@@ -1215,86 +1273,87 @@ struct TextInsertionSettingsView: View {
     @State private var showPermissionGrantedMessage = false
     
     var body: some View {
-        Form {
-            Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Accessibility permission status
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                // Accessibility Permission card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Accessibility Permission")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     // Status indicator with checkmark/x icon
-                    HStack(spacing: 8) {
+                    HStack(spacing: Spacing.sm) {
                         Image(systemName: textInserter.hasAccessibilityPermission ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(textInserter.hasAccessibilityPermission ? .green : .red)
+                            .foregroundColor(textInserter.hasAccessibilityPermission ? Color.Wispflow.success : Color.Wispflow.error)
                             .font(.system(size: 16))
                         Text(textInserter.hasAccessibilityPermission ? "Permission Granted" : "Permission Not Granted")
-                            .font(.subheadline)
-                            .foregroundColor(textInserter.hasAccessibilityPermission ? .green : .red)
+                            .font(Font.Wispflow.body)
+                            .foregroundColor(textInserter.hasAccessibilityPermission ? Color.Wispflow.success : Color.Wispflow.error)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background((textInserter.hasAccessibilityPermission ? Color.green : Color.red).opacity(0.1))
-                    .cornerRadius(8)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
+                    .background((textInserter.hasAccessibilityPermission ? Color.Wispflow.success : Color.Wispflow.error).opacity(0.1))
+                    .cornerRadius(CornerRadius.small)
                     
                     // Show success message when permission is granted
                     if showPermissionGrantedMessage {
                         HStack {
                             Image(systemName: "checkmark.seal.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(Color.Wispflow.success)
                             Text("Permission Granted!")
-                                .font(.caption)
-                                .foregroundColor(.green)
+                                .font(Font.Wispflow.caption)
+                                .foregroundColor(Color.Wispflow.success)
                                 .bold()
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.green.opacity(0.15))
-                        .cornerRadius(8)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, Spacing.sm)
+                        .background(Color.Wispflow.successLight)
+                        .cornerRadius(CornerRadius.small)
                         .transition(.opacity.combined(with: .scale))
                     }
                     
                     if !textInserter.hasAccessibilityPermission {
                         // Step-by-step instructions
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
                             Text("How to grant permission:")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .font(Font.Wispflow.caption)
+                                .foregroundColor(Color.Wispflow.textSecondary)
                                 .bold()
                             
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(alignment: .top, spacing: 8) {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
+                                HStack(alignment: .top, spacing: Spacing.sm) {
                                     Text("1.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(Font.Wispflow.caption)
+                                        .foregroundColor(Color.Wispflow.textSecondary)
                                         .frame(width: 16, alignment: .trailing)
                                     Text("Click \"Open System Settings\" below")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(Font.Wispflow.caption)
+                                        .foregroundColor(Color.Wispflow.textSecondary)
                                 }
-                                HStack(alignment: .top, spacing: 8) {
+                                HStack(alignment: .top, spacing: Spacing.sm) {
                                     Text("2.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(Font.Wispflow.caption)
+                                        .foregroundColor(Color.Wispflow.textSecondary)
                                         .frame(width: 16, alignment: .trailing)
                                     Text("Find WispFlow in the list and enable the toggle")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(Font.Wispflow.caption)
+                                        .foregroundColor(Color.Wispflow.textSecondary)
                                 }
-                                HStack(alignment: .top, spacing: 8) {
+                                HStack(alignment: .top, spacing: Spacing.sm) {
                                     Text("3.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(Font.Wispflow.caption)
+                                        .foregroundColor(Color.Wispflow.textSecondary)
                                         .frame(width: 16, alignment: .trailing)
                                     Text("Return to WispFlow - permission will be detected automatically")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(Font.Wispflow.caption)
+                                        .foregroundColor(Color.Wispflow.textSecondary)
                                 }
                             }
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, Spacing.xs)
                         
                         // Action buttons
-                        HStack(spacing: 12) {
+                        HStack(spacing: Spacing.md) {
                             Button(action: {
                                 openAccessibilitySettings()
                             }) {
@@ -1303,7 +1362,7 @@ struct TextInsertionSettingsView: View {
                                     Text("Open System Settings")
                                 }
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(WispflowButtonStyle.primary)
                             
                             Button(action: {
                                 textInserter.recheckPermission()
@@ -1313,79 +1372,84 @@ struct TextInsertionSettingsView: View {
                                     Text("Check Again")
                                 }
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(WispflowButtonStyle.secondary)
                         }
                     } else {
                         Text("Text insertion is enabled. Transcribed text will be automatically inserted into the active text field.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
                     }
                 }
-            }
-            .onAppear {
-                // Set up callback to show success message when permission is granted
-                textInserter.onPermissionGranted = {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showPermissionGrantedMessage = true
-                    }
-                    // Hide the message after 3 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                .wispflowCard()
+                .onAppear {
+                    // Set up callback to show success message when permission is granted
+                    textInserter.onPermissionGranted = {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            showPermissionGrantedMessage = false
+                            showPermissionGrantedMessage = true
+                        }
+                        // Hide the message after 3 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showPermissionGrantedMessage = false
+                            }
                         }
                     }
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Clipboard preservation toggle
+                
+                // Clipboard Options card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Clipboard Options")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     Toggle("Preserve Clipboard Contents", isOn: $textInserter.preserveClipboard)
-                        .toggleStyle(.switch)
+                        .toggleStyle(WispflowToggleStyle())
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     Text("When enabled, the original clipboard contents will be restored after text insertion.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                     
                     if textInserter.preserveClipboard {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
                             Text("Restore Delay: \(String(format: "%.1f", textInserter.clipboardRestoreDelay))s")
-                                .font(.caption)
+                                .font(Font.Wispflow.caption)
+                                .foregroundColor(Color.Wispflow.textPrimary)
                             
                             Slider(value: $textInserter.clipboardRestoreDelay, in: 0.2...2.0, step: 0.1)
                                 .frame(width: 200)
+                                .tint(Color.Wispflow.accent)
                             
                             Text("Time to wait before restoring the clipboard. Increase if the inserted text is getting cut off.")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .font(Font.Wispflow.small)
+                                .foregroundColor(Color.Wispflow.textSecondary)
                         }
-                        .padding(.leading, 20)
+                        .padding(.leading, Spacing.xl)
                     }
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
+                .wispflowCard()
+                
+                // How Text Insertion Works card
+                VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("How Text Insertion Works")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
                         InsertionFeatureRow(icon: "doc.on.clipboard", text: "Text is copied to the clipboard")
                         InsertionFeatureRow(icon: "command", text: "Cmd+V is simulated to paste")
                         InsertionFeatureRow(icon: "arrow.uturn.backward", text: "Original clipboard is restored (optional)")
                         InsertionFeatureRow(icon: "checkmark.circle", text: "Works in any text field")
                     }
                 }
+                .wispflowCard()
+                
+                Spacer()
             }
+            .padding(Spacing.xl)
         }
-        .padding()
+        .background(Color.Wispflow.background)
     }
     
     /// Open System Settings to the Accessibility pane
@@ -1403,13 +1467,13 @@ struct InsertionFeatureRow: View {
     let text: String
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.Wispflow.textSecondary)
                 .frame(width: 16)
             Text(text)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
         }
     }
 }
@@ -1422,18 +1486,19 @@ struct GeneralSettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     
     var body: some View {
-        Form {
-            Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Hotkey configuration
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                // Hotkey configuration card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Global Hotkey")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     Text("Press this keyboard shortcut from any app to start/stop voice recording.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                     
-                    HStack(spacing: 12) {
+                    HStack(spacing: Spacing.md) {
                         // Current hotkey display
                         HotkeyRecorderView(
                             hotkeyManager: hotkeyManager,
@@ -1446,55 +1511,59 @@ struct GeneralSettingsView: View {
                         }) {
                             Text("Reset")
                         }
+                        .buttonStyle(WispflowButtonStyle.secondary)
                         .disabled(hotkeyManager.configuration == .defaultHotkey)
                     }
                     
                     if isRecordingHotkey {
                         Text("Press your desired key combination...")
-                            .font(.caption)
-                            .foregroundColor(.orange)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.accent)
                     }
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Launch at Login
+                .wispflowCard()
+                
+                // Launch at Login card
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Startup")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
                     Toggle("Launch WispFlow at Login", isOn: $launchAtLogin)
-                        .toggleStyle(.switch)
+                        .toggleStyle(WispflowToggleStyle())
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                         .onChange(of: launchAtLogin) { _, newValue in
                             setLaunchAtLogin(enabled: newValue)
                         }
                     
                     Text("Automatically start WispFlow when you log in to your Mac.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                 }
-            }
-            
-            Divider()
-            
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
+                .wispflowCard()
+                
+                // About WispFlow card
+                VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("About WispFlow")
-                        .font(.headline)
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                     
-                    Text("Version 0.1 (MVP)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Text("Version 0.5")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                     
                     Text("Voice-to-text dictation with AI-powered transcription and auto-editing. All processing happens locally on your device.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
                 }
+                .wispflowCard()
+                
+                Spacer()
             }
+            .padding(Spacing.xl)
         }
-        .padding()
+        .background(Color.Wispflow.background)
         .onAppear {
             // Refresh launch at login status
             launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -1524,6 +1593,7 @@ struct HotkeyRecorderView: View {
     @ObservedObject var hotkeyManager: HotkeyManager
     @Binding var isRecording: Bool
     @State private var localEventMonitor: Any?
+    @State private var isHovering = false
     
     var body: some View {
         Button(action: {
@@ -1536,19 +1606,32 @@ struct HotkeyRecorderView: View {
             HStack {
                 if isRecording {
                     Image(systemName: "keyboard")
-                        .foregroundColor(.orange)
+                        .foregroundColor(Color.Wispflow.accent)
                     Text("Recording...")
-                        .foregroundColor(.orange)
+                        .foregroundColor(Color.Wispflow.accent)
                 } else {
                     Text(hotkeyManager.hotkeyDisplayString)
-                        .font(.system(.body, design: .monospaced))
+                        .font(Font.Wispflow.mono)
+                        .foregroundColor(Color.Wispflow.textPrimary)
                 }
             }
-            .frame(minWidth: 120)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .frame(minWidth: 140)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.sm)
+            .background(isRecording ? Color.Wispflow.accentLight : (isHovering ? Color.Wispflow.border.opacity(0.5) : Color.Wispflow.surface))
+            .cornerRadius(CornerRadius.small)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .stroke(isRecording ? Color.Wispflow.accent : Color.Wispflow.border, lineWidth: isRecording ? 2 : 1)
+            )
+            .shadow(color: isRecording ? Color.Wispflow.accent.opacity(0.3) : Color.clear, radius: 8, x: 0, y: 0)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
         .onDisappear {
             stopRecording()
         }

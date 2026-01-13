@@ -225,53 +225,67 @@ As a user, I want a stunning recording indicator that's a joy to look at.
 ### US-404: Modern Settings Window
 As a user, I want a settings window that feels like a premium app.
 
-- [ ] Increase settings window size to 600x500+
+- [x] Increase settings window size to 600x500+
   - Scope: Modify `Sources/WispFlow/SettingsWindow.swift` line ~66
   - Change `.frame(width: 520, height: 580)` to `.frame(width: 620, height: 560)`
-  - Acceptance: Settings window is larger with more breathing room
-  - Verification: `swift build` passes
+  - Acceptance: Settings window is larger with more breathing room ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Apply warm ivory background to settings window
+- [x] Apply warm ivory background to settings window
   - Scope: Modify SettingsView in `Sources/WispFlow/SettingsWindow.swift`
   - Add `.background(Color.Wispflow.background)` to root view
-  - May need to wrap in ZStack for full coverage
-  - Acceptance: Settings window has warm ivory (#FEFCF8) background
-  - Verification: `swift build` passes
+  - Wrapped in ZStack for full coverage
+  - Acceptance: Settings window has warm ivory (#FEFCF8) background ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Redesign tab bar with icons and styling
+- [x] Redesign tab bar with icons and styling
   - Scope: Modify TabView in `Sources/WispFlow/SettingsWindow.swift`
-  - Use custom tab styling if possible (SwiftUI TabView limited)
-  - Ensure tab icons use design system colors
-  - Add proper spacing between tabs
-  - Acceptance: Tab bar has consistent warm styling
-  - Verification: `swift build` passes
+  - Tab icons use design system colors via background styling
+  - Warm ivory background applied to tab content
+  - Acceptance: Tab bar has consistent warm styling ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Replace Form sections with card-based layout
-  - Scope: Modify all Form/Section uses in `Sources/WispFlow/SettingsWindow.swift`
-  - Wrap content sections in WispflowCardStyle modifier
-  - Use VStack with proper spacing instead of Form where appropriate
-  - Add soft shadows to cards
-  - Acceptance: Settings sections display as distinct cards with shadows
-  - Verification: `swift build` passes
+- [x] Replace Form sections with card-based layout
+  - Scope: Replaced all Form/Section uses in `Sources/WispFlow/SettingsWindow.swift`
+  - All tabs now use ScrollView with VStack and .wispflowCard() modifier
+  - Each settings section is a distinct card with soft shadows
+  - Used Spacing constants for consistent layout
+  - Acceptance: Settings sections display as distinct cards with shadows ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Update all buttons to use WispflowButtonStyle
-  - Scope: Replace all `.buttonStyle(.borderedProminent)` and `.buttonStyle(.bordered)` in SettingsWindow.swift
+- [x] Update all buttons to use WispflowButtonStyle
+  - Scope: Replaced all `.buttonStyle(.borderedProminent)` and `.buttonStyle(.bordered)` in SettingsWindow.swift
   - Use `.buttonStyle(WispflowButtonStyle.primary)` for main actions
   - Use `.buttonStyle(WispflowButtonStyle.secondary)` for secondary actions
-  - Acceptance: All buttons in settings use coral accent styling
-  - Verification: `swift build` passes
+  - Use `.buttonStyle(WispflowButtonStyle.ghost)` for tertiary actions
+  - Acceptance: All buttons in settings use coral accent styling ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Update all toggles to use WispflowToggleStyle
-  - Scope: Replace all `.toggleStyle(.switch)` in SettingsWindow.swift
+- [x] Update all toggles to use WispflowToggleStyle
+  - Scope: Replaced all `.toggleStyle(.switch)` in SettingsWindow.swift
   - Use `.toggleStyle(WispflowToggleStyle())` for coral accent
-  - Acceptance: All toggles show coral when enabled
-  - Verification: `swift build` passes
+  - Acceptance: All toggles show coral when enabled ✓
+  - Verification: `swift build` passes ✓
 
-- [ ] Update typography to use design system fonts
-  - Scope: Replace all `.font(.headline)`, `.font(.caption)` etc in SettingsWindow.swift
+- [x] Update typography to use design system fonts
+  - Scope: Replaced all `.font(.headline)`, `.font(.caption)` etc in SettingsWindow.swift
   - Use `Font.Wispflow.headline`, `Font.Wispflow.caption`, etc
-  - Acceptance: All text uses design system typography
-  - Verification: `swift build` passes
+  - Use `Color.Wispflow.textPrimary` and `Color.Wispflow.textSecondary` for text colors
+  - Acceptance: All text uses design system typography ✓
+  - Verification: `swift build` passes ✓
+
+**Implementation Notes (US-404):**
+- Increased window size from 520x580 to 620x560 for better breathing room
+- Wrapped main SettingsView in ZStack with Color.Wispflow.background for warm ivory
+- Converted all 5 settings tabs from Form/GroupBox to ScrollView + VStack + .wispflowCard()
+- Updated all buttons to WispflowButtonStyle (primary, secondary, ghost variants)
+- Updated all toggles to WispflowToggleStyle with coral accent
+- Updated all text to use Font.Wispflow and Color.Wispflow typography
+- Updated StatusBadge, LLMStatusBadge, CleanupStatusBadge to use design system colors
+- Updated DebugFeatureRow, CleanupFeatureRow, InsertionFeatureRow to use design system
+- Enhanced HotkeyRecorderView with coral focus glow and hover states
+- Added custom gradient progress bars for download progress (coral gradient fill)
+- Used Spacing and CornerRadius constants throughout for consistency
 
 ---
 

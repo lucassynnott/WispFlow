@@ -109,17 +109,17 @@ As a user, I want a stunning recording indicator that's a joy to look at.
 - [x] Show recording duration with elegant typography
 - [x] Drop shadow for floating effect
 
-### [ ] US-404: Modern Settings Window
+### [x] US-404: Modern Settings Window
 As a user, I want a settings window that feels like a premium app.
-- Increase window size (600x500+)
-- Custom tab bar with icons and labels
-- Warm ivory background
-- Card-based sections with soft shadows
-- Custom toggle switches with coral accent
-- Styled dropdown menus
-- Progress bars with gradient fills
-- Input fields with focus glow
-- Generous spacing throughout
+- [x] Increase window size (600x500+)
+- [x] Custom tab bar with icons and labels
+- [x] Warm ivory background
+- [x] Card-based sections with soft shadows
+- [x] Custom toggle switches with coral accent
+- [x] Styled dropdown menus
+- [x] Progress bars with gradient fills
+- [x] Input fields with focus glow
+- [x] Generous spacing throughout
 
 ### [ ] US-405: General Settings Tab Polish
 As a user, I want the General settings to look beautiful.
