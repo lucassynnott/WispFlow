@@ -11,6 +11,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var textInserter: TextInserter?
     private var settingsWindowController: SettingsWindowController?
     
+    // Store last audio data for retry functionality
+    private var lastAudioData: Data?
+    private var lastAudioSampleRate: Double = 16000.0
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize audio manager
         setupAudioManager()
@@ -110,6 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Set up error handling
         audioManager?.onCaptureError = { error in
             print("Audio capture error: \(error.localizedDescription)")
+            ErrorLogger.shared.logAudioError(error, deviceInfo: nil)
         }
         
         // Log when devices change
@@ -119,11 +124,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Handle silence detection warning
         audioManager?.onSilenceDetected = { [weak self] in
+            ErrorLogger.shared.log(
+                "Silent audio detected - recording appears to have no audio input",
+                category: .audio,
+                severity: .warning,
+                context: ["threshold": "-40dB"]
+            )
             self?.showSilenceWarning()
         }
         
         // Handle recording too short
         audioManager?.onRecordingTooShort = { [weak self] in
+            ErrorLogger.shared.log(
+                "Recording too short - below minimum duration",
+                category: .audio,
+                severity: .info,
+                context: ["minimumDuration": "\(AudioManager.minimumDuration)s"]
+            )
             self?.showRecordingTooShortError()
         }
     }
@@ -165,6 +182,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         whisperManager?.onError = { error in
             print("Whisper error: \(error)")
+        }
+        
+        // Set up detailed transcription error callback with retry support
+        whisperManager?.onTranscriptionError = { [weak self] error, audioData, sampleRate in
+            DispatchQueue.main.async {
+                self?.handleTranscriptionError(error, audioData: audioData, sampleRate: sampleRate)
+            }
         }
     }
     
@@ -357,6 +381,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         
+        // Store audio data for potential retry
+        lastAudioData = audioData
+        lastAudioSampleRate = sampleRate
+        
         // Update recording indicator to show transcribing status
         recordingIndicator?.updateStatus("Transcribing...")
         recordingIndicator?.showWithAnimation()
@@ -367,12 +395,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 print("Transcription result: \(transcribedText)")
                 
                 if !transcribedText.isEmpty {
+                    // Clear stored audio data on successful transcription
+                    lastAudioData = nil
                     // Pass to text cleanup (US-005)
                     await processTextCleanup(transcribedText)
                 } else {
+                    // Empty transcription (no speech) - don't clear audio data yet (allows retry)
                     recordingIndicator?.hideWithAnimation()
                 }
             } else {
+                // Transcription failed - keep audio data for retry
                 recordingIndicator?.hideWithAnimation()
                 print("Transcription failed or returned empty")
             }
@@ -380,6 +412,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Reset whisper status
             whisper.resetStatus()
         }
+    }
+    
+    // MARK: - Error Handling
+    
+    @MainActor
+    private func handleTranscriptionError(_ error: WhisperManager.TranscriptionError, audioData: Data?, sampleRate: Double) {
+        recordingIndicator?.hideWithAnimation()
+        
+        // Store audio data for retry if provided
+        if let audioData = audioData {
+            lastAudioData = audioData
+            lastAudioSampleRate = sampleRate
+        }
+        
+        let alert = NSAlert()
+        alert.messageText = error.errorDescription ?? "Transcription Error"
+        alert.informativeText = error.recoverySuggestion ?? "An unknown error occurred during transcription."
+        
+        // Set alert style based on error type
+        switch error {
+        case .modelNotLoaded:
+            alert.alertStyle = .warning
+        case .noSpeechDetected, .blankAudioResult:
+            alert.alertStyle = .informational
+        case .audioValidationFailed, .whisperKitError, .unknownError:
+            alert.alertStyle = .warning
+        }
+        
+        // Add buttons based on whether retry is possible
+        if error.isRetryable && lastAudioData != nil {
+            alert.addButton(withTitle: "Try Again")
+            alert.addButton(withTitle: "Open Settings")
+            alert.addButton(withTitle: "Cancel")
+            
+            let response = alert.runModal()
+            switch response {
+            case .alertFirstButtonReturn:
+                // Retry transcription
+                retryLastTranscription()
+            case .alertSecondButtonReturn:
+                // Open settings
+                openSettings()
+            default:
+                // Cancel - do nothing
+                break
+            }
+        } else if case .modelNotLoaded = error {
+            alert.addButton(withTitle: "Open Settings")
+            alert.addButton(withTitle: "OK")
+            
+            if alert.runModal() == .alertFirstButtonReturn {
+                openSettings()
+            }
+        } else {
+            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: "Open Settings")
+            
+            if alert.runModal() == .alertSecondButtonReturn {
+                openSettings()
+            }
+        }
+    }
+    
+    @MainActor
+    private func retryLastTranscription() {
+        guard let audioData = lastAudioData else {
+            print("No audio data available for retry")
+            showTranscriptionError("No previous recording available to retry.")
+            return
+        }
+        
+        print("Retrying transcription with stored audio data...")
+        processTranscription(audioData: audioData, sampleRate: lastAudioSampleRate)
     }
     
     @MainActor

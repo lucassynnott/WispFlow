@@ -119,13 +119,13 @@ As a user, I want the Whisper model to load reliably so I can transcribe immedia
 - [x] Display clear error if model fails to load
 - [x] Add "Model Ready" indicator
 
-### [ ] US-104: Better Error Handling
+### [x] US-104: Better Error Handling
 As a user, I want clear error messages instead of BLANK_AUDIO so I know what went wrong.
-- Catch and display WhisperKit errors
-- Show "No speech detected" for silent audio
-- Show "Model not loaded" if model missing
-- Add retry option for failed transcriptions
-- Log errors to .ralph/errors.log for debugging
+- [x] Catch and display WhisperKit errors
+- [x] Show "No speech detected" for silent audio
+- [x] Show "Model not loaded" if model missing
+- [x] Add retry option for failed transcriptions
+- [x] Log errors to .ralph/errors.log for debugging
 
 ### [ ] US-105: Audio Debug Mode
 As a developer, I want to debug audio capture so I can fix transcription issues.

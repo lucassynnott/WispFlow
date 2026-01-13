@@ -1,0 +1,15 @@
+US-103 is complete. There are still 3 unchecked stories remaining (US-104, US-105, US-106), so the PRD is not fully complete yet.
+
+## Summary
+
+Successfully implemented **US-103: Improve Model Loading** with the following changes:
+
+1. **StatusBarController.swift**: Added model status observation using Combine, dynamic menu bar icons reflecting model state (waveform.slash/arrow.down.circle/arrow.clockwise.circle/waveform/exclamationmark.triangle), tooltips with status details, and a model status menu item with emoji indicators (🟢🔄🔵⚪🔴).
+
+2. **AppDelegate.swift**: Added recording blocking when model is not ready with `showModelNotReadyAlert()` that provides context-aware error messages and an "Open Settings" button.
+
+3. **WhisperManager.swift**: Enhanced `loadModel()` to distinguish between downloading new models vs loading cached models, with proper status updates for download progress.
+
+**Commits made:**
+- `766ecfe feat(US-103): improve model loading with status indicators`
+- `ab3eab8 docs: update progress log for US-103`

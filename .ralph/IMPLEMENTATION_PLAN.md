@@ -123,30 +123,35 @@ WispFlow v0.1 (US-001 through US-007) is complete with core functionality: menu 
 
 ### US-104: Better Error Handling
 
-- [ ] Surface WhisperKit errors to user
+- [x] Surface WhisperKit errors to user
   - Scope: Modify `Sources/WispFlow/WhisperManager.swift` to catch specific WhisperKit errors and translate to user-friendly messages with actionable suggestions.
   - Acceptance: All WhisperKit errors show helpful alerts with next steps
   - Verification: `swift build` passes; simulate errors, verify user-friendly alerts
+  - **DONE:** Created `TranscriptionError` enum with cases for modelNotLoaded, noSpeechDetected, audioValidationFailed, whisperKitError, blankAudioResult, and unknownError. Each error has a user-friendly title and detailed recovery suggestion. Added `onTranscriptionError` callback with audio data for retry support.
 
-- [ ] Add "No speech detected" error handling
+- [x] Add "No speech detected" error handling
   - Scope: Modify `Sources/WispFlow/AppDelegate.swift` or WhisperManager to detect empty/blank transcription results and show "No speech detected - check microphone" message.
   - Acceptance: Empty transcription shows helpful error, not empty insertion
   - Verification: `swift build` passes; record silence, verify "No speech detected" message
+  - **DONE:** WhisperManager now detects BLANK_AUDIO responses and empty transcriptions, creating detailed error messages with suggestions based on audio analysis (peak level, RMS). AppDelegate shows informational alert with microphone tips.
 
-- [ ] Add "Model not loaded" specific error
+- [x] Add "Model not loaded" specific error
   - Scope: Modify `Sources/WispFlow/AppDelegate.swift` `processTranscription()` to show specific error when `whisperManager.isReady` is false with button to open Settings.
   - Acceptance: Clear error message with Settings shortcut when model not loaded
   - Verification: `swift build` passes; delete model, try to transcribe, verify error with Settings button
+  - **DONE:** Added `handleTranscriptionError()` method that shows specific error messages for model not loaded cases. Alert includes "Open Settings" button to guide user to download/load model.
 
-- [ ] Implement error logging to .ralph/errors.log
+- [x] Implement error logging to .ralph/errors.log
   - Scope: Create `Sources/WispFlow/ErrorLogger.swift` utility that appends errors with timestamps to `~/.ralph/errors.log`. Integrate with all managers' `onError` callbacks.
   - Acceptance: All errors are logged to file with timestamps for debugging
   - Verification: `swift build` passes; trigger errors, verify entries in errors.log
+  - **DONE:** Created `ErrorLogger.swift` singleton with logging methods for different error categories (audio, transcription, model, permission). Logs include timestamps, severity levels, categories, and optional context dictionaries. Integrated with WhisperManager, AudioManager callbacks in AppDelegate.
 
-- [ ] Add retry option for failed transcriptions
+- [x] Add retry option for failed transcriptions
   - Scope: Modify error alerts to include "Try Again" button that re-attempts transcription with the same audio data (requires keeping audio data until transcription succeeds).
   - Acceptance: User can retry failed transcription without re-recording
   - Verification: `swift build` passes; fail transcription, click retry, verify re-attempt
+  - **DONE:** Added `lastAudioData` and `lastAudioSampleRate` properties to AppDelegate. `handleTranscriptionError()` shows "Try Again" button for retryable errors. `retryLastTranscription()` method re-processes stored audio data. Audio data cleared only on successful transcription.
 
 ---
 

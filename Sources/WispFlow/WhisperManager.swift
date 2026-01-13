@@ -8,6 +8,66 @@ final class WhisperManager: ObservableObject {
     
     // MARK: - Types
     
+    /// User-friendly error types for transcription failures
+    enum TranscriptionError: LocalizedError {
+        case modelNotLoaded
+        case noSpeechDetected(details: String)
+        case audioValidationFailed(String)
+        case whisperKitError(underlying: Error)
+        case blankAudioResult(details: String)
+        case unknownError(String)
+        
+        var errorDescription: String? {
+            switch self {
+            case .modelNotLoaded:
+                return "Model Not Loaded"
+            case .noSpeechDetected:
+                return "No Speech Detected"
+            case .audioValidationFailed:
+                return "Audio Validation Failed"
+            case .whisperKitError:
+                return "Transcription Error"
+            case .blankAudioResult:
+                return "No Speech Detected"
+            case .unknownError:
+                return "Transcription Error"
+            }
+        }
+        
+        var recoverySuggestion: String? {
+            switch self {
+            case .modelNotLoaded:
+                return "Please open Settings and load a Whisper model before recording."
+            case .noSpeechDetected(let details):
+                return details
+            case .audioValidationFailed(let message):
+                return message
+            case .whisperKitError(let error):
+                return "WhisperKit error: \(error.localizedDescription)\n\nTry recording again. If the problem persists, try reloading the model in Settings."
+            case .blankAudioResult(let details):
+                return details
+            case .unknownError(let message):
+                return message
+            }
+        }
+        
+        /// Whether this error is retryable
+        var isRetryable: Bool {
+            switch self {
+            case .modelNotLoaded:
+                return false
+            case .noSpeechDetected, .blankAudioResult:
+                return true // User can try speaking again
+            case .audioValidationFailed:
+                return true
+            case .whisperKitError:
+                return true
+            case .unknownError:
+                return true
+            }
+        }
+    }
+    
     /// Available Whisper model sizes
     enum ModelSize: String, CaseIterable, Identifiable {
         case tiny = "tiny"
@@ -136,8 +196,11 @@ final class WhisperManager: ObservableObject {
     /// Called when transcription completes
     var onTranscriptionComplete: ((String) -> Void)?
     
-    /// Called when an error occurs
+    /// Called when an error occurs (legacy - simple string)
     var onError: ((String) -> Void)?
+    
+    /// Called when a transcription error occurs (detailed - with retry support)
+    var onTranscriptionError: ((TranscriptionError, Data?, Double) -> Void)?
     
     // MARK: - Initialization
     
@@ -226,6 +289,14 @@ final class WhisperManager: ObservableObject {
             statusMessage = errorMessage
             downloadProgress = 0.0
             print("WhisperManager: \(errorMessage)")
+            
+            // Log model loading error
+            ErrorLogger.shared.logModelError(error, modelInfo: [
+                "model": selectedModel.rawValue,
+                "modelPattern": selectedModel.modelPattern,
+                "modelsDirectory": modelsDirectory.path
+            ])
+            
             onError?(errorMessage)
         }
     }
@@ -377,7 +448,17 @@ final class WhisperManager: ObservableObject {
         guard let whisper = whisperKit else {
             statusMessage = "Model not loaded"
             transcriptionStatus = .error("Model not loaded. Please load a model first.")
+            
+            let error = TranscriptionError.modelNotLoaded
+            ErrorLogger.shared.log(
+                "Transcription attempted without loaded model",
+                category: .model,
+                severity: .error,
+                context: ["modelStatus": String(describing: modelStatus)]
+            )
+            
             onError?("Model not loaded")
+            onTranscriptionError?(error, audioData, sampleRate)
             return nil
         }
         
@@ -390,7 +471,21 @@ final class WhisperManager: ObservableObject {
             statusMessage = "Invalid audio"
             transcriptionStatus = .error(errorMessage)
             print("WhisperManager: \(errorMessage)")
+            
+            let error = TranscriptionError.audioValidationFailed(validationError.localizedDescription)
+            ErrorLogger.shared.log(
+                errorMessage,
+                category: .audio,
+                severity: .error,
+                context: [
+                    "validationError": String(describing: validationError),
+                    "audioDataSize": audioData.count,
+                    "sampleRate": sampleRate
+                ]
+            )
+            
             onError?(errorMessage)
+            onTranscriptionError?(error, audioData, sampleRate)
             return nil
         }
         
@@ -417,10 +512,16 @@ final class WhisperManager: ObservableObject {
             
             // Handle BLANK_AUDIO response from WhisperKit
             if isBlankAudioResponse(transcribedText) {
-                let errorMessage = createBlankAudioErrorMessage(audioData: audioData, sampleRate: sampleRate)
+                let errorDetails = createBlankAudioErrorMessage(audioData: audioData, sampleRate: sampleRate)
                 statusMessage = "No speech detected"
-                transcriptionStatus = .error(errorMessage)
-                print("WhisperManager: Received BLANK_AUDIO - \(errorMessage)")
+                transcriptionStatus = .error(errorDetails)
+                print("WhisperManager: Received BLANK_AUDIO - \(errorDetails)")
+                
+                let error = TranscriptionError.blankAudioResult(details: errorDetails)
+                let audioStats = getAudioStats(audioData: audioData, sampleRate: sampleRate)
+                ErrorLogger.shared.logBlankAudioResult(audioStats: audioStats)
+                
+                onTranscriptionError?(error, audioData, sampleRate)
                 // Return empty string instead of showing BLANK_AUDIO to user
                 return ""
             }
@@ -429,6 +530,10 @@ final class WhisperManager: ObservableObject {
                 transcriptionStatus = .completed("")
                 statusMessage = "No speech detected"
                 print("WhisperManager: No speech detected in audio")
+                
+                let errorDetails = "The recording was successfully processed, but no speech was detected. Try speaking more clearly or check your microphone position."
+                let error = TranscriptionError.noSpeechDetected(details: errorDetails)
+                onTranscriptionError?(error, audioData, sampleRate)
                 return ""
             }
             
@@ -444,9 +549,46 @@ final class WhisperManager: ObservableObject {
             transcriptionStatus = .error(errorMessage)
             statusMessage = errorMessage
             print("WhisperManager: \(errorMessage)")
+            
+            let transcriptionError = TranscriptionError.whisperKitError(underlying: error)
+            let audioStats = getAudioStats(audioData: audioData, sampleRate: sampleRate)
+            ErrorLogger.shared.logTranscriptionError(error, audioInfo: audioStats)
+            
             onError?(errorMessage)
+            onTranscriptionError?(transcriptionError, audioData, sampleRate)
             return nil
         }
+    }
+    
+    /// Get audio statistics for logging
+    private func getAudioStats(audioData: Data, sampleRate: Double) -> [String: Any] {
+        let samples = audioData.withUnsafeBytes { buffer -> [Float] in
+            let floatBuffer = buffer.bindMemory(to: Float.self)
+            return Array(floatBuffer)
+        }
+        
+        var peakAmplitude: Float = 0
+        var sumSquares: Float = 0
+        for sample in samples {
+            let absValue = abs(sample)
+            if absValue > peakAmplitude {
+                peakAmplitude = absValue
+            }
+            sumSquares += sample * sample
+        }
+        let rms = samples.isEmpty ? 0 : sqrt(sumSquares / Float(samples.count))
+        let peakDb = peakAmplitude > 0 ? 20.0 * log10(peakAmplitude) : -60.0
+        let rmsDb = rms > 0 ? 20.0 * log10(rms) : -60.0
+        let duration = Double(samples.count) / sampleRate
+        
+        return [
+            "sampleCount": samples.count,
+            "duration": String(format: "%.2fs", duration),
+            "peakDb": String(format: "%.1f", peakDb),
+            "rmsDb": String(format: "%.1f", rmsDb),
+            "sampleRate": Int(sampleRate),
+            "model": selectedModel.rawValue
+        ]
     }
     
     /// Normalize audio samples to [-1.0, 1.0] range
