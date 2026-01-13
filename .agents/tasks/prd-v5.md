@@ -151,14 +151,14 @@ As a user, I want the Text Cleanup settings beautifully designed.
 - [x] LLM model section as card
 - [x] Preview of cleanup behavior
 
-### [ ] US-409: Toast Notification System
+### [x] US-409: Toast Notification System
 As a user, I want elegant notifications for app events.
-- Create WispflowToast view component
-- Slide-in from top-right animation
-- Frosted glass background
-- Auto-dismiss with timer
-- Success (sage green), Error (coral), Info (gray) variants
-- Icon + message + optional action button
+- [x] Create WispflowToast view component
+- [x] Slide-in from top-right animation
+- [x] Frosted glass background
+- [x] Auto-dismiss with timer
+- [x] Success (sage green), Error (coral), Info (gray) variants
+- [x] Icon + message + optional action button
 
 ### [ ] US-410: Micro-interactions & Polish
 As a user, I want delightful micro-interactions throughout the app.

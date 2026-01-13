@@ -1,0 +1,22 @@
+## Summary
+
+Successfully completed **US-408: Text Cleanup Settings Tab Polish** with the following implementation:
+
+**New Components Created:**
+- `CleanupStatusHero` - Hero section showing cleanup status with contextual icons and mode badge
+- `CleanupModeSegmentedControl` + `CleanupModeSegment` - Elegant segmented picker replacing radio buttons
+- `CleanupPreviewCard` - Before/after text preview showing mode-specific cleanup effects
+- `LLMModelSelectionCard` - Card-based LLM model picker matching the Transcription tab pattern
+
+**Key Changes:**
+- Redesigned TextCleanupSettingsView with 6 polished cards
+- Mode selector now uses segmented control with icons (hare/dial/sparkles/brain)
+- Enable/disable toggle enhanced with icon header and description
+- LLM model section split into selection card and actions card
+- Added cleanup preview showing sample text transformation for each mode
+
+**Verification:** `swift build` passes ✓
+
+**Commits:**
+- `c5d7e07` feat(US-408): add text cleanup settings tab polish with design system integration
+- `98782dc` docs: update progress log for US-408

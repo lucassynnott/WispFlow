@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var textInserter: TextInserter?
     private var settingsWindowController: SettingsWindowController?
     private var debugManager: DebugManager?
+    private var toastWindowController: ToastWindowController?
     
     // Store last audio data for retry functionality
     private var lastAudioData: Data?
@@ -44,6 +45,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Initialize the recording indicator (but don't show it yet)
         setupRecordingIndicator()
+        
+        // Initialize the toast notification system (US-409)
+        setupToastSystem()
         
         print("WispFlow started successfully")
         print("Global hotkey: \(hotkeyManager?.hotkeyDisplayString ?? "unknown")")
@@ -308,6 +312,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         recordingIndicator?.onCancel = { [weak self] in
             self?.cancelRecording()
+        }
+    }
+    
+    /// Set up the toast notification system (US-409)
+    private func setupToastSystem() {
+        // Initialize the toast window controller for displaying toasts
+        toastWindowController = ToastWindowController.shared
+        
+        // Observe openSettings notification from toast actions
+        NotificationCenter.default.addObserver(
+            forName: .openSettings,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.openSettings()
         }
     }
     
