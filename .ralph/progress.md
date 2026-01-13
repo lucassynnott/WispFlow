@@ -1155,3 +1155,38 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-it
   - Shadow layer behind visual effect creates floating appearance without affecting blur
   - Duration timer starts/stops with show/hide to ensure accurate timing
 ---
+
+## [2026-01-13 20:55] - US-404: Modern Settings Window
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: c9f30dc feat(US-404): add modern settings window with design system integration
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/WispFlow/SettingsWindow.swift (major redesign)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated tasks)
+  - .agents/tasks/prd-v5.md (marked US-404 complete)
+- What was implemented:
+  - Increased settings window size from 520x580 to 620x560 for better breathing room
+  - Applied warm ivory background (#FEFCF8) using ZStack wrapper around TabView
+  - Converted all 5 settings tabs (General, Transcription, Text Cleanup, Text Insertion, Debug) from Form/GroupBox/Section to ScrollView + VStack + .wispflowCard() modifier
+  - Updated all buttons to WispflowButtonStyle with primary/secondary/ghost variants
+  - Updated all toggles to WispflowToggleStyle with coral accent color
+  - Updated all typography to use Font.Wispflow and Color.Wispflow design system
+  - Added custom gradient progress bars with coral fill for download progress
+  - Enhanced HotkeyRecorderView with coral focus glow, border, and hover states
+  - Updated StatusBadge, LLMStatusBadge, CleanupStatusBadge to use design system colors
+  - Updated DebugFeatureRow, CleanupFeatureRow, InsertionFeatureRow helper views
+  - Used Spacing and CornerRadius constants throughout for consistent layout
+- **Learnings for future iterations:**
+  - SwiftUI Form/GroupBox are difficult to style; replacing with VStack + custom modifiers gives full control
+  - .wispflowCard() modifier provides consistent card styling with shadow and rounded corners
+  - Using design system constants (Spacing.lg, CornerRadius.small) ensures consistency
+  - Custom gradient progress bars look more premium than default ProgressView
+  - HotkeyRecorderView benefits from focus glow effect using shadow with conditional color
+---
