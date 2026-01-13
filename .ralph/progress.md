@@ -1115,3 +1115,43 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-it
   - NSColor component access (redComponent, greenComponent, blueComponent) allows dynamic color manipulation
   - Clean up timers in both deinit and state change to prevent memory leaks
 ---
+
+---
+
+## [2026-01-13 20:50] - US-403: Beautiful Recording Indicator
+Thread: codex exec session
+Run: 20260113-203453-63497 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260113-203453-63497-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 8c5d6aa feat(US-403): add beautiful recording indicator with waveform and animations
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/RecordingIndicatorWindow.swift (complete redesign)
+  - .agents/tasks/prd-v5.md (updated acceptance criteria for US-403)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated task status for US-403)
+- What was implemented:
+  - Redesigned indicator as elegant floating pill with frosted glass effect
+  - Added warm ivory tint overlay to NSVisualEffectView for warmth
+  - Added drop shadow layer for floating appearance
+  - Replaced AudioLevelMeterView with LiveWaveformView (smooth animated wave visualization)
+  - Created smooth sine wave that responds to audio level (multi-wave overlay for organic feel)
+  - Added warm coral (#E07A5F) recording dot with gentle pulse animation
+  - Pulse varies opacity (0.8-1.0) and scale (0.9-1.1) via timer-based animation
+  - Created HoverGlowButton with coral glow effect on hover and scale animation on press
+  - Added slide-down animation on appear (from above screen) and slide-up on dismiss
+  - Animation duration 0.35s with easeOut/easeIn timing functions
+  - Added recording duration display with semibold 14pt typography
+  - Window size increased from 200x44 to 240x52 for better proportions
+  - Corner radius increased to 26px for more pronounced pill shape
+- **Learnings for future iterations:**
+  - Renamed class to LiveWaveformView to avoid conflict with existing AudioWaveformView (SwiftUI)
+  - NSBezierPath uses `curve(to:controlPoint1:controlPoint2:)` not `addCurve` like UIBezierPath
+  - Timer-based animations at 30fps provide smooth organic feel for waveform and pulse
+  - Proper cleanup of timers in deinit prevents memory leaks
+  - Shadow layer behind visual effect creates floating appearance without affecting blur
+  - Duration timer starts/stops with show/hide to ensure accurate timing
+---
