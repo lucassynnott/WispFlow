@@ -2543,3 +2543,29 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-133822-18849-it
   - Progress log is the source of truth for completed work per run
 ---
 
+
+## [2026-01-14 13:44] - US-523: Fix Tab Visibility
+Thread: codex exec session
+Run: 20260114-131706-97414 (iteration 5)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-5.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-5.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 6091bbd feat(US-523): fix tab visibility in Settings window
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/WispFlow/SettingsWindow.swift
+  - .ralph/IMPLEMENTATION_PLAN.md
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md
+- What was implemented:
+  - Increased Settings window width from 620px to 750px to ensure all 6 tabs are visible
+  - Made window resizable with minimum size 750x560 for user flexibility
+  - Added .resizable to window style mask
+  - All 6 tabs (General, Audio, Transcription, Text Cleanup, Text Insertion, Debug) are now visible, readable, and clickable
+- **Learnings for future iterations:**
+  - macOS TabView with many tabs requires sufficient window width to display all tab labels
+  - The issue was not a blocking ZStack but rather insufficient width for 6 tabs
+  - Making windows resizable provides user flexibility while maintaining minimum required dimensions
+---

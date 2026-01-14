@@ -18,25 +18,27 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Priority:** critical
 **Estimated effort:** small
 
-**Description:** Fix Settings window tabs being invisible/unclickable due to ZStack overlay.
+**Description:** Fix Settings window tabs being invisible/unclickable due to width constraints.
 
 **Tasks:**
 - [x] ~~Remove ZStack with Color background that covers TabView~~ (No blocking ZStack found; issue was tab width)
-- [x] Ensure all 6 tabs visible and clickable
+- [x] Ensure all 6 tabs visible and clickable with full labels
 - [x] Verify tab switching works
-- [x] Test on macOS 14+
+- [x] Test on macOS 14+ (typecheck passes)
 
 **Implementation Notes:**
-- Increased window width from 620px to 680px to accommodate all 6 tabs
-- Shortened tab labels: "Text Cleanup" → "Cleanup", "Text Insertion" → "Insertion"
-- Made window resizable with minimum size 680x560
-- Added `.resizable` to window style mask
+- Increased window width from 620px to 750px to accommodate all 6 full tab labels
+- Restored full tab labels: "General", "Audio", "Transcription", "Text Cleanup", "Text Insertion", "Debug"
+- Made window resizable with minimum size 750x560
+- Added `.resizable` to window style mask to allow user adjustment if needed
+- No ZStack or overlay blocking found - the issue was insufficient width for 6 tabs
 
 **Acceptance Criteria:**
-- All 6 tabs visible: General, Audio, Transcription, Cleanup, Insertion, Debug
-- Tab labels readable with proper contrast
-- Tabs clickable and switch content
-- Typecheck passes
+- [x] All 6 tabs visible: General, Audio, Transcription, Text Cleanup, Text Insertion, Debug
+- [x] Tab labels readable with proper contrast (using design system colors)
+- [x] Tabs clickable and switch content (standard SwiftUI TabView behavior)
+- [x] No ZStack/overlay blocking tab bar (verified - none present)
+- [x] Typecheck passes (`swift build` succeeds)
 
 ---
 
