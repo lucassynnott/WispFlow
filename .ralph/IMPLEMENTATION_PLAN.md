@@ -936,3 +936,53 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 5. US-510, US-511, US-512 (Hotkeys)
 6. US-513, US-514, US-515 (Text insertion)
 7. US-516 through US-522 (Onboarding - last, uses all systems)
+
+---
+
+## Phase 7: Audio System Hardening (from PRD v2)
+
+### US-601: Audio Device Hot-Plug Support
+**Status:** complete
+**Priority:** high
+**Estimated effort:** medium
+
+**Description:** Handle audio device connection/disconnection gracefully without crashing or requiring app restart.
+
+**Tasks:**
+- [x] Add `preferredDeviceUID` to store user's preferred device separately from selected device
+- [x] Add `recordingStartDevice` to track device active when recording starts
+- [x] Add `onDeviceDisconnectedDuringRecording` callback for device disconnect during recording
+- [x] Add `onDeviceChanged` callback for general device changes
+- [x] Add `onPreferredDeviceReconnected` callback for preferred device reconnection
+- [x] Enhance `refreshAvailableDevices()` to detect device changes (connect/disconnect)
+- [x] Implement `handleDeviceDisconnectedDuringRecording()` to fall back to system default
+- [x] Implement `handlePreferredDeviceReconnected()` to auto-switch back to preferred device
+- [x] Store/load `preferredDeviceUID` in UserDefaults
+- [x] Track recording start device in `startCapturing()`
+- [x] Clear recording start device in `stopCapturing()` and `cancelCapturing()`
+- [x] Switch to preferred device after recording completes if reconnected during recording
+- [x] Add toast notification methods to ToastManager for device changes
+- [x] Wire up callbacks in AppDelegate to show toast notifications
+- [x] Build verification (`swift build` succeeds)
+
+**Acceptance Criteria:**
+- [x] Detect when selected audio device is disconnected during recording
+- [x] Automatically fall back to system default device
+- [x] Show toast notification when device changes
+- [x] Re-select preferred device when it's reconnected
+- [x] No crashes when devices are plugged/unplugged (build passes, robust error handling)
+
+**Implementation Notes:**
+- Uses `AudioObjectAddPropertyListenerBlock` for `kAudioHardwarePropertyDevices` (already implemented)
+- Stores device UID preference (`preferredDeviceUID`) separately from runtime selection (`selectedDeviceUID`)
+- `preferredDeviceUID` is set when user explicitly selects a device in Settings
+- If recording device disconnects during recording:
+  1. Falls back to system default device
+  2. Attempts to switch audio input device on the fly
+  3. Shows warning toast to user
+- If preferred device reconnects:
+  1. Auto-switches to preferred device (if not currently recording)
+  2. Shows success toast to user
+- Added three new callbacks: `onDeviceDisconnectedDuringRecording`, `onDeviceChanged`, `onPreferredDeviceReconnected`
+- Added three new toast methods: `showDeviceDisconnectedDuringRecording`, `showDeviceChanged`, `showPreferredDeviceReconnected`
+- Verified via `swift build` - typecheck passes

@@ -476,7 +476,9 @@ final class ToastWindowController {
         window.backgroundColor = .clear
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        window.ignoresMouseEvents = false
+        // CRITICAL: Must ignore mouse events so clicks pass through to other windows
+        // The toast content itself handles its own mouse events via SwiftUI
+        window.ignoresMouseEvents = true
         window.hasShadow = false
         
         // Allow click-through except for toast content
@@ -609,6 +611,45 @@ extension ToastManager {
             message: "Press Cmd+V to paste",
             icon: "doc.on.clipboard",
             duration: 5.0
+        )
+    }
+    
+    // MARK: - US-601: Audio Device Hot-Plug Toast Notifications
+    
+    /// Show toast when audio device is disconnected during recording
+    /// Informs user that recording has been switched to a fallback device
+    func showDeviceDisconnectedDuringRecording(disconnectedName: String, fallbackName: String) {
+        showWarning(
+            "Audio Device Changed",
+            message: "\(disconnectedName) disconnected. Switched to \(fallbackName).",
+            icon: "cable.connector.slash",
+            duration: 5.0
+        )
+    }
+    
+    /// Show toast when audio device changes (not during recording)
+    func showDeviceChanged(from oldDevice: String?, to newDevice: String, reason: String) {
+        let message: String
+        if let old = oldDevice {
+            message = "Changed from \(old) to \(newDevice)"
+        } else {
+            message = "Now using \(newDevice)"
+        }
+        showInfo(
+            "Audio Device Changed",
+            message: message,
+            icon: "mic.fill",
+            duration: 4.0
+        )
+    }
+    
+    /// Show toast when the user's preferred audio device is reconnected
+    func showPreferredDeviceReconnected(deviceName: String) {
+        showSuccess(
+            "Preferred Device Connected",
+            message: "\(deviceName) is now active",
+            icon: "checkmark.circle.fill",
+            duration: 4.0
         )
     }
 }

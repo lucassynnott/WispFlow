@@ -53,14 +53,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         print("WispFlow started successfully")
         print("Global hotkey: \(hotkeyManager?.hotkeyDisplayString ?? "unknown")")
         
-        // Request microphone permission on first launch
-        audioManager?.requestMicrophonePermission { granted in
-            if granted {
-                print("Microphone permission granted")
-            } else {
-                print("Microphone permission denied - recording will not work")
-            }
-        }
+        // NOTE: Don't request microphone permission here - let onboarding handle it
+        // Permission will be requested during the onboarding microphone step (US-518)
+        // or when the user first tries to record
         
         // Initialize Whisper manager, text cleanup manager, LLM manager, text inserter, and auto-load models on main actor
         Task { @MainActor in
@@ -204,6 +199,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ToastManager.shared.showLowQualityDeviceWarning(deviceName: device.name)
             }
         }
+        
+        // US-601: Handle audio device disconnected during recording
+        audioManager?.onDeviceDisconnectedDuringRecording = { disconnectedName, fallbackName in
+            print("AppDelegate: [US-601] Device disconnected during recording: \(disconnectedName) → \(fallbackName)")
+            ErrorLogger.shared.log(
+                "Audio device disconnected during recording",
+                category: .audio,
+                severity: .warning,
+                context: [
+                    "disconnectedDevice": disconnectedName,
+                    "fallbackDevice": fallbackName
+                ]
+            )
+            DispatchQueue.main.async {
+                ToastManager.shared.showDeviceDisconnectedDuringRecording(
+                    disconnectedName: disconnectedName,
+                    fallbackName: fallbackName
+                )
+            }
+        }
+        
+        // US-601: Handle audio device change notification
+        audioManager?.onDeviceChanged = { oldDevice, newDevice, reason in
+            print("AppDelegate: [US-601] Audio device changed: \(oldDevice ?? "none") → \(newDevice) (\(reason))")
+            ErrorLogger.shared.log(
+                "Audio device changed",
+                category: .audio,
+                severity: .info,
+                context: [
+                    "previousDevice": oldDevice ?? "none",
+                    "newDevice": newDevice,
+                    "reason": reason
+                ]
+            )
+            DispatchQueue.main.async {
+                ToastManager.shared.showDeviceChanged(from: oldDevice, to: newDevice, reason: reason)
+            }
+        }
+        
+        // US-601: Handle preferred device reconnection
+        audioManager?.onPreferredDeviceReconnected = { deviceName in
+            print("AppDelegate: [US-601] Preferred device reconnected: \(deviceName)")
+            ErrorLogger.shared.log(
+                "Preferred audio device reconnected",
+                category: .audio,
+                severity: .info,
+                context: ["deviceName": deviceName]
+            )
+            DispatchQueue.main.async {
+                ToastManager.shared.showPreferredDeviceReconnected(deviceName: deviceName)
+            }
+        }
     }
     
     private func showSilenceWarning(measuredDbLevel: Float) {
@@ -301,11 +348,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         textInserter?.onError = { error in
             print("Text insertion error: \(error)")
         }
-
-        // Prompt for accessibility permission upfront so keyboard insertion works
-        if textInserter?.hasAccessibilityPermission == false {
-            _ = textInserter?.requestAccessibilityPermission(showPrompt: true)
-        }
+        
+        // NOTE: Don't prompt for accessibility permission here - let onboarding handle it
+        // Permission will be requested during the onboarding accessibility step (US-519)
+        // or when the user first tries to insert text
     }
     
     @MainActor
@@ -339,7 +385,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         
-        hotkeyManager?.start()
+        // Only start hotkey manager immediately if onboarding has been completed
+        // Otherwise, it will be started after onboarding completes (in setupOnboarding completion callback)
+        // This prevents permission prompts from appearing before the user reaches the accessibility step
+        // Note: Checking UserDefaults directly to avoid MainActor isolation issues
+        let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        if hasCompletedOnboarding {
+            hotkeyManager?.start()
+        } else {
+            print("AppDelegate: Deferring hotkey manager start until after onboarding")
+        }
     }
     
     /// US-510: Show accessibility permission prompt when hotkey is pressed without permission
@@ -399,10 +454,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         onboardingWindowController = OnboardingWindowController(audioManager: audioMgr, hotkeyManager: hotkeyMgr)
         
         // Set up completion callback
-        onboardingWindowController?.onComplete = {
+        onboardingWindowController?.onComplete = { [weak self] in
             print("AppDelegate: [US-517] Onboarding completed")
             // Onboarding is done, app is ready for use
             // The menu bar icon is already visible
+            
+            // Now that onboarding is complete and user has had a chance to grant permissions,
+            // try to start the hotkey manager (if accessibility was granted)
+            self?.hotkeyManager?.start()
         }
         
         // Show onboarding if this is first launch

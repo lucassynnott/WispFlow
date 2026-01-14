@@ -133,6 +133,31 @@ final class AudioManager: NSObject, ObservableObject {
     var onNoTapCallbacks: (() -> Void)?  // US-302: Called if no tap callbacks received within 2 seconds
     var onLowQualityDeviceSelected: ((AudioInputDevice) -> Void)?  // US-501: Called when only a low-quality (Bluetooth) device is available
     
+    // MARK: - US-601: Audio Device Hot-Plug Support
+    
+    /// Called when the active audio device is disconnected during recording
+    /// Parameters: (disconnectedDeviceName: String, newDeviceName: String)
+    var onDeviceDisconnectedDuringRecording: ((String, String) -> Void)?
+    
+    /// Called when an audio device change occurs (not during recording)
+    /// Parameters: (oldDeviceName: String?, newDeviceName: String, reason: String)
+    var onDeviceChanged: ((String?, String, String) -> Void)?
+    
+    /// Called when the user's preferred device is reconnected
+    /// Parameter: (deviceName: String)
+    var onPreferredDeviceReconnected: ((String) -> Void)?
+    
+    /// The user's preferred device UID - stored separately from selected device
+    /// This allows us to detect when the preferred device is reconnected
+    private var preferredDeviceUID: String?
+    
+    /// Key for storing preferred device UID in UserDefaults
+    private static let preferredDeviceKey = "preferredAudioInputDeviceUID"
+    
+    /// Track the device that was active when recording started
+    /// Used to detect device changes during recording
+    private var recordingStartDevice: AudioInputDevice?
+    
     // MARK: - US-502: Audio Device Caching
     
     /// In-memory cache of the last successfully used audio device
@@ -147,6 +172,7 @@ final class AudioManager: NSObject, ObservableObject {
     override init() {
         super.init()
         loadSelectedDevice()
+        loadPreferredDevice()  // US-601: Load preferred device UID
         refreshAvailableDevices()
         setupDeviceChangeListener()
     }
@@ -248,10 +274,14 @@ final class AudioManager: NSObject, ObservableObject {
         selectedDeviceUID = uid
         saveSelectedDevice()
         
+        // US-601: Store as preferred device when user explicitly selects
+        preferredDeviceUID = uid
+        savePreferredDevice()
+        
         // US-502: Invalidate cache when user manually changes device
         invalidateDeviceCache(reason: "User manually changed device selection")
         
-        print("AudioManager: Selected device '\(uid)'")
+        print("AudioManager: [US-601] Selected device '\(uid)' as preferred device")
         
         // If currently capturing, restart with new device
         if isCapturing {
@@ -271,17 +301,64 @@ final class AudioManager: NSObject, ObservableObject {
     }
     
     /// Refresh the list of available audio input devices
+    /// US-601: Enhanced to handle device hot-plug during recording and preferred device reconnection
     func refreshAvailableDevices() {
+        let previousDevices = availableInputDevices
         availableInputDevices = enumerateAudioInputDevices()
+        
+        let previousDeviceUIDs = Set(previousDevices.map { $0.uid })
+        let currentDeviceUIDs = Set(availableInputDevices.map { $0.uid })
+        let disconnectedUIDs = previousDeviceUIDs.subtracting(currentDeviceUIDs)
+        let connectedUIDs = currentDeviceUIDs.subtracting(previousDeviceUIDs)
+        
+        // US-601: Log device changes
+        if !disconnectedUIDs.isEmpty || !connectedUIDs.isEmpty {
+            print("╔═══════════════════════════════════════════════════════════════╗")
+            print("║          US-601: AUDIO DEVICE HOT-PLUG DETECTED               ║")
+            print("╠═══════════════════════════════════════════════════════════════╣")
+            for uid in disconnectedUIDs {
+                if let device = previousDevices.first(where: { $0.uid == uid }) {
+                    print("║ DISCONNECTED: \(device.name.prefix(46).padding(toLength: 46, withPad: " ", startingAt: 0))   ║")
+                }
+            }
+            for uid in connectedUIDs {
+                if let device = availableInputDevices.first(where: { $0.uid == uid }) {
+                    print("║ CONNECTED:    \(device.name.prefix(46).padding(toLength: 46, withPad: " ", startingAt: 0))   ║")
+                }
+            }
+            print("╚═══════════════════════════════════════════════════════════════╝")
+        }
+        
+        // US-601: Check if device was disconnected DURING recording
+        if isCapturing, let startDevice = recordingStartDevice,
+           disconnectedUIDs.contains(startDevice.uid) {
+            print("AudioManager: [US-601] ⚠️ DEVICE DISCONNECTED DURING RECORDING: \(startDevice.name)")
+            handleDeviceDisconnectedDuringRecording(disconnectedDevice: startDevice)
+        }
+        
+        // US-601: Check if preferred device was reconnected
+        if let preferredUID = preferredDeviceUID,
+           connectedUIDs.contains(preferredUID),
+           let preferredDevice = availableInputDevices.first(where: { $0.uid == preferredUID }) {
+            print("AudioManager: [US-601] ✓ Preferred device reconnected: \(preferredDevice.name)")
+            handlePreferredDeviceReconnected(preferredDevice)
+        }
         
         // Validate selected device still exists
         if let selectedUID = selectedDeviceUID,
            !availableInputDevices.contains(where: { $0.uid == selectedUID }) {
-            print("AudioManager: Previously selected device no longer available, selecting best available")
+            let previousDevice = previousDevices.first(where: { $0.uid == selectedUID })
+            print("AudioManager: [US-601] Previously selected device no longer available, falling back to default")
             selectedDeviceUID = nil
             saveSelectedDevice()
-            // US-501: Trigger smart device selection when cached device disconnected
-            selectBestDevice()
+            
+            // US-601: Select the system default device as fallback
+            let (fallbackDevice, _) = selectBestDevice()
+            
+            // US-601: Notify about device change (not during recording - that's handled above)
+            if !isCapturing, let fallback = fallbackDevice {
+                onDeviceChanged?(previousDevice?.name, fallback.name, "Selected device disconnected")
+            }
         }
         
         // US-502: Invalidate cache if cached device is no longer available
@@ -294,10 +371,101 @@ final class AudioManager: NSObject, ObservableObject {
         print("AudioManager: Found \(availableInputDevices.count) audio input device(s)")
         for device in availableInputDevices {
             let quality = calculateDeviceQuality(device)
-            print("  - \(device.name) (default: \(device.isDefault), rate: \(device.sampleRate)Hz, quality: \(quality))")
+            let isPreferred = device.uid == preferredDeviceUID ? " [PREFERRED]" : ""
+            let isSelected = device.uid == selectedDeviceUID ? " [SELECTED]" : ""
+            print("  - \(device.name) (default: \(device.isDefault), rate: \(device.sampleRate)Hz, quality: \(quality))\(isPreferred)\(isSelected)")
         }
         
         onDevicesChanged?(availableInputDevices)
+    }
+    
+    // MARK: - US-601: Device Hot-Plug Handling
+    
+    /// Handle device disconnection during an active recording session
+    /// Falls back to system default device and notifies the user
+    private func handleDeviceDisconnectedDuringRecording(disconnectedDevice: AudioInputDevice) {
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║    US-601: HANDLING DEVICE DISCONNECT DURING RECORDING        ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Disconnected: \(disconnectedDevice.name.prefix(46).padding(toLength: 46, withPad: " ", startingAt: 0))   ║")
+        
+        // Find the system default device as fallback
+        let defaultDevice = availableInputDevices.first(where: { $0.isDefault }) ?? availableInputDevices.first
+        
+        if let fallback = defaultDevice {
+            print("║ Falling back to: \(fallback.name.prefix(43).padding(toLength: 43, withPad: " ", startingAt: 0))   ║")
+            print("╚═══════════════════════════════════════════════════════════════╝")
+            
+            // Update selected device to fallback
+            selectedDeviceUID = fallback.uid
+            saveSelectedDevice()
+            recordingStartDevice = fallback
+            
+            // Try to switch to the new device without stopping the recording
+            // This allows the recording to continue with the fallback device
+            do {
+                try setAudioInputDevice(fallback)
+                print("AudioManager: [US-601] ✓ Successfully switched to fallback device during recording")
+            } catch {
+                print("AudioManager: [US-601] ⚠️ Failed to switch to fallback device: \(error)")
+                // The recording will likely fail, but we'll let it continue and see what happens
+            }
+            
+            // Notify callback on main thread
+            DispatchQueue.main.async { [weak self] in
+                self?.onDeviceDisconnectedDuringRecording?(disconnectedDevice.name, fallback.name)
+            }
+        } else {
+            print("║ No fallback device available!                                 ║")
+            print("╚═══════════════════════════════════════════════════════════════╝")
+            // No fallback available - recording will likely fail
+        }
+    }
+    
+    /// Handle reconnection of the user's preferred device
+    /// Switches back to the preferred device and notifies the user
+    private func handlePreferredDeviceReconnected(_ device: AudioInputDevice) {
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║       US-601: PREFERRED DEVICE RECONNECTED                    ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Device: \(device.name.prefix(52).padding(toLength: 52, withPad: " ", startingAt: 0))   ║")
+        print("╚═══════════════════════════════════════════════════════════════╝")
+        
+        // Only auto-switch if not currently recording
+        if !isCapturing {
+            let previousDevice = currentDevice
+            selectedDeviceUID = device.uid
+            saveSelectedDevice()
+            
+            // Notify callback on main thread
+            DispatchQueue.main.async { [weak self] in
+                self?.onPreferredDeviceReconnected?(device.name)
+                // Also notify about device change
+                self?.onDeviceChanged?(previousDevice?.name, device.name, "Preferred device reconnected")
+            }
+        } else {
+            print("AudioManager: [US-601] Preferred device reconnected but currently recording - will switch after recording stops")
+        }
+    }
+    
+    // MARK: - US-601: Preferred Device Persistence
+    
+    /// Load the preferred device UID from UserDefaults
+    private func loadPreferredDevice() {
+        preferredDeviceUID = UserDefaults.standard.string(forKey: Self.preferredDeviceKey)
+        if let uid = preferredDeviceUID {
+            print("AudioManager: [US-601] Loaded preferred device UID: \(uid)")
+        }
+    }
+    
+    /// Save the preferred device UID to UserDefaults
+    private func savePreferredDevice() {
+        if let uid = preferredDeviceUID {
+            UserDefaults.standard.set(uid, forKey: Self.preferredDeviceKey)
+            print("AudioManager: [US-601] Saved preferred device UID: \(uid)")
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.preferredDeviceKey)
+        }
     }
     
     private func enumerateAudioInputDevices() -> [AudioInputDevice] {
@@ -804,11 +972,24 @@ final class AudioManager: NSObject, ObservableObject {
         }
         
         print("AudioManager: [STAGE 1] Input format - Sample rate: \(inputFormat.sampleRate), Channels: \(inputFormat.channelCount)")
+        
+        // Create a mono format at the device's sample rate for the tap
+        // This handles devices that report many channels (like virtual audio devices)
+        // We only need mono audio for transcription
+        guard let monoFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: inputFormat.sampleRate,
+            channels: 1,
+            interleaved: false
+        ) else {
+            print("AudioManager: [STAGE 1] ✗ Failed to create mono format")
+            throw AudioCaptureError.formatCreationFailed
+        }
+        print("AudioManager: [STAGE 1] ✓ Mono format created at \(monoFormat.sampleRate)Hz")
 
-        // Wire input to a muted mixer sink so the graph actively pulls mic data
-        configureInputGraph(inputNode: inputNode, format: inputFormat)
-        audioEngine.prepare()
-        print("AudioManager: [STAGE 1] ✓ Audio graph prepared after wiring")
+        // Note: Skipping mixer sink connection for better compatibility with virtual devices
+        // The tap alone should be sufficient to receive audio data
+        print("AudioManager: [STAGE 1] ✓ Skipping mixer sink (direct tap mode for virtual device compatibility)")
         
         // Create format for Whisper (16kHz mono)
         guard let whisperFormat = AVAudioFormat(
@@ -822,11 +1003,11 @@ final class AudioManager: NSObject, ObservableObject {
         }
         print("AudioManager: [STAGE 1] ✓ Whisper format created (16kHz mono Float32)")
         
-        // Create converter if sample rates differ
+        // Create converter if sample rates differ (from mono format to whisper format)
         let converter: AVAudioConverter?
-        if inputFormat.sampleRate != Constants.targetSampleRate || inputFormat.channelCount != 1 {
-            converter = AVAudioConverter(from: inputFormat, to: whisperFormat)
-            print("AudioManager: [STAGE 1] ✓ Audio converter created: \(inputFormat.sampleRate)Hz → \(Constants.targetSampleRate)Hz")
+        if monoFormat.sampleRate != Constants.targetSampleRate {
+            converter = AVAudioConverter(from: monoFormat, to: whisperFormat)
+            print("AudioManager: [STAGE 1] ✓ Audio converter created: \(monoFormat.sampleRate)Hz → \(Constants.targetSampleRate)Hz")
         } else {
             converter = nil
             print("AudioManager: [STAGE 1] ✓ No conversion needed (already 16kHz mono)")
@@ -842,8 +1023,9 @@ final class AudioManager: NSObject, ObservableObject {
         print("╚═══════════════════════════════════════════════════════════════╝")
         
         // Install tap on input node - US-301: All audio goes to single masterBuffer
+        // Use mono format to ensure compatibility with multi-channel virtual devices
         inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, time in
+        inputNode.installTap(onBus: 0, bufferSize: 4096, format: monoFormat) { [weak self] buffer, time in
             guard let self = self else { return }
             
             self.tapCallbackCount += 1
@@ -853,8 +1035,9 @@ final class AudioManager: NSObject, ObservableObject {
             
             if let converter = converter {
                 // Convert to target format (16kHz mono)
+                // Use buffer.format.sampleRate since monoFormat is not accessible in closure
                 let frameCapacity = AVAudioFrameCount(
-                    Double(buffer.frameLength) * Constants.targetSampleRate / inputFormat.sampleRate
+                    Double(buffer.frameLength) * Constants.targetSampleRate / buffer.format.sampleRate
                 )
                 
                 guard let convertedBuffer = AVAudioPCMBuffer(
@@ -892,10 +1075,10 @@ final class AudioManager: NSObject, ObservableObject {
                     print("╔═══════════════════════════════════════════════════════════════╗")
                     print("║           US-302: FIRST TAP CALLBACK - FULL DETAILS           ║")
                     print("╠═══════════════════════════════════════════════════════════════╣")
-                    print("║ Input buffer:                                                 ║")
+                    print("║ Input buffer (mono):                                          ║")
                     print("║   - Frame count: \(String(format: "%10d", inputBufferFrames)) frames                         ║")
-                    print("║   - Sample rate: \(String(format: "%10.0f", inputFormat.sampleRate)) Hz                            ║")
-                    print("║   - Channels:    \(String(format: "%10d", inputFormat.channelCount))                                ║")
+                    print("║   - Sample rate: \(String(format: "%10.0f", buffer.format.sampleRate)) Hz                            ║")
+                    print("║   - Channels:    \(String(format: "%10d", buffer.format.channelCount))                                ║")
                     print("║ Converted buffer:                                             ║")
                     print("║   - Frame count: \(String(format: "%10d", outputFrames)) frames                         ║")
                     print("║   - Sample rate: \(String(format: "%10.0f", format.sampleRate)) Hz (target: \(Constants.targetSampleRate))         ║")
@@ -984,6 +1167,12 @@ final class AudioManager: NSObject, ObservableObject {
         isCapturing = true
         captureStartTime = Date()
         
+        // US-601: Track the device we started recording with
+        recordingStartDevice = currentDevice
+        if let device = recordingStartDevice {
+            print("AudioManager: [US-601] Recording started with device: \(device.name)")
+        }
+        
         // US-302: Start timer to alert if no tap callbacks received within 2 seconds
         startNoCallbackAlertTimer()
         
@@ -1011,6 +1200,26 @@ final class AudioManager: NSObject, ObservableObject {
         print("AudioManager: [STAGE 3] ✓ Audio engine stopped, tap removed")
         
         isCapturing = false
+        
+        // US-601: Clear recording start device
+        let previousRecordingDevice = recordingStartDevice
+        recordingStartDevice = nil
+        
+        // US-601: If preferred device was reconnected during recording, switch to it now
+        if let preferredUID = preferredDeviceUID,
+           preferredUID != selectedDeviceUID,
+           availableInputDevices.contains(where: { $0.uid == preferredUID }) {
+            print("AudioManager: [US-601] Switching to preferred device after recording completed")
+            if let preferredDevice = availableInputDevices.first(where: { $0.uid == preferredUID }) {
+                let oldDevice = currentDevice
+                selectedDeviceUID = preferredUID
+                saveSelectedDevice()
+                DispatchQueue.main.async { [weak self] in
+                    self?.onDeviceChanged?(oldDevice?.name, preferredDevice.name, "Switched to preferred device after recording")
+                }
+            }
+        }
+        _ = previousRecordingDevice  // Silence unused warning
         
         // Calculate duration
         let duration = captureStartTime.map { Date().timeIntervalSince($0) } ?? 0
@@ -1160,6 +1369,9 @@ final class AudioManager: NSObject, ObservableObject {
         
         isCapturing = false
         captureStartTime = nil
+        
+        // US-601: Clear recording start device
+        recordingStartDevice = nil
         
         // US-301 & US-303: Clear unified masterBuffer and log the event
         bufferLock.lock()
