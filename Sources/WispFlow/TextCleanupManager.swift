@@ -63,6 +63,10 @@ final class TextCleanupManager: ObservableObject {
     private struct Constants {
         static let selectedModeKey = "selectedCleanupMode"
         static let cleanupEnabledKey = "textCleanupEnabled"
+        // US-607: Post-processing option keys
+        static let autoCapitalizeFirstLetterKey = "postProcessAutoCapitalizeFirstLetter"
+        static let addPeriodAtEndKey = "postProcessAddPeriodAtEnd"
+        static let trimWhitespaceKey = "postProcessTrimWhitespace"
     }
     
     /// Common filler words and phrases to remove
