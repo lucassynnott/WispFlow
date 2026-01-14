@@ -1071,3 +1071,55 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 - Wired up callbacks in `AppDelegate.setupAudioManager()` to show toasts and trigger auto-stop
 - RecordingIndicatorWindow already has `durationLabel` that displays "M:SS" format, updated every second
 - Verified via `swift build` - typecheck passes
+
+---
+
+### US-604: Audio Level Calibration
+**Status:** complete
+**Priority:** medium
+**Estimated effort:** small
+
+**Description:** Allow users to calibrate microphone sensitivity for their environment.
+
+**Tasks:**
+- [x] Add `CalibrationState` enum to track calibration progress (idle, calibrating, completed, failed)
+- [x] Add `DeviceCalibration` struct for per-device calibration data (deviceUID, deviceName, ambientNoiseLevel, silenceThreshold, calibrationDate)
+- [x] Add `calibrationDuration` constant (3 seconds) to Constants
+- [x] Add `calibrationDataKey` for UserDefaults persistence
+- [x] Add `defaultSilenceThresholdOffset` constant (5dB above ambient)
+- [x] Implement `startCalibration()` method to begin 3-second ambient noise measurement
+- [x] Implement `cancelCalibration()` method to abort calibration
+- [x] Implement `finishCalibration()` method to calculate and save calibration results
+- [x] Implement `getCalibrationForCurrentDevice()` to retrieve saved calibration
+- [x] Implement `isCurrentDeviceCalibrated` computed property
+- [x] Implement `effectiveSilenceThreshold` computed property (uses calibrated threshold if available)
+- [x] Implement `resetCalibrationForCurrentDevice()` to reset to default threshold
+- [x] Implement `loadCalibrationData()` and `saveCalibrationData()` for UserDefaults persistence
+- [x] Add `AudioCalibrationCard` UI component in SettingsWindow.swift
+- [x] Add `CalibrationStatusView` for displaying current calibration status
+- [x] Add `CalibrationProgressDisplay` with progress bar for calibration in progress
+- [x] Add `CalibrationResultDisplay` for showing calibrated values
+- [x] Add `DefaultThresholdDisplay` for showing default threshold when not calibrated
+- [x] Add `CalibrationCompletedDisplay` with success animation
+- [x] Add `CalibrationFailedDisplay` for error states
+- [x] Add "Calibrate" button in Audio settings tab
+- [x] Add "Reset to Defaults" button for calibrated devices
+- [x] Build verification (`swift build` succeeds)
+
+**Acceptance Criteria:**
+- [x] "Calibrate" button in Audio settings
+- [x] Measure ambient noise level over 3 seconds
+- [x] Adjust silence threshold based on calibration (ambient + 5dB offset)
+- [x] Save calibration per-device (stored in UserDefaults keyed by device UID)
+- [x] Reset to defaults option (via `resetCalibrationForCurrentDevice()`)
+
+**Implementation Notes:**
+- `CalibrationState` enum supports four states: `.idle`, `.calibrating(progress: Double)`, `.completed(ambientLevel: Float)`, `.failed(message: String)`
+- `DeviceCalibration` struct is Codable for JSON serialization to UserDefaults
+- Calibration process: starts audio capture → collects level samples at 100ms intervals → calculates average ambient level → sets threshold = ambient + 5dB
+- `deviceCalibrations` dictionary stores calibrations keyed by device UID for per-device settings
+- `effectiveSilenceThreshold` returns calibrated threshold when available, otherwise returns default (-55dB)
+- UI displays calibration metrics (ambient level, threshold) with date of last calibration
+- Reset confirmation alert prevents accidental reset
+- All calibration data persisted across app restarts via UserDefaults
+- Verified via `swift build` - typecheck passes

@@ -187,6 +187,35 @@ final class AudioManager: NSObject, ObservableObject {
         static let maxRecordingDurationKey = "maxRecordingDuration"
         static let defaultMaxRecordingDuration: TimeInterval = 300.0 // 5 minutes default
         static let warningOffsetFromMax: TimeInterval = 60.0 // Warning 1 minute before max (at 4 minutes)
+        
+        // US-604: Audio Level Calibration
+        static let calibrationDuration: TimeInterval = 3.0 // Measure ambient noise over 3 seconds
+        static let calibrationDataKey = "audioCalibrationData" // UserDefaults key for calibration data
+        static let defaultSilenceThresholdOffset: Float = 5.0 // Add 5dB margin above ambient noise
+    }
+    
+    // MARK: - US-604: Audio Level Calibration
+    
+    /// Calibration state for tracking calibration progress
+    enum CalibrationState: Equatable {
+        case idle
+        case calibrating(progress: Double)
+        case completed(ambientLevel: Float)
+        case failed(message: String)
+    }
+    
+    /// Calibration data for a specific device
+    struct DeviceCalibration: Codable {
+        let deviceUID: String
+        let deviceName: String
+        let ambientNoiseLevel: Float  // Measured ambient noise in dB
+        let silenceThreshold: Float   // Calculated silence threshold in dB
+        let calibrationDate: Date
+        
+        /// Human-readable description
+        var description: String {
+            return "Ambient: \(String(format: "%.1f", ambientNoiseLevel))dB, Threshold: \(String(format: "%.1f", silenceThreshold))dB"
+        }
     }
     
     // MARK: - Properties
@@ -278,12 +307,36 @@ final class AudioManager: NSObject, ObservableObject {
     /// Flag to track if cache was used in the current capture session
     private var usedCachedDeviceForCapture: Bool = false
     
+    // MARK: - US-604: Audio Level Calibration Properties
+    
+    /// Published calibration state for UI binding
+    @Published var calibrationState: CalibrationState = .idle
+    
+    /// Timer for calibration progress updates
+    private var calibrationTimer: Timer?
+    
+    /// Sample buffer for calibration measurement
+    private var calibrationSamples: [Float] = []
+    
+    /// Start time of current calibration
+    private var calibrationStartTime: Date?
+    
+    /// Dictionary of device calibrations stored per device UID
+    private var deviceCalibrations: [String: DeviceCalibration] = [:]
+    
+    /// Callback when calibration completes successfully
+    var onCalibrationCompleted: ((DeviceCalibration) -> Void)?
+    
+    /// Callback when calibration fails
+    var onCalibrationFailed: ((String) -> Void)?
+    
     // MARK: - Initialization
     
     override init() {
         super.init()
         loadSelectedDevice()
         loadPreferredDevice()  // US-601: Load preferred device UID
+        loadCalibrationData()  // US-604: Load calibration data
         refreshAvailableDevices()
         setupDeviceChangeListener()
     }
@@ -2343,6 +2396,246 @@ final class AudioManager: NSObject, ObservableObject {
         let elapsed = elapsedRecordingTime
         let remaining = Self.maxRecordingDuration - elapsed
         return max(0, remaining)
+    }
+    
+    // MARK: - US-604: Audio Level Calibration Methods
+    
+    /// Start calibrating the microphone for the current device
+    /// Measures ambient noise level over 3 seconds
+    func startCalibration() {
+        guard !isCapturing else {
+            print("AudioManager: [US-604] Cannot start calibration while recording is in progress")
+            calibrationState = .failed(message: "Cannot calibrate while recording")
+            onCalibrationFailed?("Cannot calibrate while recording is in progress")
+            return
+        }
+        
+        guard let device = currentDevice else {
+            print("AudioManager: [US-604] No audio device available for calibration")
+            calibrationState = .failed(message: "No audio device selected")
+            onCalibrationFailed?("No audio device selected")
+            return
+        }
+        
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║       US-604: STARTING AUDIO LEVEL CALIBRATION                ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Device: \(device.name.prefix(52).padding(toLength: 52, withPad: " ", startingAt: 0))   ║")
+        print("║ Duration: \(String(format: "%.0f", Constants.calibrationDuration).padding(toLength: 49, withPad: " ", startingAt: 0))s   ║")
+        print("╚═══════════════════════════════════════════════════════════════╝")
+        
+        // Reset calibration state
+        calibrationSamples.removeAll()
+        calibrationStartTime = Date()
+        calibrationState = .calibrating(progress: 0.0)
+        
+        // Start audio capture for calibration
+        do {
+            try startCapturing()
+            
+            // Start timer to update progress and collect samples
+            calibrationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+                guard let self = self else {
+                    timer.invalidate()
+                    return
+                }
+                
+                guard let startTime = self.calibrationStartTime else {
+                    timer.invalidate()
+                    return
+                }
+                
+                let elapsed = Date().timeIntervalSince(startTime)
+                let progress = min(elapsed / Constants.calibrationDuration, 1.0)
+                
+                // Collect current audio level
+                self.calibrationSamples.append(self.currentAudioLevel)
+                
+                // Update progress
+                DispatchQueue.main.async {
+                    self.calibrationState = .calibrating(progress: progress)
+                }
+                
+                // Check if calibration is complete
+                if elapsed >= Constants.calibrationDuration {
+                    timer.invalidate()
+                    self.finishCalibration()
+                }
+            }
+        } catch {
+            print("AudioManager: [US-604] Failed to start calibration: \(error)")
+            calibrationState = .failed(message: error.localizedDescription)
+            onCalibrationFailed?(error.localizedDescription)
+        }
+    }
+    
+    /// Cancel an in-progress calibration
+    func cancelCalibration() {
+        print("AudioManager: [US-604] Calibration cancelled")
+        calibrationTimer?.invalidate()
+        calibrationTimer = nil
+        calibrationSamples.removeAll()
+        calibrationStartTime = nil
+        cancelCapturing()
+        calibrationState = .idle
+    }
+    
+    /// Finish calibration and calculate results
+    private func finishCalibration() {
+        calibrationTimer?.invalidate()
+        calibrationTimer = nil
+        
+        // Stop audio capture
+        cancelCapturing()
+        
+        guard let device = currentDevice else {
+            print("AudioManager: [US-604] No device available to save calibration")
+            calibrationState = .failed(message: "Device unavailable")
+            onCalibrationFailed?("Device unavailable")
+            return
+        }
+        
+        guard !calibrationSamples.isEmpty else {
+            print("AudioManager: [US-604] No samples collected during calibration")
+            calibrationState = .failed(message: "No audio samples collected")
+            onCalibrationFailed?("No audio samples collected")
+            return
+        }
+        
+        // Calculate average ambient noise level from samples
+        // Filter out extremely low readings that might be silence
+        let validSamples = calibrationSamples.filter { $0 > -80.0 }
+        
+        let ambientLevel: Float
+        if validSamples.isEmpty {
+            // All samples were very quiet, use the max of all samples
+            ambientLevel = calibrationSamples.max() ?? Constants.silenceThresholdDB
+        } else {
+            // Use the average of valid samples
+            ambientLevel = validSamples.reduce(0, +) / Float(validSamples.count)
+        }
+        
+        // Calculate silence threshold: ambient noise + offset
+        // This ensures we only detect voice that's clearly above the ambient noise floor
+        let silenceThreshold = ambientLevel + Constants.defaultSilenceThresholdOffset
+        
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║       US-604: CALIBRATION COMPLETE                            ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Device: \(device.name.prefix(52).padding(toLength: 52, withPad: " ", startingAt: 0))   ║")
+        print("║ Samples collected: \(String(calibrationSamples.count).padding(toLength: 41, withPad: " ", startingAt: 0))   ║")
+        print("║ Valid samples: \(String(validSamples.count).padding(toLength: 45, withPad: " ", startingAt: 0))   ║")
+        print("║ Ambient noise level: \(String(format: "%.1f dB", ambientLevel).padding(toLength: 39, withPad: " ", startingAt: 0))   ║")
+        print("║ Calculated threshold: \(String(format: "%.1f dB", silenceThreshold).padding(toLength: 38, withPad: " ", startingAt: 0))   ║")
+        print("╚═══════════════════════════════════════════════════════════════╝")
+        
+        // Create and save calibration data
+        let calibration = DeviceCalibration(
+            deviceUID: device.uid,
+            deviceName: device.name,
+            ambientNoiseLevel: ambientLevel,
+            silenceThreshold: silenceThreshold,
+            calibrationDate: Date()
+        )
+        
+        deviceCalibrations[device.uid] = calibration
+        saveCalibrationData()
+        
+        // Update state
+        DispatchQueue.main.async { [weak self] in
+            self?.calibrationState = .completed(ambientLevel: ambientLevel)
+            self?.onCalibrationCompleted?(calibration)
+        }
+        
+        calibrationSamples.removeAll()
+        calibrationStartTime = nil
+    }
+    
+    /// Get calibration data for the current device
+    func getCalibrationForCurrentDevice() -> DeviceCalibration? {
+        guard let device = currentDevice else { return nil }
+        return deviceCalibrations[device.uid]
+    }
+    
+    /// Get calibration data for a specific device UID
+    func getCalibration(forDeviceUID uid: String) -> DeviceCalibration? {
+        return deviceCalibrations[uid]
+    }
+    
+    /// Check if the current device has been calibrated
+    var isCurrentDeviceCalibrated: Bool {
+        guard let device = currentDevice else { return false }
+        return deviceCalibrations[device.uid] != nil
+    }
+    
+    /// Get the effective silence threshold for the current device
+    /// Returns calibrated threshold if available, otherwise default
+    var effectiveSilenceThreshold: Float {
+        if let device = currentDevice,
+           let calibration = deviceCalibrations[device.uid] {
+            return calibration.silenceThreshold
+        }
+        return Constants.silenceThresholdDB
+    }
+    
+    /// Reset calibration for the current device to defaults
+    func resetCalibrationForCurrentDevice() {
+        guard let device = currentDevice else {
+            print("AudioManager: [US-604] No device available to reset calibration")
+            return
+        }
+        
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║       US-604: RESETTING CALIBRATION TO DEFAULTS               ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Device: \(device.name.prefix(52).padding(toLength: 52, withPad: " ", startingAt: 0))   ║")
+        print("║ Default threshold: \(String(format: "%.1f dB", Constants.silenceThresholdDB).padding(toLength: 41, withPad: " ", startingAt: 0))   ║")
+        print("╚═══════════════════════════════════════════════════════════════╝")
+        
+        deviceCalibrations.removeValue(forKey: device.uid)
+        saveCalibrationData()
+        calibrationState = .idle
+    }
+    
+    /// Reset all device calibrations to defaults
+    func resetAllCalibrations() {
+        print("AudioManager: [US-604] Resetting all device calibrations")
+        deviceCalibrations.removeAll()
+        saveCalibrationData()
+        calibrationState = .idle
+    }
+    
+    // MARK: - US-604: Calibration Data Persistence
+    
+    /// Load calibration data from UserDefaults
+    private func loadCalibrationData() {
+        guard let data = UserDefaults.standard.data(forKey: Constants.calibrationDataKey) else {
+            print("AudioManager: [US-604] No calibration data found in UserDefaults")
+            return
+        }
+        
+        do {
+            let decoded = try JSONDecoder().decode([String: DeviceCalibration].self, from: data)
+            deviceCalibrations = decoded
+            print("AudioManager: [US-604] Loaded calibration data for \(decoded.count) device(s)")
+            for (uid, cal) in decoded {
+                print("AudioManager: [US-604]   - \(cal.deviceName): \(cal.description)")
+            }
+        } catch {
+            print("AudioManager: [US-604] Failed to decode calibration data: \(error)")
+            deviceCalibrations = [:]
+        }
+    }
+    
+    /// Save calibration data to UserDefaults
+    private func saveCalibrationData() {
+        do {
+            let encoded = try JSONEncoder().encode(deviceCalibrations)
+            UserDefaults.standard.set(encoded, forKey: Constants.calibrationDataKey)
+            print("AudioManager: [US-604] Saved calibration data for \(deviceCalibrations.count) device(s)")
+        } catch {
+            print("AudioManager: [US-604] Failed to encode calibration data: \(error)")
+        }
     }
 }
 

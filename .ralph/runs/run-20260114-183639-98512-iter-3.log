@@ -1,0 +1,19 @@
+## Summary
+
+Successfully implemented **US-603: Recording Timeout Safety** for WispFlow. The implementation prevents runaway recordings that could fill disk space by:
+
+1. **Maximum recording duration** of 5 minutes (300 seconds) - configurable via `AudioManager.maxRecordingDuration` which persists to UserDefaults
+2. **Warning toast at 4 minutes** - displays "Recording Limit Approaching - 1 minute remaining" via `showRecordingTimeoutWarning`
+3. **Auto-stop and transcribe at limit** - triggers the same stop flow as manual stop, automatically transcribing the audio
+4. **Elapsed time display** - the RecordingIndicatorWindow already displays elapsed time via its `durationLabel` component
+
+**Files changed:**
+- `AudioManager.swift` - Added timeout constants, timer properties, callbacks, and configuration methods
+- `AppDelegate.swift` - Wired up timeout callbacks to show toasts and trigger auto-stop
+- `ToastView.swift` - Added `showRecordingTimeoutWarning` and `showRecordingAutoStopped` toast methods
+- `IMPLEMENTATION_PLAN.md` - Added and completed US-603 section
+- `prd-wispflow-improvements-v2.md` - Marked US-603 and all acceptance criteria complete
+
+**Commits:**
+- `213e0a7 feat(US-603): implement recording timeout safety`
+- `0946822 docs: add verification progress log for US-603 iteration 3`

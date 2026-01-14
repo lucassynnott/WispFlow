@@ -66,18 +66,18 @@ This PRD outlines improvements, optimizations, and bugfixes for WispFlow, a priv
 
 ---
 
-### US-604: Audio Level Calibration
+### [x] US-604: Audio Level Calibration
 **Priority**: Medium  
 **Estimate**: 2 points
 
 **Description**: Allow users to calibrate microphone sensitivity for their environment.
 
 **Acceptance Criteria**:
-- [ ] "Calibrate" button in Audio settings
-- [ ] Measure ambient noise level over 3 seconds
-- [ ] Adjust silence threshold based on calibration
-- [ ] Save calibration per-device
-- [ ] Reset to defaults option
+- [x] "Calibrate" button in Audio settings
+- [x] Measure ambient noise level over 3 seconds
+- [x] Adjust silence threshold based on calibration
+- [x] Save calibration per-device
+- [x] Reset to defaults option
 
 ---
 

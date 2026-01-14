@@ -3349,6 +3349,9 @@ struct AudioSettingsView: View {
                 }
                 .wispflowCard()
                 
+                // US-604: Audio Level Calibration card
+                AudioCalibrationCard(audioManager: audioManager)
+                
                 // Audio Info card
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("About Audio Capture")
@@ -3818,6 +3821,408 @@ struct CustomSlider: View {
                     }
             )
             .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isDragging)
+        }
+    }
+}
+
+// MARK: - US-604: Audio Calibration Card
+
+/// Card for audio level calibration in Audio settings
+struct AudioCalibrationCard: View {
+    @ObservedObject var audioManager: AudioManager
+    @State private var showResetConfirmation = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "tuningfork")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Audio Level Calibration")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("Calibrate your microphone for optimal silence detection in your environment. This helps WispFlow distinguish between ambient noise and speech.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Calibration status display
+            CalibrationStatusView(audioManager: audioManager)
+            
+            // Calibration action buttons
+            HStack(spacing: Spacing.md) {
+                // Calibrate button
+                Button(action: {
+                    print("[US-604] Calibrate button tapped")
+                    audioManager.startCalibration()
+                }) {
+                    HStack {
+                        if case .calibrating = audioManager.calibrationState {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .frame(width: 16, height: 16)
+                        } else {
+                            Image(systemName: "tuningfork")
+                        }
+                        Text(calibrateButtonText)
+                    }
+                }
+                .buttonStyle(WispflowButtonStyle.primary)
+                .disabled(isCalibrationDisabled)
+                
+                // Cancel button (shown during calibration)
+                if case .calibrating = audioManager.calibrationState {
+                    Button(action: {
+                        print("[US-604] Cancel calibration button tapped")
+                        audioManager.cancelCalibration()
+                    }) {
+                        HStack {
+                            Image(systemName: "xmark")
+                            Text("Cancel")
+                        }
+                    }
+                    .buttonStyle(WispflowButtonStyle.secondary)
+                }
+                
+                Spacer()
+                
+                // Reset to defaults button (shown if device is calibrated)
+                if audioManager.isCurrentDeviceCalibrated {
+                    Button(action: {
+                        print("[US-604] Reset to defaults button tapped")
+                        showResetConfirmation = true
+                    }) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Reset to Defaults")
+                        }
+                    }
+                    .buttonStyle(WispflowButtonStyle.ghost)
+                    .disabled(isCalibrating)
+                }
+            }
+        }
+        .wispflowCard()
+        .alert("Reset Calibration?", isPresented: $showResetConfirmation) {
+            Button("Reset", role: .destructive) {
+                audioManager.resetCalibrationForCurrentDevice()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will reset the calibration for \(audioManager.currentDevice?.name ?? "this device") to the default threshold of \(String(format: "%.0f", AudioManager.silenceThreshold))dB.")
+        }
+    }
+    
+    private var calibrateButtonText: String {
+        switch audioManager.calibrationState {
+        case .idle:
+            return "Calibrate"
+        case .calibrating:
+            return "Calibrating..."
+        case .completed:
+            return "Recalibrate"
+        case .failed:
+            return "Retry Calibration"
+        }
+    }
+    
+    private var isCalibrationDisabled: Bool {
+        if case .calibrating = audioManager.calibrationState {
+            return true
+        }
+        return false
+    }
+    
+    private var isCalibrating: Bool {
+        if case .calibrating = audioManager.calibrationState {
+            return true
+        }
+        return false
+    }
+}
+
+// MARK: - US-604: Calibration Status View
+
+/// Display calibration status and progress
+struct CalibrationStatusView: View {
+    @ObservedObject var audioManager: AudioManager
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            switch audioManager.calibrationState {
+            case .idle:
+                // Show current calibration status or default
+                if let calibration = audioManager.getCalibrationForCurrentDevice() {
+                    CalibrationResultDisplay(calibration: calibration)
+                } else {
+                    DefaultThresholdDisplay()
+                }
+                
+            case .calibrating(let progress):
+                CalibrationProgressDisplay(progress: progress)
+                
+            case .completed(let ambientLevel):
+                CalibrationCompletedDisplay(ambientLevel: ambientLevel, calibration: audioManager.getCalibrationForCurrentDevice())
+                
+            case .failed(let message):
+                CalibrationFailedDisplay(message: message)
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.medium)
+                .stroke(Color.Wispflow.border, lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - US-604: Calibration Display Components
+
+/// Shows the current calibration result
+struct CalibrationResultDisplay: View {
+    let calibration: AudioManager.DeviceCalibration
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Status icon
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.successLight)
+                    .frame(width: 36, height: 36)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.Wispflow.success)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text("Calibrated")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    // Status badge
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.Wispflow.success)
+                            .frame(width: 6, height: 6)
+                        Text("Active")
+                            .font(Font.Wispflow.small)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(Color.Wispflow.success)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(Color.Wispflow.success.opacity(0.12))
+                    .cornerRadius(CornerRadius.small / 2)
+                }
+                
+                HStack(spacing: Spacing.md) {
+                    CalibrationMetric(label: "Ambient", value: String(format: "%.1f dB", calibration.ambientNoiseLevel))
+                    CalibrationMetric(label: "Threshold", value: String(format: "%.1f dB", calibration.silenceThreshold))
+                }
+                
+                // Calibration date
+                Text("Last calibrated: \(formattedDate(calibration.calibrationDate))")
+                    .font(Font.Wispflow.small)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+        }
+    }
+    
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+/// Shows the default threshold when not calibrated
+struct DefaultThresholdDisplay: View {
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Status icon
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.border.opacity(0.3))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "circle.dashed")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text("Not Calibrated")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    // Status badge
+                    Text("Using Default")
+                        .font(Font.Wispflow.small)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, 2)
+                        .background(Color.Wispflow.border.opacity(0.3))
+                        .cornerRadius(CornerRadius.small / 2)
+                }
+                
+                CalibrationMetric(label: "Default Threshold", value: String(format: "%.0f dB", AudioManager.silenceThreshold))
+                
+                Text("Calibrate to optimize for your environment")
+                    .font(Font.Wispflow.small)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+        }
+    }
+}
+
+/// Shows calibration progress
+struct CalibrationProgressDisplay: View {
+    let progress: Double
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.md) {
+                // Animated mic icon
+                ZStack {
+                    Circle()
+                        .fill(Color.Wispflow.accentLight)
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "waveform")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(Color.Wispflow.accent)
+                }
+                
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("Measuring ambient noise...")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    Text("Please remain quiet for 3 seconds")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                }
+                
+                Spacer()
+                
+                Text("\(Int(progress * 100))%")
+                    .font(Font.Wispflow.mono)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Color.Wispflow.accent)
+            }
+            
+            // Progress bar
+            GradientProgressBar(progress: progress)
+                .frame(height: 8)
+        }
+    }
+}
+
+/// Shows calibration completed state
+struct CalibrationCompletedDisplay: View {
+    let ambientLevel: Float
+    let calibration: AudioManager.DeviceCalibration?
+    
+    @State private var showCheckmark = false
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Success icon with animation
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.successLight)
+                    .frame(width: 36, height: 36)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.Wispflow.success)
+                    .scaleEffect(showCheckmark ? 1.0 : 0.5)
+                    .opacity(showCheckmark ? 1.0 : 0.0)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text("Calibration Complete!")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.success)
+                }
+                
+                if let cal = calibration {
+                    HStack(spacing: Spacing.md) {
+                        CalibrationMetric(label: "Ambient", value: String(format: "%.1f dB", cal.ambientNoiseLevel))
+                        CalibrationMetric(label: "New Threshold", value: String(format: "%.1f dB", cal.silenceThreshold))
+                    }
+                }
+            }
+            
+            Spacer()
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                showCheckmark = true
+            }
+        }
+    }
+}
+
+/// Shows calibration failed state
+struct CalibrationFailedDisplay: View {
+    let message: String
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Error icon
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.errorLight)
+                    .frame(width: 36, height: 36)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.Wispflow.error)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("Calibration Failed")
+                    .font(Font.Wispflow.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.Wispflow.error)
+                
+                Text(message)
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+        }
+    }
+}
+
+/// Small metric display for calibration values
+struct CalibrationMetric: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            Text(label + ":")
+                .font(Font.Wispflow.small)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            Text(value)
+                .font(Font.Wispflow.mono)
+                .fontWeight(.medium)
+                .foregroundColor(Color.Wispflow.accent)
         }
     }
 }
