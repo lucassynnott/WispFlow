@@ -1217,3 +1217,46 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
   - `detectLanguage`: true for automatic, false for specific language
   - `usePrefillPrompt`: true for better accuracy
 - Verified via `swift build` - typecheck passes
+
+---
+
+### US-607: Transcription Post-Processing
+**Status:** complete
+**Priority:** medium
+**Estimated effort:** small
+
+**Description:** Clean up transcription output for better usability with configurable post-processing options.
+
+**Tasks:**
+- [x] Add `autoCapitalizeFirstLetterKey`, `addPeriodAtEndKey`, `trimWhitespaceKey` constants to TextCleanupManager.Constants
+- [x] Add `@Published var autoCapitalizeFirstLetter: Bool` property with UserDefaults persistence
+- [x] Add `@Published var addPeriodAtEnd: Bool` property with UserDefaults persistence
+- [x] Add `@Published var trimWhitespace: Bool` property with UserDefaults persistence
+- [x] Load post-processing preferences on init (all default to `true` for better UX)
+- [x] Implement `applyPostProcessing(_:)` method that applies all three options in order: trim → capitalize → period
+- [x] Implement `processText(_:)` method that combines cleanup and post-processing
+- [x] Update `AppDelegate` to use `processText()` method instead of `cleanupText()`
+- [x] Add "Post-Processing" card in Settings Window (Text Cleanup tab)
+- [x] Add toggle for "Auto-capitalize first letter" with description
+- [x] Add toggle for "Add period at end" with description
+- [x] Add toggle for "Trim whitespace" with description
+- [x] Build verification (`swift build` succeeds)
+
+**Acceptance Criteria:**
+- [x] Option to auto-capitalize first letter (via `autoCapitalizeFirstLetter` toggle in Settings)
+- [x] Option to add period at end of sentences (via `addPeriodAtEnd` toggle in Settings)
+- [x] Option to trim leading/trailing whitespace (via `trimWhitespace` toggle in Settings)
+- [x] Configurable in Settings (Post-Processing card in Text Cleanup tab)
+
+**Implementation Notes:**
+- Post-processing options are separate from the main cleanup feature - they apply even when cleanup is disabled
+- Three options all default to `true` for better out-of-box experience:
+  - `autoCapitalizeFirstLetter`: Capitalizes the first letter if it's lowercase
+  - `addPeriodAtEnd`: Adds a period if text doesn't end with `.!?;:`
+  - `trimWhitespace`: Removes leading and trailing whitespace/newlines
+- `applyPostProcessing()` applies options in logical order: trim first (so we work with clean bounds), then capitalize, then add period
+- `processText()` is the new main entry point that chains `cleanupText()` and `applyPostProcessing()`
+- Settings UI uses `wispflowCard()` styling with individual toggles and descriptive text
+- Each option has its own toggle with descriptive text explaining what it does
+- All settings persisted via UserDefaults with dedicated keys
+- Verified via `swift build` - typecheck passes

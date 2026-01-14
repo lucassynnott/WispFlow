@@ -1,0 +1,9 @@
+I see that the Post-Processing Options card is already in the code (between lines 1699-1758)! That's interesting - it looks like another agent may have already added the UI. Let me verify by checking if the UI actually matches what the story requires:
+
+Looking at the code, I can see:
+1. ✅ Auto-capitalize first letter toggle with description
+2. ✅ Add period at end toggle with description
+3. ✅ Trim whitespace toggle with description
+4. ✅ Configurable in Settings (in the Text Cleanup tab)
+
+The UI already exists! Now let me verify the build compiles correctly:

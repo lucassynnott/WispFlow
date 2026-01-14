@@ -1770,6 +1770,9 @@ struct TextCleanupSettingsView: View {
                 }
                 .wispflowCard()
                 
+                // US-607: Post-Processing Options card
+                PostProcessingOptionsCard(textCleanupManager: textCleanupManager)
+                
                 Spacer()
             }
             .padding(Spacing.xl)

@@ -117,17 +117,17 @@ This PRD outlines improvements, optimizations, and bugfixes for WispFlow, a priv
 
 ---
 
-### US-607: Transcription Post-Processing
+### [x] US-607: Transcription Post-Processing
 **Priority**: Medium  
 **Estimate**: 2 points
 
 **Description**: Clean up transcription output for better usability.
 
 **Acceptance Criteria**:
-- [ ] Option to auto-capitalize first letter
-- [ ] Option to add period at end of sentences
-- [ ] Option to trim leading/trailing whitespace
-- [ ] Configurable in Settings
+- [x] Option to auto-capitalize first letter
+- [x] Option to add period at end of sentences
+- [x] Option to trim leading/trailing whitespace
+- [x] Configurable in Settings
 
 ---
 
