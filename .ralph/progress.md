@@ -2668,3 +2668,56 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-133822-18849-it
   - All interactive elements in Settings now have consistent hit testing via contentShape
   - No ZStack/overlay issues - the root cause was missing contentShape on interactive elements
 ---
+
+## [2026-01-14 18:50] - US-601: Audio Device Hot-Plug Support
+Thread: 
+Run: 20260114-183639-98512 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-183639-98512-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-183639-98512-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 19b0536 feat(US-601): implement audio device hot-plug support
+- Post-commit status: clean (US-601 changes committed)
+- Verification:
+  - Command: `swift build` -> PASS (build complete with only pre-existing warnings)
+- Files changed:
+  - Sources/WispFlow/AudioManager.swift (major changes for hot-plug support)
+  - Sources/WispFlow/AppDelegate.swift (wired up callbacks for toast notifications)
+  - Sources/WispFlow/ToastView.swift (added device change toast methods)
+  - .agents/tasks/prd-wispflow-improvements-v2.md (created, acceptance criteria checked)
+  - .ralph/IMPLEMENTATION_PLAN.md (added US-601 section with tasks)
+- What was implemented:
+  - Added `preferredDeviceUID` property to track user's preferred device separately from `selectedDeviceUID`
+  - Added `recordingStartDevice` to track the device active when recording starts
+  - Added three new callbacks:
+    - `onDeviceDisconnectedDuringRecording(disconnectedName, fallbackName)` 
+    - `onDeviceChanged(oldDevice, newDevice, reason)`
+    - `onPreferredDeviceReconnected(deviceName)`
+  - Enhanced `refreshAvailableDevices()` to:
+    - Track devices that were connected/disconnected
+    - Detect if device disconnected during active recording
+    - Detect if preferred device was reconnected
+    - Log device changes with formatted box output
+  - Implemented `handleDeviceDisconnectedDuringRecording()`:
+    - Falls back to system default device
+    - Attempts to switch audio input device on-the-fly
+    - Shows warning toast via callback
+  - Implemented `handlePreferredDeviceReconnected()`:
+    - Auto-switches to preferred device (if not recording)
+    - Shows success toast via callback
+  - Added preferred device persistence: `loadPreferredDevice()`, `savePreferredDevice()`
+  - Updated `startCapturing()` to track recording start device
+  - Updated `stopCapturing()` and `cancelCapturing()` to clear recording start device
+  - After recording stops, switches to preferred device if it reconnected during recording
+  - Added three toast notification methods to ToastManager:
+    - `showDeviceDisconnectedDuringRecording(disconnectedName:fallbackName:)`
+    - `showDeviceChanged(from:to:reason:)`
+    - `showPreferredDeviceReconnected(deviceName:)`
+  - Wired up all callbacks in AppDelegate's `setupAudioManager()` with error logging
+- **Learnings for future iterations:**
+  - Device UID is more stable than device ID for tracking devices across reconnections
+  - Storing preferred device separately from selected device allows for automatic reconnection
+  - `AudioObjectAddPropertyListenerBlock` fires when devices are added/removed, providing UIDs for comparison
+  - When device disconnects during recording, attempting to switch input device may or may not succeed depending on audio engine state
+  - Toast notifications provide immediate user feedback for device changes without interrupting workflow
+---

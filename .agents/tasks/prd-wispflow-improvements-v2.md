@@ -34,17 +34,17 @@ This PRD outlines improvements, optimizations, and bugfixes for WispFlow, a priv
 
 ---
 
-### US-602: Audio Format Negotiation Improvement
+### [x] US-602: Audio Format Negotiation Improvement
 **Priority**: High  
 **Estimate**: 2 points
 
 **Description**: Improve compatibility with various audio devices by better format negotiation.
 
 **Acceptance Criteria**:
-- [ ] Query device's supported formats before attempting capture
-- [ ] Prefer standard formats (44.1kHz, 48kHz stereo/mono)
-- [ ] Log detailed format information for debugging
-- [ ] Graceful error message if no compatible format found
+- [x] Query device's supported formats before attempting capture
+- [x] Prefer standard formats (44.1kHz, 48kHz stereo/mono)
+- [x] Log detailed format information for debugging
+- [x] Graceful error message if no compatible format found
 
 **Technical Notes**:
 - Use `kAudioDevicePropertyStreamConfiguration` to query supported formats

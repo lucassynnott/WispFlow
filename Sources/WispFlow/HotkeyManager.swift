@@ -379,16 +379,22 @@ final class HotkeyManager: ObservableObject {
     // MARK: - Public API
     
     /// Start listening for global hotkey events using CGEvent tap (US-510)
-    /// Requires accessibility permission - will trigger onAccessibilityPermissionNeeded if not granted
-    func start() {
+    /// - Parameter showPermissionPrompt: If false, silently fails when permission not granted (for app launch).
+    ///   If true, triggers onAccessibilityPermissionNeeded callback (for user-initiated actions).
+    /// Requires accessibility permission to actually install the event tap.
+    func start(showPermissionPrompt: Bool = false) {
         // Stop any existing event tap first
         stop()
         
         // Check accessibility permission before creating event tap (US-510)
         if !AXIsProcessTrusted() {
             print("HotkeyManager: [US-510] Accessibility permission not granted - cannot install event tap")
-            print("HotkeyManager: [US-510] Showing permission prompt...")
-            onAccessibilityPermissionNeeded?()
+            if showPermissionPrompt {
+                print("HotkeyManager: [US-510] Showing permission prompt...")
+                onAccessibilityPermissionNeeded?()
+            } else {
+                print("HotkeyManager: [US-510] Silently waiting for permission (onboarding will handle)")
+            }
             return
         }
         
@@ -397,17 +403,20 @@ final class HotkeyManager: ObservableObject {
         let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
         
         // Create the event tap with callback
-        // The callback is defined as a C function pointer that bridges to our Swift method
+        // Use .listenOnly to avoid blocking other apps - we just want to observe the hotkey
+        // .defaultTap can cause system-wide blocking issues
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,  // US-510: Session level for global events
             place: .headInsertEventTap,
-            options: .defaultTap,
+            options: .listenOnly,  // Changed from .defaultTap to prevent system blocking
             eventsOfInterest: eventMask,
             callback: HotkeyManager.eventTapCallback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
             print("HotkeyManager: [US-510] Failed to create CGEvent tap - accessibility permission may not be granted")
-            onAccessibilityPermissionNeeded?()
+            if showPermissionPrompt {
+                onAccessibilityPermissionNeeded?()
+            }
             return
         }
         
@@ -537,8 +546,8 @@ final class HotkeyManager: ObservableObject {
             manager.onHotkeyPressed?()
         }
         
-        // Return nil to consume the event (prevent it from propagating to other apps)
-        // This prevents the hotkey from triggering other app's shortcuts
-        return nil
+        // Always pass the event through - we're using .listenOnly mode
+        // so we can only observe events, not consume them
+        return Unmanaged.passUnretained(event)
     }
 }

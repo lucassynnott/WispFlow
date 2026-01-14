@@ -1,0 +1,18 @@
+## Summary
+
+I successfully implemented **US-601: Audio Device Hot-Plug Support** for WispFlow. The implementation includes:
+
+1. **Added `preferredDeviceUID`** - Stores the user's preferred device UID separately from the runtime `selectedDeviceUID`, enabling automatic device reconnection
+2. **Device disconnect during recording** - Detects when the active audio device is disconnected during an active recording session and automatically falls back to the system default device
+3. **Preferred device reconnection** - When the user's preferred device is reconnected, automatically switches back to it (if not currently recording)
+4. **Toast notifications** - Added three new toast notification methods to inform users about device changes
+5. **Callbacks** - Added `onDeviceDisconnectedDuringRecording`, `onDeviceChanged`, and `onPreferredDeviceReconnected` callbacks wired up in AppDelegate
+
+**Files changed:**
+- `Sources/WispFlow/AudioManager.swift` (main hot-plug logic)
+- `Sources/WispFlow/AppDelegate.swift` (callback wiring)
+- `Sources/WispFlow/ToastView.swift` (toast methods)
+- `.agents/tasks/prd-wispflow-improvements-v2.md` (acceptance criteria checked)
+- `.ralph/IMPLEMENTATION_PLAN.md` (added US-601 section)
+
+**Commit:** `19b0536 feat(US-601): implement audio device hot-plug support`

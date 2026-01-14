@@ -102,9 +102,10 @@ final class PermissionManager: ObservableObject {
     }
     
     /// Request accessibility permission with system dialog (US-507)
+    /// - Parameter openSettingsIfNeeded: If true and permission is denied, opens System Settings. Default false.
     /// - If not trusted: Shows system prompt via AXIsProcessTrustedWithOptions
     /// - Returns: True if permission is currently granted (may need re-check after user action)
-    func requestAccessibilityPermission() -> Bool {
+    func requestAccessibilityPermission(openSettingsIfNeeded: Bool = false) -> Bool {
         refreshAccessibilityStatus()
         
         if accessibilityStatus.isGranted {
@@ -122,8 +123,9 @@ final class PermissionManager: ObservableObject {
         refreshAccessibilityStatus()
         print("PermissionManager: [US-507] Accessibility permission check result: \(trusted)")
         
-        // If still not trusted after prompt, open System Settings
-        if !trusted {
+        // Only open System Settings if explicitly requested AND not trusted
+        // This prevents multiple windows/popups appearing at once
+        if !trusted && openSettingsIfNeeded {
             print("PermissionManager: [US-507] User needs to manually enable in System Settings")
             openAccessibilitySettings()
         }
@@ -173,10 +175,11 @@ final class PermissionManager: ObservableObject {
         // Set up app activation observer to re-check permissions when user returns from System Settings
         setupAppActivationObserver()
         
-        // Start polling if any permission is not yet granted
-        if !allPermissionsGranted {
-            startPolling()
-        }
+        // NOTE: Disabled automatic polling to prevent potential main thread blocking
+        // Permissions will be refreshed when app becomes active or manually checked
+        // if !allPermissionsGranted {
+        //     startPolling()
+        // }
         
         print("PermissionManager: Initialized - Microphone: \(microphoneStatus.rawValue), Accessibility: \(accessibilityStatus.rawValue)")
     }
@@ -255,7 +258,8 @@ final class PermissionManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            // Use Task to safely dispatch to MainActor
+            Task { @MainActor in
                 guard let self = self else { return }
                 print("PermissionManager: App became active - refreshing permission statuses")
                 self.refreshAllStatuses()
@@ -271,8 +275,10 @@ final class PermissionManager: ObservableObject {
         
         print("PermissionManager: Starting permission polling (every \(pollingInterval)s)")
         
+        // Create timer on main run loop since PermissionManager is @MainActor
         pollingTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            // Use Task to safely dispatch to MainActor
+            Task { @MainActor in
                 self?.refreshAllStatuses()
             }
         }

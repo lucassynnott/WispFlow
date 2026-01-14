@@ -3269,6 +3269,7 @@ struct AudioSettingsView: View {
                     // Preview toggle button
                     HStack {
                         Button(action: {
+                            print("[AUDIO] Preview button tapped!")
                             togglePreview()
                         }) {
                             HStack {
@@ -3399,6 +3400,8 @@ struct AudioSettingsView: View {
                 // Start audio capture for preview
                 do {
                     print("AudioSettingsView: Starting audio capture...")
+                    print("AudioSettingsView: Available devices: \(self.audioManager.inputDevices.map { $0.name })")
+                    print("AudioSettingsView: Current device: \(self.audioManager.currentDevice?.name ?? "none")")
                     try self.audioManager.startCapturing()
                     self.isPreviewingAudio = true
                     print("AudioSettingsView: Audio capture started successfully")
@@ -3407,10 +3410,12 @@ struct AudioSettingsView: View {
                     self.previewTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
                         // Apply gain to the visual level display
                         let rawLevel = self.audioManager.currentAudioLevel
-                        self.currentLevel = rawLevel + Float(20 * log10(self.inputGain)) // Convert gain to dB adjustment
+                        let adjustedLevel = rawLevel + Float(20 * log10(max(self.inputGain, 0.001))) // Convert gain to dB adjustment, avoid log(0)
+                        self.currentLevel = adjustedLevel
                     }
+                    print("AudioSettingsView: Timer started for level updates")
                 } catch {
-                    print("Failed to start audio preview: \(error)")
+                    print("AudioSettingsView: Failed to start audio preview: \(error)")
                     self.isPreviewingAudio = false
                     self.currentLevel = -60.0
                 }

@@ -96,10 +96,11 @@ final class TextInserter: ObservableObject {
         // Set up app activation observer to re-check permissions when user returns from System Settings
         setupAppActivationObserver()
         
-        // Start polling if permission not yet granted
-        if !hasAccessibilityPermission {
-            startPermissionPolling()
-        }
+        // NOTE: Disabled automatic polling to prevent potential main thread blocking
+        // Permissions will be refreshed when app becomes active or manually checked
+        // if !hasAccessibilityPermission {
+        //     startPermissionPolling()
+        // }
         
         print("TextInserter initialized (preserveClipboard: \(preserveClipboard), restoreDelay: \(clipboardRestoreDelay)s, permission: \(hasAccessibilityPermission))")
     }
@@ -121,7 +122,8 @@ final class TextInserter: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            // Use Task to safely dispatch to MainActor
+            Task { @MainActor in
                 self?.recheckPermission()
             }
         }
@@ -133,8 +135,9 @@ final class TextInserter: ObservableObject {
         
         print("TextInserter: Starting permission polling (every \(Constants.permissionPollingInterval)s)")
         
+        // Timer fires on main thread, use Task to dispatch to MainActor
         permissionPollingTimer = Timer.scheduledTimer(withTimeInterval: Constants.permissionPollingInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            Task { @MainActor in
                 self?.recheckPermission()
             }
         }
@@ -177,6 +180,8 @@ final class TextInserter: ObservableObject {
     func requestAccessibilityPermission(showPrompt: Bool = true) -> Bool {
         let options: [String: Any]
         if showPrompt {
+            // AXIsProcessTrustedWithOptions with kAXTrustedCheckOptionPrompt shows the SYSTEM dialog
+            // We should NOT show our own alert on top of it
             options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         } else {
             options = [:]
@@ -186,24 +191,11 @@ final class TextInserter: ObservableObject {
         
         if !trusted {
             print("Accessibility permission not granted")
-            showAccessibilityPermissionAlert()
+            // NOTE: Don't show our own alert - the system dialog is already shown (if showPrompt=true)
+            // or onboarding/settings will guide the user
         }
         
         return trusted
-    }
-    
-    /// Show an alert guiding the user to enable accessibility permissions
-    private func showAccessibilityPermissionAlert() {
-        let alert = NSAlert()
-        alert.messageText = "Accessibility Permission Required"
-        alert.informativeText = "WispFlow needs accessibility permission to insert text into other applications.\n\nPlease enable WispFlow in System Settings > Privacy & Security > Accessibility."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Later")
-        
-        if alert.runModal() == .alertFirstButtonReturn {
-            openAccessibilitySettings()
-        }
     }
     
     /// Open System Settings to the Accessibility pane

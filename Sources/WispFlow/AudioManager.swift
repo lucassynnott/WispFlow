@@ -82,6 +82,99 @@ final class AudioManager: NSObject, ObservableObject {
         case restricted
     }
     
+    // MARK: - US-602: Audio Format Negotiation
+    
+    /// Represents a supported audio format for a device
+    struct AudioFormatInfo {
+        let sampleRate: Float64
+        let channelCount: UInt32
+        let bitsPerChannel: UInt32
+        let formatID: AudioFormatID
+        let formatFlags: AudioFormatFlags
+        
+        /// Human-readable description of the format
+        var description: String {
+            let rateStr = sampleRate >= 1000 ? "\(Int(sampleRate / 1000))kHz" : "\(Int(sampleRate))Hz"
+            let channelStr = channelCount == 1 ? "mono" : channelCount == 2 ? "stereo" : "\(channelCount)ch"
+            let formatStr = formatIDDescription
+            return "\(rateStr) \(channelStr) \(bitsPerChannel)-bit \(formatStr)"
+        }
+        
+        /// Format ID as readable string
+        private var formatIDDescription: String {
+            switch formatID {
+            case kAudioFormatLinearPCM:
+                return "PCM"
+            case kAudioFormatAC3:
+                return "AC3"
+            case kAudioFormatMPEG4AAC:
+                return "AAC"
+            default:
+                // Convert FourCC to string
+                let chars: [Character] = [
+                    Character(UnicodeScalar((formatID >> 24) & 0xFF) ?? "?"),
+                    Character(UnicodeScalar((formatID >> 16) & 0xFF) ?? "?"),
+                    Character(UnicodeScalar((formatID >> 8) & 0xFF) ?? "?"),
+                    Character(UnicodeScalar(formatID & 0xFF) ?? "?")
+                ]
+                return String(chars)
+            }
+        }
+        
+        /// Check if format is suitable for voice capture (standard formats preferred)
+        var isStandardFormat: Bool {
+            // Preferred sample rates for voice capture
+            let preferredRates: [Float64] = [44100, 48000, 16000, 22050, 32000, 96000]
+            let isPreferredRate = preferredRates.contains(where: { abs($0 - sampleRate) < 1 })
+            
+            // Must be PCM format
+            let isPCM = formatID == kAudioFormatLinearPCM
+            
+            // Must have reasonable channel count (1-2 channels preferred)
+            let hasReasonableChannels = channelCount >= 1 && channelCount <= 2
+            
+            return isPCM && isPreferredRate && hasReasonableChannels
+        }
+        
+        /// Priority score for format selection (higher is better)
+        var priorityScore: Int {
+            var score = 0
+            
+            // Prefer PCM format (required)
+            if formatID == kAudioFormatLinearPCM {
+                score += 100
+            }
+            
+            // Prefer standard sample rates (48kHz > 44.1kHz > others)
+            switch Int(sampleRate) {
+            case 48000: score += 50
+            case 44100: score += 45
+            case 96000: score += 40
+            case 32000: score += 30
+            case 22050: score += 25
+            case 16000: score += 20
+            default: break
+            }
+            
+            // Prefer mono or stereo
+            switch channelCount {
+            case 1: score += 15  // Mono is ideal for voice
+            case 2: score += 10  // Stereo is acceptable
+            default: break
+            }
+            
+            // Prefer 16-bit or higher
+            if bitsPerChannel >= 16 {
+                score += 5
+            }
+            
+            return score
+        }
+    }
+    
+    /// US-602: Standard sample rates to prefer (in order of preference)
+    private static let preferredSampleRates: [Float64] = [48000, 44100, 96000, 32000, 22050, 16000]
+    
     // MARK: - Constants
     
     private struct Constants {
@@ -623,6 +716,360 @@ final class AudioManager: NSObject, ObservableObject {
         return sampleRate
     }
     
+    // MARK: - US-602: Audio Format Negotiation Methods
+    
+    /// US-602: Query supported audio formats for a device
+    /// Returns an array of AudioFormatInfo representing all supported formats
+    func querySupportedFormats(deviceID: AudioDeviceID) -> [AudioFormatInfo] {
+        var formats: [AudioFormatInfo] = []
+        
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║       US-602: QUERYING DEVICE SUPPORTED FORMATS               ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Device ID: \(String(format: "%-50d", deviceID))   ║")
+        print("╚═══════════════════════════════════════════════════════════════╝")
+        
+        // Get the input stream configuration to understand the device's input capabilities
+        var streamConfigAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamConfiguration,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var streamConfigSize: UInt32 = 0
+        var status = AudioObjectGetPropertyDataSize(
+            deviceID,
+            &streamConfigAddress,
+            0,
+            nil,
+            &streamConfigSize
+        )
+        
+        if status == noErr && streamConfigSize > 0 {
+            // Allocate buffer for stream configuration
+            let bufferList = UnsafeMutablePointer<AudioBufferList>.allocate(capacity: Int(streamConfigSize) / MemoryLayout<AudioBufferList>.size + 1)
+            defer { bufferList.deallocate() }
+            
+            status = AudioObjectGetPropertyData(
+                deviceID,
+                &streamConfigAddress,
+                0,
+                nil,
+                &streamConfigSize,
+                bufferList
+            )
+            
+            if status == noErr {
+                let numberOfBuffers = Int(bufferList.pointee.mNumberBuffers)
+                print("AudioManager: [US-602] Stream configuration: \(numberOfBuffers) buffer(s)")
+                
+                // Log buffer details
+                if numberOfBuffers > 0 {
+                    let buffer = bufferList.pointee.mBuffers
+                    print("AudioManager: [US-602] Buffer channels: \(buffer.mNumberChannels)")
+                }
+            }
+        }
+        
+        // Get available input streams
+        var streamsAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var streamsSize: UInt32 = 0
+        status = AudioObjectGetPropertyDataSize(
+            deviceID,
+            &streamsAddress,
+            0,
+            nil,
+            &streamsSize
+        )
+        
+        guard status == noErr && streamsSize > 0 else {
+            print("AudioManager: [US-602] No input streams found for device")
+            // Fall back to nominal format
+            return getFallbackFormat(deviceID: deviceID)
+        }
+        
+        let streamCount = Int(streamsSize) / MemoryLayout<AudioStreamID>.size
+        var streamIDs = [AudioStreamID](repeating: 0, count: streamCount)
+        
+        status = AudioObjectGetPropertyData(
+            deviceID,
+            &streamsAddress,
+            0,
+            nil,
+            &streamsSize,
+            &streamIDs
+        )
+        
+        guard status == noErr else {
+            print("AudioManager: [US-602] Failed to get stream IDs (status: \(status))")
+            return getFallbackFormat(deviceID: deviceID)
+        }
+        
+        print("AudioManager: [US-602] Found \(streamCount) input stream(s)")
+        
+        // Query each stream for its available physical formats
+        for streamID in streamIDs {
+            let streamFormats = queryStreamFormats(streamID: streamID)
+            formats.append(contentsOf: streamFormats)
+        }
+        
+        // Log all discovered formats
+        logSupportedFormats(formats)
+        
+        return formats
+    }
+    
+    /// US-602: Query available physical formats for a specific stream
+    private func queryStreamFormats(streamID: AudioStreamID) -> [AudioFormatInfo] {
+        var formats: [AudioFormatInfo] = []
+        
+        // Try to get available physical formats (most detailed)
+        var physicalFormatsAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioStreamPropertyAvailablePhysicalFormats,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var formatListSize: UInt32 = 0
+        var status = AudioObjectGetPropertyDataSize(
+            streamID,
+            &physicalFormatsAddress,
+            0,
+            nil,
+            &formatListSize
+        )
+        
+        if status == noErr && formatListSize > 0 {
+            let formatCount = Int(formatListSize) / MemoryLayout<AudioStreamRangedDescription>.size
+            var formatDescriptions = [AudioStreamRangedDescription](repeating: AudioStreamRangedDescription(), count: formatCount)
+            
+            status = AudioObjectGetPropertyData(
+                streamID,
+                &physicalFormatsAddress,
+                0,
+                nil,
+                &formatListSize,
+                &formatDescriptions
+            )
+            
+            if status == noErr {
+                print("AudioManager: [US-602] Stream \(streamID) has \(formatCount) physical format(s)")
+                
+                for rangedDesc in formatDescriptions {
+                    let asbd = rangedDesc.mFormat
+                    let formatInfo = AudioFormatInfo(
+                        sampleRate: asbd.mSampleRate,
+                        channelCount: asbd.mChannelsPerFrame,
+                        bitsPerChannel: asbd.mBitsPerChannel,
+                        formatID: asbd.mFormatID,
+                        formatFlags: asbd.mFormatFlags
+                    )
+                    
+                    // Handle ranged formats (min/max sample rate)
+                    if rangedDesc.mSampleRateRange.mMinimum != rangedDesc.mSampleRateRange.mMaximum {
+                        // Add preferred sample rates within the range
+                        for preferredRate in Self.preferredSampleRates {
+                            if preferredRate >= rangedDesc.mSampleRateRange.mMinimum &&
+                               preferredRate <= rangedDesc.mSampleRateRange.mMaximum {
+                                let rangedFormat = AudioFormatInfo(
+                                    sampleRate: preferredRate,
+                                    channelCount: asbd.mChannelsPerFrame,
+                                    bitsPerChannel: asbd.mBitsPerChannel,
+                                    formatID: asbd.mFormatID,
+                                    formatFlags: asbd.mFormatFlags
+                                )
+                                formats.append(rangedFormat)
+                            }
+                        }
+                    } else {
+                        formats.append(formatInfo)
+                    }
+                }
+            }
+        }
+        
+        // If no physical formats found, try virtual formats
+        if formats.isEmpty {
+            var virtualFormatsAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioStreamPropertyAvailableVirtualFormats,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            
+            status = AudioObjectGetPropertyDataSize(
+                streamID,
+                &virtualFormatsAddress,
+                0,
+                nil,
+                &formatListSize
+            )
+            
+            if status == noErr && formatListSize > 0 {
+                let formatCount = Int(formatListSize) / MemoryLayout<AudioStreamRangedDescription>.size
+                var formatDescriptions = [AudioStreamRangedDescription](repeating: AudioStreamRangedDescription(), count: formatCount)
+                
+                status = AudioObjectGetPropertyData(
+                    streamID,
+                    &virtualFormatsAddress,
+                    0,
+                    nil,
+                    &formatListSize,
+                    &formatDescriptions
+                )
+                
+                if status == noErr {
+                    print("AudioManager: [US-602] Stream \(streamID) has \(formatCount) virtual format(s)")
+                    
+                    for rangedDesc in formatDescriptions {
+                        let asbd = rangedDesc.mFormat
+                        let formatInfo = AudioFormatInfo(
+                            sampleRate: asbd.mSampleRate,
+                            channelCount: asbd.mChannelsPerFrame,
+                            bitsPerChannel: asbd.mBitsPerChannel,
+                            formatID: asbd.mFormatID,
+                            formatFlags: asbd.mFormatFlags
+                        )
+                        formats.append(formatInfo)
+                    }
+                }
+            }
+        }
+        
+        return formats
+    }
+    
+    /// US-602: Get fallback format using device's nominal sample rate
+    private func getFallbackFormat(deviceID: AudioDeviceID) -> [AudioFormatInfo] {
+        let sampleRate = getDeviceSampleRate(deviceID: deviceID)
+        
+        if sampleRate > 0 {
+            print("AudioManager: [US-602] Using fallback format with nominal sample rate: \(sampleRate)Hz")
+            
+            // Return basic formats at the nominal sample rate
+            return [
+                AudioFormatInfo(
+                    sampleRate: sampleRate,
+                    channelCount: 1,
+                    bitsPerChannel: 32,
+                    formatID: kAudioFormatLinearPCM,
+                    formatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
+                ),
+                AudioFormatInfo(
+                    sampleRate: sampleRate,
+                    channelCount: 2,
+                    bitsPerChannel: 32,
+                    formatID: kAudioFormatLinearPCM,
+                    formatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
+                )
+            ]
+        }
+        
+        // Absolute fallback - use 44.1kHz
+        print("AudioManager: [US-602] ⚠️ Using absolute fallback format (44.1kHz)")
+        return [
+            AudioFormatInfo(
+                sampleRate: 44100,
+                channelCount: 1,
+                bitsPerChannel: 32,
+                formatID: kAudioFormatLinearPCM,
+                formatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
+            )
+        ]
+    }
+    
+    /// US-602: Log all supported formats for debugging
+    private func logSupportedFormats(_ formats: [AudioFormatInfo]) {
+        guard !formats.isEmpty else {
+            print("AudioManager: [US-602] No supported formats to log")
+            return
+        }
+        
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║       US-602: SUPPORTED AUDIO FORMATS (DETAILED)              ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Count: \(String(format: "%-54d", formats.count))   ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        
+        // Group and sort formats for better readability
+        let sortedFormats = formats.sorted { $0.priorityScore > $1.priorityScore }
+        
+        for (index, format) in sortedFormats.enumerated() {
+            let marker = format.isStandardFormat ? "★" : " "
+            let desc = format.description.padding(toLength: 45, withPad: " ", startingAt: 0)
+            let score = String(format: "%3d", format.priorityScore)
+            print("║ \(marker) \(index + 1). \(desc) [\(score)]   ║")
+        }
+        
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        
+        let standardCount = formats.filter { $0.isStandardFormat }.count
+        if standardCount > 0 {
+            print("║ ★ = Standard format (preferred)                              ║")
+            print("║ \(String(format: "%-61d", standardCount)) standard format(s) found   ║")
+        } else {
+            print("║ ⚠️  No standard formats found - will use best available       ║")
+        }
+        
+        print("╚═══════════════════════════════════════════════════════════════╝")
+    }
+    
+    /// US-602: Select the best format from available formats
+    /// Prefers standard formats (44.1kHz, 48kHz stereo/mono) as per acceptance criteria
+    func selectBestFormat(from formats: [AudioFormatInfo]) -> AudioFormatInfo? {
+        guard !formats.isEmpty else {
+            print("AudioManager: [US-602] ❌ No formats available to select from")
+            return nil
+        }
+        
+        // Sort formats by priority score (highest first)
+        let sortedFormats = formats.sorted { $0.priorityScore > $1.priorityScore }
+        
+        // Try to find a standard format first
+        if let standardFormat = sortedFormats.first(where: { $0.isStandardFormat }) {
+            print("AudioManager: [US-602] ✓ Selected standard format: \(standardFormat.description) (score: \(standardFormat.priorityScore))")
+            return standardFormat
+        }
+        
+        // Fall back to the highest scored format
+        if let bestFormat = sortedFormats.first {
+            print("AudioManager: [US-602] ⚠️ No standard format available, using best match: \(bestFormat.description) (score: \(bestFormat.priorityScore))")
+            return bestFormat
+        }
+        
+        return nil
+    }
+    
+    /// US-602: Check if device has any compatible format for capture
+    /// Returns nil if no compatible format found, otherwise returns error message
+    func checkFormatCompatibility(deviceID: AudioDeviceID) -> String? {
+        let formats = querySupportedFormats(deviceID: deviceID)
+        
+        if formats.isEmpty {
+            return "No audio formats could be queried from this device. The device may not be properly configured or may not support audio input."
+        }
+        
+        // Check if any format is PCM (required for capture)
+        let pcmFormats = formats.filter { $0.formatID == kAudioFormatLinearPCM }
+        if pcmFormats.isEmpty {
+            return "This device does not support PCM audio format, which is required for voice capture. Available formats: \(formats.map { $0.description }.joined(separator: ", "))"
+        }
+        
+        // Check if any format has a reasonable sample rate
+        let reasonableFormats = pcmFormats.filter { $0.sampleRate >= 8000 && $0.sampleRate <= 192000 }
+        if reasonableFormats.isEmpty {
+            return "This device does not support a compatible sample rate (8kHz-192kHz). Available rates: \(Set(pcmFormats.map { Int($0.sampleRate) }).sorted().map { "\($0)Hz" }.joined(separator: ", "))"
+        }
+        
+        // All checks passed
+        print("AudioManager: [US-602] ✓ Device has compatible formats for capture")
+        return nil
+    }
+    
     /// Calculate quality score for an audio device (US-501)
     /// Higher score = better quality device
     func calculateDeviceQuality(_ device: AudioInputDevice) -> DeviceQuality {
@@ -937,7 +1384,9 @@ final class AudioManager: NSObject, ObservableObject {
         
         // US-502: Use getDeviceForRecording() for cached fast-path or smart selection
         // This will try cached device first (~10-20ms) before falling back to full enumeration (~100-200ms)
+        var selectedDevice: AudioInputDevice?
         if let device = getDeviceForRecording() {
+            selectedDevice = device
             do {
                 try setAudioInputDevice(device)
                 print("AudioManager: [STAGE 1] ✓ Input device set: \(device.name) (cached: \(usedCachedDeviceForCapture))")
@@ -948,6 +1397,31 @@ final class AudioManager: NSObject, ObservableObject {
                 if usedCachedDeviceForCapture {
                     invalidateDeviceCache(reason: "Failed to set cached device")
                 }
+            }
+        }
+        
+        // US-602: Query and log supported formats for the selected device
+        // This improves compatibility by verifying device supports audio capture
+        if let device = selectedDevice {
+            // Check format compatibility before attempting capture
+            if let compatibilityError = checkFormatCompatibility(deviceID: device.id) {
+                print("╔═══════════════════════════════════════════════════════════════╗")
+                print("║     ✗ US-602: NO COMPATIBLE AUDIO FORMAT FOUND                ║")
+                print("╠═══════════════════════════════════════════════════════════════╣")
+                print("║ Device: \(device.name.prefix(52).padding(toLength: 52, withPad: " ", startingAt: 0))   ║")
+                print("║ Error: \(compatibilityError.prefix(53).padding(toLength: 53, withPad: " ", startingAt: 0))   ║")
+                print("║                                                               ║")
+                print("║ Suggestion: Try selecting a different audio device or check   ║")
+                print("║ your audio settings in System Settings > Sound > Input.       ║")
+                print("╚═══════════════════════════════════════════════════════════════╝")
+                throw AudioCaptureError.noCompatibleFormat(compatibilityError)
+            }
+            
+            // Query and select the best format for this device
+            let supportedFormats = querySupportedFormats(deviceID: device.id)
+            if let bestFormat = selectBestFormat(from: supportedFormats) {
+                print("AudioManager: [US-602] ✓ Best format selected: \(bestFormat.description)")
+                print("AudioManager: [US-602]   Sample rate: \(bestFormat.sampleRate)Hz, Channels: \(bestFormat.channelCount)")
             }
         }
         
@@ -1751,6 +2225,7 @@ enum AudioCaptureError: LocalizedError {
     case audioUnitNotAvailable
     case noInputDevicesAvailable
     case invalidInputFormat(sampleRate: Double, channels: UInt32)
+    case noCompatibleFormat(String)  // US-602: No compatible audio format found
     
     var errorDescription: String? {
         switch self {
@@ -1766,6 +2241,8 @@ enum AudioCaptureError: LocalizedError {
             return "No audio input devices available. Please connect a microphone and try again."
         case .invalidInputFormat(let sampleRate, let channels):
             return "Invalid audio input format: sample rate = \(sampleRate) Hz, channels = \(channels). Expected sample rate > 0 and channels > 0."
+        case .noCompatibleFormat(let reason):
+            return "No compatible audio format found: \(reason)"
         }
     }
 }

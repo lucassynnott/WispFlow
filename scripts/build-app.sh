@@ -32,6 +32,19 @@ cp "${BUILD_DIR}/${BUILD_CONFIG}/${APP_NAME}" "${APP_BUNDLE}/Contents/MacOS/"
 # Copy Info.plist
 cp "${ROOT_DIR}/Resources/Info.plist" "${APP_BUNDLE}/Contents/"
 
+# Copy app icon
+if [ -f "${ROOT_DIR}/Resources/AppIcon.icns" ]; then
+    cp "${ROOT_DIR}/Resources/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/"
+    echo "Copied app icon"
+fi
+
+# Copy menubar icon
+if [ -f "${ROOT_DIR}/Resources/menubar.png" ]; then
+    cp "${ROOT_DIR}/Resources/menubar.png" "${APP_BUNDLE}/Contents/Resources/"
+    cp "${ROOT_DIR}/Resources/menubar@2x.png" "${APP_BUNDLE}/Contents/Resources/" 2>/dev/null || true
+    echo "Copied menubar icon"
+fi
+
 # Create Frameworks directory and copy required frameworks
 mkdir -p "${APP_BUNDLE}/Contents/Frameworks"
 

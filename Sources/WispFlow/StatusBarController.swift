@@ -238,6 +238,18 @@ final class StatusBarController: NSObject {
     private func updateIcon() {
         guard let button = statusItem?.button else { return }
         
+        // Try to load custom menubar icon from bundle
+        if let customIcon = loadMenubarIcon() {
+            // Use custom icon when not recording
+            if recordingState != .recording {
+                stopPulseAnimation()
+                button.image = customIcon
+                button.image?.isTemplate = true  // Allow system to tint for dark/light mode
+                button.toolTip = "WispFlow - Ready"
+                return
+            }
+        }
+        
         let configuration = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
         
         // Determine the icon based on recording state and model status
@@ -287,6 +299,32 @@ final class StatusBarController: NSObject {
             button.image = createTintedStatusIcon(image: image, tint: iconTint, configuration: configuration)
         }
         button.toolTip = tooltip
+    }
+    
+    /// Load custom menubar icon from app bundle
+    private func loadMenubarIcon() -> NSImage? {
+        guard let bundle = Bundle.main.resourceURL else { return nil }
+        
+        // Try @2x version first for retina displays
+        let icon2xPath = bundle.appendingPathComponent("menubar@2x.png")
+        let iconPath = bundle.appendingPathComponent("menubar.png")
+        
+        var image: NSImage?
+        if FileManager.default.fileExists(atPath: icon2xPath.path) {
+            image = NSImage(contentsOf: icon2xPath)
+        } else if FileManager.default.fileExists(atPath: iconPath.path) {
+            image = NSImage(contentsOf: iconPath)
+        }
+        
+        // Resize for menu bar (18px width as requested)
+        if let img = image {
+            let targetWidth: CGFloat = 18
+            let aspectRatio = img.size.height / img.size.width
+            let targetHeight = targetWidth * aspectRatio
+            img.size = NSSize(width: targetWidth, height: targetHeight)
+        }
+        
+        return image
     }
     
     /// Create a tinted status bar icon

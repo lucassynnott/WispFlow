@@ -986,3 +986,45 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 - Added three new callbacks: `onDeviceDisconnectedDuringRecording`, `onDeviceChanged`, `onPreferredDeviceReconnected`
 - Added three new toast methods: `showDeviceDisconnectedDuringRecording`, `showDeviceChanged`, `showPreferredDeviceReconnected`
 - Verified via `swift build` - typecheck passes
+
+---
+
+### US-602: Audio Format Negotiation Improvement
+**Status:** complete
+**Priority:** high
+**Estimated effort:** small
+
+**Description:** Improve compatibility with various audio devices by better format negotiation.
+
+**Tasks:**
+- [x] Add `AudioFormatInfo` struct to represent supported audio formats with properties (sampleRate, channelCount, bitsPerChannel, formatID, formatFlags)
+- [x] Add `preferredSampleRates` constant for standard rates (48kHz, 44.1kHz, 96kHz, 32kHz, 22.05kHz, 16kHz)
+- [x] Implement `querySupportedFormats(deviceID:)` to query device's supported formats via `kAudioDevicePropertyStreamConfiguration` and `kAudioStreamPropertyAvailablePhysicalFormats`
+- [x] Implement `queryStreamFormats(streamID:)` to query available physical and virtual formats per stream
+- [x] Implement `getFallbackFormat(deviceID:)` to return fallback formats using nominal sample rate
+- [x] Implement `logSupportedFormats(_:)` to log detailed format information for debugging
+- [x] Implement `selectBestFormat(from:)` to select best format preferring standard formats (44.1kHz, 48kHz stereo/mono)
+- [x] Implement `checkFormatCompatibility(deviceID:)` to verify device has compatible format for capture
+- [x] Add `AudioCaptureError.noCompatibleFormat(String)` error case for graceful error messaging
+- [x] Integrate format checking in `startCapturing()` before audio capture begins
+- [x] Add priority scoring to `AudioFormatInfo` (PCM preferred, standard sample rates prioritized, mono/stereo preferred)
+- [x] Add `isStandardFormat` computed property to identify preferred formats
+- [x] Build verification (`swift build` succeeds)
+
+**Acceptance Criteria:**
+- [x] Query device's supported formats before attempting capture
+- [x] Prefer standard formats (44.1kHz, 48kHz stereo/mono)
+- [x] Log detailed format information for debugging
+- [x] Graceful error message if no compatible format found
+
+**Implementation Notes:**
+- Added `AudioFormatInfo` struct with comprehensive format description, priority scoring, and standard format detection
+- Uses `kAudioDevicePropertyStreamConfiguration` to query stream configuration (buffer count, channel count)
+- Uses `kAudioStreamPropertyAvailablePhysicalFormats` to query available physical formats per stream
+- Falls back to `kAudioStreamPropertyAvailableVirtualFormats` if physical formats not available
+- Format priority scoring: PCM (+100), 48kHz (+50), 44.1kHz (+45), mono (+15), stereo (+10), 16-bit+ (+5)
+- Handles ranged format descriptions by adding preferred sample rates within the range
+- Detailed logging includes format count, sorted list by priority, standard format markers (★)
+- Graceful error messages explain why format is incompatible (no PCM, bad sample rate, etc.)
+- Format checking integrated into `startCapturing()` with clear error logging box
+- Verified via `swift build` - typecheck passes

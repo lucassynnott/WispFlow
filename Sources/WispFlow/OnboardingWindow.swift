@@ -1523,6 +1523,19 @@ struct HotkeyIntroductionView: View {
     private func setupHotkeyTestListener() {
         print("OnboardingWindow: [US-521] Setting up hotkey test listener")
         
+        // Try to start the hotkey manager now that we're at this step
+        // (User should have granted accessibility in the previous step)
+        if !hotkeyManager.isActive {
+            print("OnboardingWindow: [US-521] Hotkey manager not active, attempting to start...")
+            hotkeyManager.start()
+            
+            if hotkeyManager.isActive {
+                print("OnboardingWindow: [US-521] Hotkey manager started successfully!")
+            } else {
+                print("OnboardingWindow: [US-521] Warning: Hotkey manager failed to start - accessibility may not be granted")
+            }
+        }
+        
         // Store original callback
         let originalCallback = hotkeyManager.onHotkeyPressed
         
