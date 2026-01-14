@@ -353,17 +353,17 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 ---
 
 ### US-509: Permission Status UI
-**Status:** pending
+**Status:** complete
 **Priority:** medium
 **Estimated effort:** small
 
 **Description:** Show permission status in Settings with visual indicators.
 
 **Tasks:**
-- [ ] Add status icon (✓/✗) for each permission
-- [ ] Add "Grant Permission" button when not granted
-- [ ] Button opens appropriate Settings pane
-- [ ] Auto-update status when user returns
+- [x] Add status icon (✓/✗) for each permission
+- [x] Add "Grant Permission" button when not granted
+- [x] Button opens appropriate Settings pane
+- [x] Auto-update status when user returns
 
 **Acceptance Criteria:**
 - Green checkmark when granted
@@ -371,6 +371,17 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 - Button opens Settings
 - Status updates automatically
 - Typecheck passes
+
+**Implementation Notes:**
+- Added `PermissionStatusRow` component to `SettingsWindow.swift` with visual status indicators
+- Green checkmark icon (`checkmark.circle.fill`) with "Granted" badge when permission is authorized
+- Red X icon (`xmark.circle.fill`) with "Not Granted" badge when permission is not authorized
+- "Grant Permission" button shown only when permission is not granted
+- Button triggers `PermissionManager.requestMicrophonePermission()` or `requestAccessibilityPermission()`
+- Added Permissions card to `GeneralSettingsView` showing both Microphone and Accessibility statuses
+- Status auto-updates via PermissionManager's existing app activation observer and polling mechanism
+- Uses existing PermissionManager.shared singleton for permission tracking
+- Verified via `swift build` - typecheck passes
 
 ---
 

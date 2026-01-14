@@ -33,8 +33,8 @@ struct SettingsView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // General tab (hotkey, launch at login)
-            GeneralSettingsView(hotkeyManager: hotkeyManager)
+            // General tab (hotkey, launch at login, permissions)
+            GeneralSettingsView(hotkeyManager: hotkeyManager, permissionManager: PermissionManager.shared)
                 .tabContentTransition()
                 .tag(SettingsTab.general)
                 .tabItem {
@@ -2584,6 +2584,8 @@ struct InsertionFeatureRow: View {
 
 struct GeneralSettingsView: View {
     @ObservedObject var hotkeyManager: HotkeyManager
+    /// US-509: Permission manager for status tracking and UI
+    @ObservedObject var permissionManager: PermissionManager
     @State private var isRecordingHotkey = false
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     
@@ -2751,6 +2753,50 @@ struct GeneralSettingsView: View {
                 }
                 .wispflowCard()
                 
+                // US-509: Permissions Status card
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "lock.shield")
+                            .foregroundColor(Color.Wispflow.accent)
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Permissions")
+                            .font(Font.Wispflow.headline)
+                            .foregroundColor(Color.Wispflow.textPrimary)
+                    }
+                    
+                    Text("WispFlow requires these permissions to function. Grant permissions to enable voice recording and text insertion.")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    
+                    // Microphone Permission Status
+                    PermissionStatusRow(
+                        title: "Microphone",
+                        description: "Required for voice recording",
+                        icon: "mic.fill",
+                        isGranted: permissionManager.microphoneStatus.isGranted,
+                        onGrantPermission: {
+                            Task {
+                                _ = await permissionManager.requestMicrophonePermission()
+                            }
+                        }
+                    )
+                    
+                    Divider()
+                        .background(Color.Wispflow.border)
+                    
+                    // Accessibility Permission Status
+                    PermissionStatusRow(
+                        title: "Accessibility",
+                        description: "Required for global hotkeys and text insertion",
+                        icon: "hand.raised.fill",
+                        isGranted: permissionManager.accessibilityStatus.isGranted,
+                        onGrantPermission: {
+                            _ = permissionManager.requestAccessibilityPermission()
+                        }
+                    )
+                }
+                .wispflowCard()
+                
                 Spacer()
             }
             .padding(Spacing.xl)
@@ -2759,6 +2805,8 @@ struct GeneralSettingsView: View {
         .onAppear {
             // Refresh launch at login status
             launchAtLogin = SMAppService.mainApp.status == .enabled
+            // US-509: Refresh permission status on appear
+            permissionManager.refreshAllStatuses()
         }
     }
     
@@ -2776,6 +2824,87 @@ struct GeneralSettingsView: View {
             // Revert the toggle on failure
             launchAtLogin = SMAppService.mainApp.status == .enabled
         }
+    }
+}
+
+// MARK: - US-509: Permission Status Row
+
+/// A row component showing permission status with visual indicator and grant button
+/// Part of US-509: Permission Status UI
+struct PermissionStatusRow: View {
+    let title: String
+    let description: String
+    let icon: String
+    let isGranted: Bool
+    let onGrantPermission: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Permission icon
+            ZStack {
+                Circle()
+                    .fill(isGranted ? Color.Wispflow.successLight : Color.Wispflow.errorLight)
+                    .frame(width: 36, height: 36)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(isGranted ? Color.Wispflow.success : Color.Wispflow.error)
+            }
+            
+            // Permission info
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text(title)
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    // Status indicator with icon (✓ green / ✗ red)
+                    HStack(spacing: 4) {
+                        Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(isGranted ? "Granted" : "Not Granted")
+                            .font(Font.Wispflow.small)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(isGranted ? Color.Wispflow.success : Color.Wispflow.error)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background((isGranted ? Color.Wispflow.success : Color.Wispflow.error).opacity(0.12))
+                    .cornerRadius(CornerRadius.small / 2)
+                }
+                
+                Text(description)
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+            
+            // Grant Permission button (only shown when not granted)
+            if !isGranted {
+                Button(action: onGrantPermission) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "arrow.right.circle")
+                        Text("Grant Permission")
+                    }
+                }
+                .buttonStyle(WispflowButtonStyle.primary)
+            }
+        }
+        .padding(.vertical, Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.small)
+                .fill(isHovering ? Color.Wispflow.border.opacity(0.2) : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isGranted)
     }
 }
 

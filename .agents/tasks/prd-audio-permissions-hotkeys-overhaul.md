@@ -133,16 +133,16 @@ This PRD defines a comprehensive overhaul of WispFlow's core systems based on pr
 - [x] Fallback to general Privacy settings if specific pane fails
 - [x] Typecheck passes
 
-### [ ] US-509: Permission Status UI
+### [x] US-509: Permission Status UI
 **Description:** As a user, I want to see my current permission status in Settings with clear visual indicators.
 
 **Acceptance Criteria:**
-- [ ] Microphone permission status shown with icon (✓ green / ✗ red)
-- [ ] Accessibility permission status shown with icon
-- [ ] "Grant Permission" button shown when permission not granted
-- [ ] Button opens appropriate System Settings pane
-- [ ] Status updates automatically when user grants permission and returns
-- [ ] Typecheck passes
+- [x] Microphone permission status shown with icon (✓ green / ✗ red)
+- [x] Accessibility permission status shown with icon
+- [x] "Grant Permission" button shown when permission not granted
+- [x] Button opens appropriate System Settings pane
+- [x] Status updates automatically when user grants permission and returns
+- [x] Typecheck passes
 
 ---
 
