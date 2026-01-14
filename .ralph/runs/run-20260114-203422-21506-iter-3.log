@@ -1,0 +1,1 @@
+I see there's already a `TextCleanupManager.swift` file. Let me explore it along with the Settings UI to understand how text cleanup is currently implemented:
