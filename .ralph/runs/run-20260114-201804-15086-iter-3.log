@@ -1,0 +1,25 @@
+There are many more stories to complete (US-607 through US-631). US-606 is complete, but this is not the last story in the PRD.
+
+Let me provide a summary of the completed work for US-606:
+
+## Summary
+
+**US-606: Language Selection** has been verified as complete. All acceptance criteria are met:
+
+1. ✅ **Language dropdown in Settings** - `LanguagePicker` component with 12 language options (Auto-detect + 11 common languages: English, Spanish, French, German, Italian, Portuguese, Japanese, Chinese, Korean, Russian, Arabic)
+
+2. ✅ **Pass language hint to WhisperKit** - `DecodingOptions` is created in the `transcribe()` method with:
+   - `language`: the Whisper language code (or `nil` for auto-detect)  
+   - `detectLanguage`: `true` for automatic, `false` for specific language
+
+3. ✅ **Remember language preference** - Persisted via `UserDefaults` using key `selectedTranscriptionLanguage`
+
+4. ✅ **"Auto-detect" as default** - The `.automatic` case is the default value on initialization
+
+**Files implemented:**
+- `Sources/WispFlow/WhisperManager.swift` - `TranscriptionLanguage` enum, `selectedLanguage` property, `DecodingOptions` usage
+- `Sources/WispFlow/SettingsWindow.swift` - `LanguagePicker` bound to `whisperManager.selectedLanguage`
+
+**Commit:** `c65789d` - docs: add verification progress log for US-606 iteration 3
+
+**Build verification:** `swift build` → PASS
