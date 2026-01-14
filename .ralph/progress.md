@@ -2389,3 +2389,48 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-it
   - Use PermissionManager's existing app activation observer for detecting permission changes when user returns from Settings
   - InstructionRow component is reusable for other onboarding steps that need step-by-step guidance
 ---
+
+## [2026-01-14] - US-520: Audio Test Step
+Thread: codex exec session
+Run: 20260114-131706-97414 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 161ab7e feat(US-520): implement audio test step for onboarding wizard
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete with only Swift 6 informational warnings)
+- Files changed:
+  - Sources/WispFlow/OnboardingWindow.swift (modified)
+  - Sources/WispFlow/AppDelegate.swift (modified)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (updated)
+- What was implemented:
+  - Created `AudioTestView` in `OnboardingWindow.swift` with comprehensive audio testing UI:
+    - Live audio level meter (`OnboardingAudioLevelMeter`) with 30 segments at 20fps (~0.05s timer interval)
+    - "Start Test" button triggers `audioManager.startCapturing()` to begin audio capture
+    - Animated visual feedback: pulsing ring around microphone icon, waveform icon when testing, color-coded level status badges (Good/Quiet/Silent/Too Loud)
+    - Device selector dropdown (`Menu`) appears when multiple devices available, showing all input devices with checkmarks and "(Default)" indicator
+    - "Sounds Good!" button appears after user speaks (level > -40dB) - advances to next onboarding step
+    - "Having Issues?" link toggles `troubleshootingTipsCard` with 5 troubleshooting tips using `TroubleshootingTipRow` components:
+      1. Make sure microphone is connected and not muted
+      2. Check System Settings > Sound > Input
+      3. Ensure WispFlow has microphone permission
+      4. Try selecting a different microphone
+      5. Speak loudly and clearly, 6-12 inches from microphone
+  - Created `OnboardingAudioLevelMeter` component - visual level meter with colored segments (accent/success/error)
+  - Created `TroubleshootingTipRow` component for displaying troubleshooting tips with icons
+  - Added `audioTest` case to `OnboardingStep` enum with proper `nextStep` navigation
+  - Updated `OnboardingContainerView` to accept `audioManager` and render `AudioTestView` for the audio test step
+  - Updated `OnboardingWindowController` to accept `audioManager` parameter and pass it to `OnboardingContainerView`
+  - Updated `AppDelegate.setupOnboarding()` to pass `audioManager` to `OnboardingWindowController`
+  - Audio test stops automatically when view disappears (`.onDisappear` modifier)
+  - Added preview for `AudioTestView` for development testing
+- **Learnings for future iterations:**
+  - Reuse AudioManager from AppDelegate for onboarding audio testing - avoids creating duplicate audio infrastructure
+  - Timer-based level updates at 20fps provides smooth visual feedback without excessive CPU usage
+  - Use `.symbolEffect(.variableColor.iterative)` for animated waveform icon
+  - Threshold-based "has tested" flag (level > -40dB) provides good UX without requiring explicit confirmation
+  - Troubleshooting tips section improves user experience for those having issues with their microphone
+---
