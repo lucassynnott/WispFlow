@@ -832,12 +832,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Update indicator to show cleanup status
         if cleanup.isCleanupEnabled {
             recordingIndicator?.updateStatus("Cleaning up...")
+        } else {
+            recordingIndicator?.updateStatus("Processing...")
         }
         
-        // Perform text cleanup
-        let cleanedText = await cleanup.cleanupText(transcribedText)
+        // US-607: Use processText which includes both cleanup and post-processing options
+        // Post-processing (capitalize, period, trim) is always applied based on settings
+        let cleanedText = await cleanup.processText(transcribedText)
         
-        print("Final text (after cleanup): \(cleanedText)")
+        print("Final text (after cleanup + post-processing): \(cleanedText)")
         
         // Log cleaned transcription to debug manager
         debugManager?.logCleanedTranscription(cleanedText, mode: cleanup.selectedMode.rawValue)

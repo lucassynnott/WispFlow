@@ -1,18 +1,22 @@
-[2026-01-14 20:34] Starting US-606 verification run
-[2026-01-14 20:35] Read guardrails.md - reviewed
-[2026-01-14 20:35] Read errors.log - no blocking errors for US-606
-[2026-01-14 20:36] Read PRD - US-606 already marked complete
-[2026-01-14 20:36] Read IMPLEMENTATION_PLAN.md - US-606 section exists and complete
-[2026-01-14 20:37] Auditing codebase...
-[2026-01-14 20:38] Found TranscriptionLanguage enum in WhisperManager.swift (line 146)
-[2026-01-14 20:38] Found selectedLanguage property with UserDefaults persistence
-[2026-01-14 20:39] Found whisperLanguageCode property for WhisperKit integration
-[2026-01-14 20:39] Found DecodingOptions usage in transcribe() method
-[2026-01-14 20:40] Verified LanguagePicker bound to whisperManager.selectedLanguage
-[2026-01-14 20:45] Running swift build...
-[2026-01-14 20:45] Build complete! (0.12s)
-[2026-01-14 20:46] Verification complete - all acceptance criteria met
-[2026-01-14 20:47] US-606 was already committed: c54111c
-[2026-01-14 20:49] Added progress log entry
-[2026-01-14 20:49] Created run summary
+There are still many uncompleted stories (US-607 through US-631). The PRD is NOT complete, so I should NOT output the completion signal.
+
+## Summary
+
+**US-606: Language Selection** has been successfully verified as complete. The feature was already implemented and committed by prior parallel iterations. 
+
+**Implementation details:**
+- `TranscriptionLanguage` enum in WhisperManager with 12 language options (Auto-detect + 11 common languages)
+- `selectedLanguage` @Published property persisted to UserDefaults
+- `whisperLanguageCode` computed property returns language code for WhisperKit (nil for auto-detect)
+- `DecodingOptions` created in `transcribe()` method with language hint
+- LanguagePicker in SettingsWindow bound to `whisperManager.selectedLanguage`
+
+**Acceptance criteria verified:**
+- ✅ Language dropdown in Settings (Auto-detect + common languages)
+- ✅ Pass language hint to WhisperKit
+- ✅ Remember language preference  
+- ✅ "Auto-detect" as default
+
+**Verification:** `swift build` passed successfully.
+49] Created run summary
 [2026-01-14 20:49] Run complete - US-606 verified
