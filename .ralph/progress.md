@@ -2477,3 +2477,34 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-it
   - HotkeyKeyBadge provides visual keyboard key representation that's clearer than just text
   - Conflict detection from US-512 can be reused in onboarding context
 ---
+
+## [2026-01-14 13:40] - US-522: Onboarding Completion
+Thread: 
+Run: 20260114-131706-97414 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: d1edf69 feat(US-522): implement onboarding completion step for wizard
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/WispFlow/OnboardingWindow.swift
+  - .ralph/IMPLEMENTATION_PLAN.md
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md
+- What was implemented:
+  - Added `completion` case to `OnboardingStep` enum
+  - Created `OnboardingCompletionView` with success screen showing checkmarks for completed steps
+  - Created `CompletedStepRow` component displaying each step with checkmark/minus icon and Done/Skipped badge
+  - Added hotkey recap card showing how to start recording (e.g., "Press ⌘⇧Space")
+  - "Start Using WispFlow" button closes wizard and sets `hasCompletedOnboarding` flag to true
+  - Animated entrance with spring animations for success icon and checkmarks
+  - Updated `OnboardingContainerView` to render completion step
+  - Added preview for `OnboardingCompletionView`
+- **Learnings for future iterations:**
+  - OnboardingManager already had `markOnboardingCompleted()` method that sets UserDefaults flag
+  - Existing `completeOnboarding()` method in `OnboardingContainerView` already called this
+  - Animation delays using `DispatchQueue.main.asyncAfter` for staggered entrance effects
+  - Permissions status can be checked dynamically via `PermissionManager.shared` to show actual grant status
+---
