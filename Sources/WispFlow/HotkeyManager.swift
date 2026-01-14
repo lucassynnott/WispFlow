@@ -1,8 +1,9 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Manager for handling global keyboard shortcuts
-/// Uses NSEvent.addGlobalMonitorForEvents for monitoring hotkeys from any application
+/// US-510: Manager for handling global keyboard shortcuts
+/// Uses CGEvent tap at kCGSessionEventTap level for reliable global hotkey detection
+/// that works regardless of which app is focused and even when WispFlow window is not visible.
 final class HotkeyManager: ObservableObject {
     
     // MARK: - Constants
@@ -12,7 +13,7 @@ final class HotkeyManager: ObservableObject {
         static let hotkeyModifiersKey = "hotkeyModifiers"
     }
     
-    /// Default hotkey: Cmd+Shift+Space
+    /// Default hotkey: Cmd+Shift+Space (US-510)
     struct HotkeyConfiguration: Codable, Equatable {
         var keyCode: UInt16
         var modifierFlags: UInt
@@ -20,6 +21,17 @@ final class HotkeyManager: ObservableObject {
         /// Get NSEvent.ModifierFlags from the stored UInt
         var modifiers: NSEvent.ModifierFlags {
             return NSEvent.ModifierFlags(rawValue: modifierFlags)
+        }
+        
+        /// Get CGEventFlags from the stored UInt (for CGEvent tap matching)
+        var cgEventFlags: CGEventFlags {
+            var flags = CGEventFlags()
+            let nsFlags = modifiers
+            if nsFlags.contains(.command) { flags.insert(.maskCommand) }
+            if nsFlags.contains(.shift) { flags.insert(.maskShift) }
+            if nsFlags.contains(.option) { flags.insert(.maskAlternate) }
+            if nsFlags.contains(.control) { flags.insert(.maskControl) }
+            return flags
         }
         
         /// Create from NSEvent.ModifierFlags
@@ -80,15 +92,25 @@ final class HotkeyManager: ObservableObject {
     
     // MARK: - Properties
     
-    private var hotKeyRef: EventHotKeyRef?
-    private var eventHandler: EventHandlerRef?
+    /// CGEvent tap for global hotkey detection (US-510)
+    private var eventTap: CFMachPort?
+    
+    /// Run loop source for the event tap
+    private var runLoopSource: CFRunLoopSource?
+    
+    /// Current hotkey configuration
     @Published private(set) var configuration: HotkeyConfiguration
     
     /// Callback triggered when the hotkey is pressed
     var onHotkeyPressed: (() -> Void)?
     
+    /// Callback triggered when accessibility permission is needed (US-510)
+    var onAccessibilityPermissionNeeded: (() -> Void)?
+    
+    /// Whether the event tap is currently active
+    @Published private(set) var isActive: Bool = false
+    
     // MARK: - Initialization
-    private static let hotKeySignature: OSType = 0x57495350 // 'WISP'
     
     init(configuration: HotkeyConfiguration? = nil) {
         // Load saved configuration or use default
@@ -97,7 +119,7 @@ final class HotkeyManager: ObservableObject {
         } else {
             self.configuration = Self.loadConfiguration()
         }
-        print("HotkeyManager initialized with hotkey: \(self.configuration.displayString)")
+        print("HotkeyManager: [US-510] Initialized with hotkey: \(self.configuration.displayString)")
     }
     
     // MARK: - Persistence
@@ -111,11 +133,11 @@ final class HotkeyManager: ObservableObject {
             let keyCode = UInt16(defaults.integer(forKey: Constants.hotkeyKeyCodeKey))
             let modifiers = UInt(defaults.integer(forKey: Constants.hotkeyModifiersKey))
             let config = HotkeyConfiguration(keyCode: keyCode, modifierFlags: modifiers)
-            print("HotkeyManager: Loaded saved hotkey configuration: \(config.displayString)")
+            print("HotkeyManager: [US-510] Loaded saved hotkey configuration: \(config.displayString)")
             return config
         }
         
-        print("HotkeyManager: Using default hotkey configuration")
+        print("HotkeyManager: [US-510] Using default hotkey configuration (Cmd+Shift+Space)")
         return .defaultHotkey
     }
     
@@ -124,7 +146,7 @@ final class HotkeyManager: ObservableObject {
         let defaults = UserDefaults.standard
         defaults.set(Int(configuration.keyCode), forKey: Constants.hotkeyKeyCodeKey)
         defaults.set(Int(configuration.modifierFlags), forKey: Constants.hotkeyModifiersKey)
-        print("HotkeyManager: Saved hotkey configuration: \(configuration.displayString)")
+        print("HotkeyManager: [US-510] Saved hotkey configuration: \(configuration.displayString)")
     }
     
     deinit {
@@ -133,26 +155,77 @@ final class HotkeyManager: ObservableObject {
     
     // MARK: - Public API
     
-    /// Start listening for global hotkey events
-    /// Uses Carbon RegisterEventHotKey for reliable global delivery without input monitoring
+    /// Start listening for global hotkey events using CGEvent tap (US-510)
+    /// Requires accessibility permission - will trigger onAccessibilityPermissionNeeded if not granted
     func start() {
+        // Stop any existing event tap first
         stop()
-        installEventHandler()
-        registerHotKey()
-        print("HotkeyManager started - listening for \(configuration.displayString) via Carbon hotkey")
+        
+        // Check accessibility permission before creating event tap (US-510)
+        if !AXIsProcessTrusted() {
+            print("HotkeyManager: [US-510] Accessibility permission not granted - cannot install event tap")
+            print("HotkeyManager: [US-510] Showing permission prompt...")
+            onAccessibilityPermissionNeeded?()
+            return
+        }
+        
+        // Create CGEvent tap at kCGSessionEventTap level (US-510)
+        // This ensures hotkeys work regardless of which app is focused
+        let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+        
+        // Create the event tap with callback
+        // The callback is defined as a C function pointer that bridges to our Swift method
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,  // US-510: Session level for global events
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: HotkeyManager.eventTapCallback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            print("HotkeyManager: [US-510] Failed to create CGEvent tap - accessibility permission may not be granted")
+            onAccessibilityPermissionNeeded?()
+            return
+        }
+        
+        eventTap = tap
+        
+        // Create a run loop source and add it to the current run loop
+        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        
+        guard let source = runLoopSource else {
+            print("HotkeyManager: [US-510] Failed to create run loop source")
+            stop()
+            return
+        }
+        
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        
+        // Enable the event tap
+        CGEvent.tapEnable(tap: tap, enable: true)
+        
+        isActive = true
+        print("HotkeyManager: [US-510] Started - listening for \(configuration.displayString) via CGEvent tap at kCGSessionEventTap level")
+        print("HotkeyManager: [US-510] Hotkey works when any application is focused")
     }
     
     /// Stop listening for global hotkey events
     func stop() {
-        if let hotKeyRef = hotKeyRef {
-            UnregisterEventHotKey(hotKeyRef)
-            self.hotKeyRef = nil
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            
+            if let source = runLoopSource {
+                CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
+                runLoopSource = nil
+            }
+            
+            // Note: CFMachPort doesn't have an explicit close method; 
+            // setting to nil allows ARC to clean up
+            eventTap = nil
         }
-        if let handler = eventHandler {
-            RemoveEventHandler(handler)
-            eventHandler = nil
-        }
-        print("HotkeyManager stopped")
+        
+        isActive = false
+        print("HotkeyManager: [US-510] Stopped")
     }
     
     /// Update the hotkey configuration and save to UserDefaults
@@ -160,7 +233,7 @@ final class HotkeyManager: ObservableObject {
         configuration = newConfig
         saveConfiguration()
         // Restart hotkey registration with new configuration
-        if hotKeyRef != nil || eventHandler != nil {
+        if isActive || eventTap != nil {
             start()
         }
     }
@@ -175,46 +248,74 @@ final class HotkeyManager: ObservableObject {
         return configuration.displayString
     }
     
-    // MARK: - Private Methods
+    /// Check if accessibility permission is granted (US-510)
+    var hasAccessibilityPermission: Bool {
+        return AXIsProcessTrusted()
+    }
     
-    // MARK: - Carbon Hotkey Registration
-
-    private func registerHotKey() {
-        let hotKeyID = EventHotKeyID(signature: Self.hotKeySignature, id: UInt32(1))
-        let modifiers = carbonFlags(from: configuration.modifiers)
-        let status = RegisterEventHotKey(UInt32(configuration.keyCode), modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
-        if status != noErr {
-            print("HotkeyManager: Failed to register hotkey (status: \(status))")
-        } else {
-            print("HotkeyManager: Registered Carbon hotkey \(configuration.displayString) [modifiers: \(modifiers)]")
+    // MARK: - CGEvent Tap Callback (US-510)
+    
+    /// Static callback for CGEvent tap
+    /// This is called for every key down event when the tap is active
+    private static let eventTapCallback: CGEventTapCallBack = { proxy, type, event, userInfo in
+        // Handle tap disabled events (system can disable taps if they take too long)
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            print("HotkeyManager: [US-510] Event tap was disabled by system, re-enabling...")
+            // Re-enable the tap
+            if let userInfo = userInfo {
+                let manager = Unmanaged<HotkeyManager>.fromOpaque(userInfo).takeUnretainedValue()
+                if let tap = manager.eventTap {
+                    CGEvent.tapEnable(tap: tap, enable: true)
+                }
+            }
+            return Unmanaged.passUnretained(event)
         }
-    }
-
-    private func installEventHandler() {
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        let status = InstallEventHandler(GetApplicationEventTarget(), HotkeyManager.hotKeyHandler, 1, &eventType, UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()), &eventHandler)
-        if status != noErr {
-            print("HotkeyManager: Failed to install event handler (status: \(status))")
+        
+        // Only process key down events
+        guard type == .keyDown else {
+            return Unmanaged.passUnretained(event)
         }
-    }
-
-    private func carbonFlags(from modifiers: NSEvent.ModifierFlags) -> UInt32 {
-        var carbon: UInt32 = 0
-        if modifiers.contains(.command) { carbon |= UInt32(cmdKey) }
-        if modifiers.contains(.shift) { carbon |= UInt32(shiftKey) }
-        if modifiers.contains(.option) { carbon |= UInt32(optionKey) }
-        if modifiers.contains(.control) { carbon |= UInt32(controlKey) }
-        return carbon
-    }
-
-    private static let hotKeyHandler: EventHandlerUPP = { _, eventRef, userData in
-        guard let eventRef = eventRef, let userData = userData else { return noErr }
-        let manager = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
-        var hotKeyID = EventHotKeyID()
-        let status = GetEventParameter(eventRef, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
-        if status == noErr && hotKeyID.signature == hotKeySignature {
+        
+        guard let userInfo = userInfo else {
+            return Unmanaged.passUnretained(event)
+        }
+        
+        let manager = Unmanaged<HotkeyManager>.fromOpaque(userInfo).takeUnretainedValue()
+        
+        // Get key code from the event
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        
+        // Get modifier flags from the event (US-510: detect Command, Shift, Option, Control)
+        let eventFlags = event.flags
+        
+        // Check if this matches our configured hotkey
+        let configKeyCode = Int64(manager.configuration.keyCode)
+        let configFlags = manager.configuration.cgEventFlags
+        
+        // Compare key code
+        guard keyCode == configKeyCode else {
+            return Unmanaged.passUnretained(event)
+        }
+        
+        // Compare modifier flags (mask out non-modifier flags like caps lock indicator)
+        let modifierMask: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
+        let eventModifiers = eventFlags.intersection(modifierMask)
+        let configModifiers = configFlags.intersection(modifierMask)
+        
+        guard eventModifiers == configModifiers else {
+            return Unmanaged.passUnretained(event)
+        }
+        
+        // Hotkey matched! Trigger the callback
+        print("HotkeyManager: [US-510] Hotkey detected: \(manager.configuration.displayString)")
+        
+        // Call the callback on the main thread
+        DispatchQueue.main.async {
             manager.onHotkeyPressed?()
         }
-        return noErr
+        
+        // Return nil to consume the event (prevent it from propagating to other apps)
+        // This prevents the hotkey from triggering other app's shortcuts
+        return nil
     }
 }

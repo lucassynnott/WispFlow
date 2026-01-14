@@ -1,0 +1,24 @@
+There are still 16 more user stories remaining in the PRD that are not yet complete. Therefore, I should NOT output the `<promise>COMPLETE</promise>` signal since only US-509 was the selected story for this run and there are more remaining.
+
+US-509 is fully complete. Let me summarize:
+
+## Summary
+
+**US-509: Permission Status UI** was already implemented in a previous iteration (run 20260114-121455-84404, iteration 4). 
+
+The implementation includes:
+- `PermissionStatusRow` SwiftUI component showing permission status with visual indicators
+- Green checkmark icon (✓) when permission is granted, red X icon (✗) when denied
+- "Grant Permission" button that appears only when permission is not granted
+- Button triggers `PermissionManager.requestMicrophonePermission()` or `requestAccessibilityPermission()` to open System Settings
+- Status auto-updates via app activation observer when user returns from System Settings, plus background polling
+
+All acceptance criteria verified:
+- ✅ Microphone permission status shown with icon (✓ green / ✗ red)
+- ✅ Accessibility permission status shown with icon  
+- ✅ "Grant Permission" button shown when permission not granted
+- ✅ Button opens appropriate System Settings pane
+- ✅ Status updates automatically when user grants permission and returns
+- ✅ Typecheck passes (`swift build` succeeds)
+
+Commit: `4da9072 feat(US-509): add Permission Status UI to Settings`

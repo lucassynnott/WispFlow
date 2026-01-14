@@ -1,0 +1,27 @@
+The PRD shows many remaining unchecked stories (US-510 through US-525), so I should not output the completion signal. The current story US-509 is complete but the PRD is not fully complete.
+
+## Summary
+
+I successfully implemented **US-509: Permission Status UI** with the following changes:
+
+1. **Added `PermissionStatusRow` component** to `SettingsWindow.swift`:
+   - Visual status row with permission icon in colored circle
+   - Green checkmark icon (✓) with "Granted" badge when authorized
+   - Red X icon (✗) with "Not Granted" badge when denied
+   - "Grant Permission" button shown only when not granted
+   - Hover animation for visual feedback
+
+2. **Added Permissions card to `GeneralSettingsView`**:
+   - Shows both Microphone and Accessibility permission status
+   - Card header explains why permissions are needed
+   - Divider separates the two permission rows
+
+3. **Updated `GeneralSettingsView`** to accept `permissionManager: PermissionManager` parameter
+
+4. **Status auto-updates** via PermissionManager's existing app activation observer and polling mechanism
+
+**Verification**: `swift build` passes successfully.
+
+**Commits**:
+- `4da9072 feat(US-509): add Permission Status UI to Settings`
+- `79239a1 docs: update progress log for US-509`

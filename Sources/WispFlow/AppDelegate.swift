@@ -327,7 +327,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.toggleRecordingFromHotkey()
         }
         
+        // US-510: Handle accessibility permission prompt when hotkey pressed without permission
+        hotkeyManager?.onAccessibilityPermissionNeeded = { [weak self] in
+            print("AppDelegate: [US-510] Accessibility permission needed for global hotkeys")
+            DispatchQueue.main.async {
+                self?.showAccessibilityPermissionPrompt()
+            }
+        }
+        
         hotkeyManager?.start()
+    }
+    
+    /// US-510: Show accessibility permission prompt when hotkey is pressed without permission
+    @MainActor
+    private func showAccessibilityPermissionPrompt() {
+        let alert = NSAlert()
+        alert.messageText = "Accessibility Permission Required"
+        alert.informativeText = "WispFlow needs accessibility permission to detect global hotkeys and insert text.\n\nPlease grant permission in System Settings > Privacy & Security > Accessibility, then restart WispFlow."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        
+        if alert.runModal() == .alertFirstButtonReturn {
+            // Open accessibility settings
+            PermissionManager.shared.openAccessibilitySettings()
+        }
     }
     
     private func setupRecordingIndicator() {

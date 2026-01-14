@@ -388,25 +388,42 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 ## Phase 4: Hotkey System Overhaul
 
 ### US-510: Global Event Tap for Hotkeys
-**Status:** pending
+**Status:** complete
 **Priority:** critical
 **Estimated effort:** large
 
 **Description:** Implement reliable global hotkey detection using CGEvent tap.
 
 **Tasks:**
-- [ ] Create CGEvent tap at session level
-- [ ] Register for key down events
-- [ ] Check for modifier keys (Cmd, Shift, Option, Control)
-- [ ] Match against configured hotkey
-- [ ] Trigger recording toggle on match
-- [ ] Handle accessibility permission requirement
+- [x] Create CGEvent tap at session level
+- [x] Register for key down events
+- [x] Check for modifier keys (Cmd, Shift, Option, Control)
+- [x] Match against configured hotkey
+- [x] Trigger recording toggle on match
+- [x] Handle accessibility permission requirement
 
 **Acceptance Criteria:**
 - Hotkey works from any focused application
 - Works when WispFlow window not visible
 - Requires accessibility permission
 - Typecheck passes
+
+**Implementation Notes:**
+- Completely rewrote `HotkeyManager.swift` to use CGEvent tap instead of Carbon RegisterEventHotKey
+- Event tap installed at `kCGSessionEventTap` level (`.cgSessionEventTap`) for true global hotkey detection
+- Implemented `eventTapCallback` as a static C function pointer that handles all key down events
+- Added `cgEventFlags` computed property to `HotkeyConfiguration` for CGEvent modifier flag matching
+- Modifier keys detected: Command (`.maskCommand`), Shift (`.maskShift`), Option (`.maskAlternate`), Control (`.maskControl`)
+- Default hotkey remains Cmd+Shift+Space (`kVK_Space` with `.command` and `.shift` modifiers)
+- When hotkey matches, callback fires on main thread via `DispatchQueue.main.async`
+- Event is consumed (returns nil) to prevent propagation to other apps
+- Added `onAccessibilityPermissionNeeded` callback for permission prompt
+- Added `isActive` published property to track event tap status
+- Added `hasAccessibilityPermission` computed property for permission checking
+- Added auto-re-enable of tap if system disables it (handles `.tapDisabledByTimeout` and `.tapDisabledByUserInput`)
+- Updated `AppDelegate.setupHotkeyManager()` to handle permission needed callback
+- Added `showAccessibilityPermissionPrompt()` method to show alert and open System Settings
+- Verified via `swift build` - typecheck passes
 
 ---
 

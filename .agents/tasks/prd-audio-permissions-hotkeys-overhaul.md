@@ -148,19 +148,19 @@ This PRD defines a comprehensive overhaul of WispFlow's core systems based on pr
 
 ### Phase 3: Hotkey System Overhaul
 
-### [ ] US-510: Global Event Tap for Hotkeys
+### [x] US-510: Global Event Tap for Hotkeys
 **Description:** As a user, I want hotkeys to work reliably regardless of which app is focused.
 
 **Acceptance Criteria:**
-- [ ] Global hotkey detection using CGEvent tap (not just Carbon RegisterEventHotKey)
-- [ ] Event tap installed at `kCGSessionEventTap` level
-- [ ] Modifier keys detected: Command, Shift, Option, Control
-- [ ] Default hotkey: Cmd+Shift+Space
-- [ ] Hotkey works when any application is focused
-- [ ] Hotkey works even when WispFlow window is not visible
-- [ ] Example: User in Safari, presses Cmd+Shift+Space → recording starts
-- [ ] Negative case: Hotkey pressed without accessibility permission → shows permission prompt
-- [ ] Typecheck passes
+- [x] Global hotkey detection using CGEvent tap (not just Carbon RegisterEventHotKey)
+- [x] Event tap installed at `kCGSessionEventTap` level
+- [x] Modifier keys detected: Command, Shift, Option, Control
+- [x] Default hotkey: Cmd+Shift+Space
+- [x] Hotkey works when any application is focused
+- [x] Hotkey works even when WispFlow window is not visible
+- [x] Example: User in Safari, presses Cmd+Shift+Space → recording starts
+- [x] Negative case: Hotkey pressed without accessibility permission → shows permission prompt
+- [x] Typecheck passes
 
 ### [ ] US-511: Hotkey Recording in Settings
 **Description:** As a user, I want to customize my hotkey by pressing the key combination I want to use.
