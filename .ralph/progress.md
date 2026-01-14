@@ -2349,3 +2349,43 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-130140-94307-it
   - OnboardingStep enum `nextStep` computed property enables clean navigation progression
   - SwiftUI view conditionals (if/else) work well for showing different buttons based on state
 ---
+
+## [2026-01-14 13:30] - US-519: Accessibility Permission Step
+Thread: codex exec session
+Run: 20260114-131706-97414 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 2dcb5db feat(US-519): implement accessibility permission step for onboarding wizard
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete with only Swift 6 informational warnings)
+- Files changed:
+  - Sources/WispFlow/OnboardingWindow.swift (modified)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (updated)
+- What was implemented:
+  - Created `AccessibilityPermissionView` in `OnboardingWindow.swift` with all required UI elements:
+    - Screen explains why accessibility access is needed (hotkeys + text insertion) with clear description text
+    - Current permission status displayed via `permissionStatusCard` component with status icon (green checkmark/red X)
+    - "Open System Settings" button triggers `PermissionManager.openAccessibilitySettings()` which opens Privacy & Security > Accessibility pane
+    - Instructions displayed via `instructionsCard` with step-by-step numbered instructions using new `InstructionRow` component:
+      1. Click "Open System Settings" below
+      2. Find WispFlow in the list
+      3. Toggle the switch to enable
+      4. Return to this window
+    - Status updates automatically when user returns to app via PermissionManager's app activation observer and polling mechanism
+    - "Continue" button only enabled after permission granted (changes from "Open System Settings" to green "Continue")
+    - "Skip for now" link always available as subtle underlined text
+    - Illustration/icon showing keyboard (keyboard.fill SF Symbol) representing hotkeys + text insertion
+  - Added `accessibility` case to `OnboardingStep` enum with proper `nextStep` navigation helper
+  - Updated `OnboardingContainerView` to include accessibility step with proper navigation flow
+  - Created `InstructionRow` component for numbered step-by-step instructions
+  - Added preview for `AccessibilityPermissionView` for development testing
+- **Learnings for future iterations:**
+  - Accessibility permission differs from microphone: uses "Open System Settings" instead of "Grant Access" since macOS requires manual toggle in Settings
+  - Instructions card with numbered steps improves user guidance for multi-step permission flows
+  - Use PermissionManager's existing app activation observer for detecting permission changes when user returns from Settings
+  - InstructionRow component is reusable for other onboarding steps that need step-by-step guidance
+---
