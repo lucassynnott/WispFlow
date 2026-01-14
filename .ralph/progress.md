@@ -2900,3 +2900,70 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21008-it
   - The fix was to wire up the existing implementation by using WhisperManager.TranscriptionLanguage directly
   - Language selection takes effect immediately on next transcription without requiring model reload
 ---
+
+## [2026-01-14 20:44] - US-606: Language Selection (Verification)
+Thread: codex exec session
+Run: 20260114-203422-21199 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21199-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21199-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: c54111c feat(US-606): implement language selection for transcription (already committed)
+- Post-commit status: clean (only log files uncommitted)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 0.20s)
+  - All acceptance criteria verified complete in PRD and implementation plan
+- What was verified:
+  - US-606 was already fully implemented and committed in previous iteration
+  - **Language dropdown in Settings**: LanguagePicker component with Auto-detect + 11 languages
+  - **Pass language hint to WhisperKit**: DecodingOptions with language parameter in transcribe()
+  - **Remember language preference**: UserDefaults persistence with selectedTranscriptionLanguage key
+  - **Auto-detect as default**: TranscriptionLanguage.automatic is the default value
+- **Learnings for future iterations:**
+  - Feature was already complete when this run started
+  - Verification runs can confirm completion status without additional code changes
+---
+
+## [2026-01-14 20:50] - US-606: Language Selection (Verification)
+Thread: codex exec session
+Run: 20260114-203422-20936 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-20936-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-20936-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: true (already completed by parallel run 20260114-203422-21008)
+- Commit: none (US-606 already committed as c54111c feat(US-606): implement language selection)
+- Post-commit status: clean (no changes needed)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 0.13s)
+- What was verified:
+  - US-606 was already fully implemented and committed by parallel run 20260114-203422-21008
+  - All acceptance criteria verified complete:
+    - Language dropdown in Settings (Auto-detect + 11 common languages)
+    - Pass language hint to WhisperKit (DecodingOptions with language and detectLanguage)
+    - Remember language preference (UserDefaults with key selectedTranscriptionLanguage)
+    - Auto-detect as default (.automatic case returns nil for WhisperKit)
+- **Note:** This was a duplicate run started in parallel. No additional changes needed.
+---
+
+## [2026-01-14 20:54] - US-606: Language Selection (Verification - Iteration 2)
+Thread: codex exec session
+Run: 20260114-203422-21506 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21506-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21506-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: true (already completed by previous iterations)
+- Commit: c54111c feat(US-606): implement language selection for transcription (existing)
+- Post-commit status: clean (no new code changes needed)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 0.16s)
+- What was verified:
+  - US-606 was already fully implemented and committed in previous iterations
+  - All acceptance criteria verified complete:
+    - [x] Language dropdown in Settings (Auto-detect + 11 common languages)
+    - [x] Pass language hint to WhisperKit (DecodingOptions with language and detectLanguage)
+    - [x] Remember language preference (UserDefaults with key selectedTranscriptionLanguage)
+    - [x] Auto-detect as default (.automatic case returns nil for WhisperKit)
+  - Implementation plan US-606 section is complete with all tasks marked [x]
+  - PRD acceptance criteria all checked off
+- **Note:** This was iteration 2 of run 21506. Feature was already complete.
+---

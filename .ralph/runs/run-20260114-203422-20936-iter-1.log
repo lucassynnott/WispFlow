@@ -1,0 +1,8 @@
+**Summary**: US-606 (Language Selection) was already fully implemented and committed by a parallel run (20260114-203422-21008). This run verified that:
+
+1. ✅ **Language dropdown in Settings** - `LanguagePicker` component in `TranscriptionSettingsView` with Auto-detect + 11 common languages
+2. ✅ **Pass language hint to WhisperKit** - `DecodingOptions` created in `transcribe()` with `language` and `detectLanguage` parameters
+3. ✅ **Remember language preference** - `UserDefaults` storage with key `selectedTranscriptionLanguage`
+4. ✅ **Auto-detect as default** - `.automatic` case returns `nil` for `whisperLanguageCode`, letting WhisperKit auto-detect
+
+Build verification passed (`swift build` completes successfully). No additional changes were needed as the story was already complete.
