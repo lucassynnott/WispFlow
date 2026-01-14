@@ -722,15 +722,15 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 ---
 
 ### US-519: Accessibility Permission Step
-**Status:** pending
+**Status:** complete
 **Priority:** medium
 **Estimated effort:** medium
 
 **Tasks:**
-- [ ] Create accessibility permission screen
-- [ ] Show current status
-- [ ] Add "Open System Settings" button
-- [ ] Show instructions for enabling
+- [x] Create accessibility permission screen
+- [x] Show current status
+- [x] Add "Open System Settings" button
+- [x] Show instructions for enabling
 
 **Acceptance Criteria:**
 - Status displayed
@@ -738,6 +738,25 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 - Instructions clear
 - Status updates on return
 - Typecheck passes
+
+**Implementation Notes:**
+- Created `AccessibilityPermissionView` in `OnboardingWindow.swift` with all required UI elements
+- Screen explains why accessibility access is needed: "WispFlow needs accessibility access for global hotkeys and text insertion."
+- Current permission status displayed via `permissionStatusCard` component with status icon (green checkmark/red X)
+- "Open System Settings" button triggers `PermissionManager.openAccessibilitySettings()` which opens Privacy & Security > Accessibility pane
+- Instructions displayed via `instructionsCard` with step-by-step numbered instructions using `InstructionRow` component:
+  1. Click "Open System Settings" below
+  2. Find WispFlow in the list
+  3. Toggle the switch to enable
+  4. Return to this window
+- Status updates automatically when user returns to app via PermissionManager's app activation observer and polling mechanism
+- "Continue" button only enabled after permission granted; changes from "Open System Settings" to green "Continue"
+- "Skip for now" link always available as subtle underlined text
+- Illustration/icon showing keyboard (keyboard.fill SF Symbol) representing hotkeys + text insertion
+- Added `accessibility` case to `OnboardingStep` enum with proper `nextStep` navigation helper
+- Updated `OnboardingContainerView` to include accessibility step with proper navigation flow
+- Added preview for `AccessibilityPermissionView` for development testing
+- Verified via `swift build` - typecheck passes
 
 ---
 

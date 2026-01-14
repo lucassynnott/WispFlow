@@ -261,17 +261,17 @@ This PRD defines a comprehensive overhaul of WispFlow's core systems based on pr
 - [x] Illustration/icon showing microphone
 - [x] Typecheck passes
 
-### [ ] US-519: Accessibility Permission Step
+### [x] US-519: Accessibility Permission Step
 **Description:** As a new user, I want guided setup for accessibility permission.
 
 **Acceptance Criteria:**
-- [ ] Screen explains why accessibility access is needed (hotkeys + text insertion)
-- [ ] Current permission status displayed
-- [ ] "Open System Settings" button opens Accessibility pane
-- [ ] Instructions: "Enable WispFlow in the list"
-- [ ] Status updates when user returns to app
-- [ ] "Continue" enabled only after permission granted (or "Skip" available)
-- [ ] Typecheck passes
+- [x] Screen explains why accessibility access is needed (hotkeys + text insertion)
+- [x] Current permission status displayed
+- [x] "Open System Settings" button opens Accessibility pane
+- [x] Instructions: "Enable WispFlow in the list"
+- [x] Status updates when user returns to app
+- [x] "Continue" enabled only after permission granted (or "Skip" available)
+- [x] Typecheck passes
 
 ### [ ] US-520: Audio Test Step
 **Description:** As a new user, I want to test my microphone during setup to ensure it works.

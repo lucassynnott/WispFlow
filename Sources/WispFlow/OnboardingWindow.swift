@@ -7,8 +7,8 @@ import AppKit
 enum OnboardingStep: Int, CaseIterable {
     case welcome = 0
     case microphone = 1
+    case accessibility = 2
     // Future steps will be added here:
-    // case accessibility = 2
     // case audioTest = 3
     // case hotkey = 4
     // case completion = 5
@@ -19,6 +19,8 @@ enum OnboardingStep: Int, CaseIterable {
             return "Welcome to WispFlow"
         case .microphone:
             return "Microphone Permission"
+        case .accessibility:
+            return "Accessibility Permission"
         }
     }
     
@@ -420,6 +422,263 @@ struct MicrophonePermissionView: View {
     }
 }
 
+// MARK: - Accessibility Permission Screen (US-519)
+
+/// Accessibility permission step - guides user through granting accessibility access
+/// US-519: Accessibility Permission Step
+struct AccessibilityPermissionView: View {
+    /// Permission manager for status tracking and requesting permission
+    @ObservedObject var permissionManager: PermissionManager
+    
+    /// Callback when user clicks "Continue"
+    var onContinue: () -> Void
+    
+    /// Callback when user clicks "Skip"
+    var onSkip: () -> Void
+    
+    /// Current accessibility permission status (derived from permissionManager)
+    private var isPermissionGranted: Bool {
+        permissionManager.accessibilityStatus.isGranted
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+                .frame(height: Spacing.xxl)
+            
+            // Illustration/icon showing accessibility
+            accessibilityIllustration
+            
+            Spacer()
+                .frame(height: Spacing.xl)
+            
+            // Title
+            Text("Accessibility Access")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            Spacer()
+                .frame(height: Spacing.sm)
+            
+            // Screen explains why accessibility access is needed (hotkeys + text insertion)
+            Text("WispFlow needs accessibility access for\nglobal hotkeys and text insertion.")
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+            
+            Spacer()
+                .frame(height: Spacing.xxl)
+            
+            // Current permission status displayed
+            permissionStatusCard
+            
+            Spacer()
+                .frame(height: Spacing.lg)
+            
+            // Instructions: "Enable WispFlow in the list"
+            instructionsCard
+            
+            Spacer()
+                .frame(height: Spacing.xxl)
+            
+            // "Open System Settings" button opens Accessibility pane
+            if !isPermissionGranted {
+                Button(action: openSystemSettings) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "gear")
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Open System Settings")
+                            .font(Font.Wispflow.headline)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: 220)
+                    .padding(.vertical, Spacing.md)
+                    .background(Color.Wispflow.accent)
+                    .cornerRadius(CornerRadius.small)
+                }
+                .buttonStyle(InteractiveScaleStyle())
+            } else {
+                // "Continue" enabled only after permission granted
+                Button(action: onContinue) {
+                    Text("Continue")
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: 200)
+                        .padding(.vertical, Spacing.md)
+                        .background(Color.Wispflow.success)
+                        .cornerRadius(CornerRadius.small)
+                }
+                .buttonStyle(InteractiveScaleStyle())
+            }
+            
+            Spacer()
+                .frame(height: Spacing.lg)
+            
+            // "Skip" available
+            Button(action: onSkip) {
+                Text("Skip for now")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .underline()
+            }
+            .buttonStyle(PlainButtonStyle())
+            .opacity(0.7)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.Wispflow.background)
+        .onAppear {
+            // Refresh status when view appears
+            permissionManager.refreshAccessibilityStatus()
+            print("OnboardingWindow: [US-519] Accessibility permission view appeared, status: \(permissionManager.accessibilityStatus.rawValue)")
+        }
+    }
+    
+    // MARK: - Accessibility Illustration
+    
+    /// Illustration/icon showing accessibility
+    private var accessibilityIllustration: some View {
+        ZStack {
+            // Outer glow circle
+            Circle()
+                .fill(Color.Wispflow.accent.opacity(0.15))
+                .frame(width: 120, height: 120)
+            
+            // Inner circle with gradient
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.Wispflow.accent.opacity(0.9), Color.Wispflow.accent],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 90, height: 90)
+                .shadow(color: Color.Wispflow.accent.opacity(0.3), radius: 10, x: 0, y: 5)
+            
+            // Accessibility icon (keyboard representing hotkeys + text insertion)
+            Image(systemName: "keyboard.fill")
+                .font(.system(size: 36, weight: .medium))
+                .foregroundColor(.white)
+        }
+    }
+    
+    // MARK: - Permission Status Card
+    
+    /// Current permission status displayed
+    private var permissionStatusCard: some View {
+        HStack(spacing: Spacing.md) {
+            // Status icon
+            ZStack {
+                Circle()
+                    .fill(isPermissionGranted ? Color.Wispflow.successLight : Color.Wispflow.errorLight)
+                    .frame(width: 40, height: 40)
+                
+                Image(systemName: isPermissionGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(isPermissionGranted ? Color.Wispflow.success : Color.Wispflow.error)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("Accessibility Permission")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                // Status updates when user returns to app
+                Text(statusText)
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(isPermissionGranted ? Color.Wispflow.success : Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+        }
+        .padding(Spacing.lg)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .wispflowShadow(.card)
+        .padding(.horizontal, Spacing.xxl)
+        .animation(WispflowAnimation.smooth, value: isPermissionGranted)
+    }
+    
+    // MARK: - Instructions Card
+    
+    /// Instructions: "Enable WispFlow in the list"
+    private var instructionsCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.Wispflow.accent)
+                
+                Text("How to enable")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                InstructionRow(number: 1, text: "Click \"Open System Settings\" below")
+                InstructionRow(number: 2, text: "Find WispFlow in the list")
+                InstructionRow(number: 3, text: "Toggle the switch to enable")
+                InstructionRow(number: 4, text: "Return to this window")
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.Wispflow.surface.opacity(0.5))
+        .cornerRadius(CornerRadius.medium)
+        .padding(.horizontal, Spacing.xxl)
+    }
+    
+    /// Status text based on current permission state
+    private var statusText: String {
+        switch permissionManager.accessibilityStatus {
+        case .authorized:
+            return "Access granted ✓"
+        case .denied, .notDetermined:
+            return "Enable in System Settings"
+        case .restricted:
+            return "Access restricted by system"
+        }
+    }
+    
+    // MARK: - Actions
+    
+    /// Open System Settings to Accessibility pane
+    private func openSystemSettings() {
+        print("OnboardingWindow: [US-519] Opening System Settings > Accessibility")
+        permissionManager.openAccessibilitySettings()
+    }
+}
+
+// MARK: - Instruction Row Component
+
+/// A single instruction row with number and text
+struct InstructionRow: View {
+    let number: Int
+    let text: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            // Number badge
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.accentLight)
+                    .frame(width: 22, height: 22)
+                
+                Text("\(number)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color.Wispflow.accent)
+            }
+            
+            Text(text)
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 // MARK: - Onboarding Container View
 
 /// Main container view for the onboarding wizard
@@ -457,6 +716,18 @@ struct OnboardingContainerView: View {
                 
             case .microphone:
                 MicrophonePermissionView(
+                    permissionManager: permissionManager,
+                    onContinue: {
+                        advanceToNextStep()
+                    },
+                    onSkip: {
+                        advanceToNextStep()  // Skip just advances, doesn't exit
+                    }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                
+            case .accessibility:
+                AccessibilityPermissionView(
                     permissionManager: permissionManager,
                     onContinue: {
                         advanceToNextStep()
@@ -608,6 +879,17 @@ struct WelcomeView_Previews: PreviewProvider {
 struct MicrophonePermissionView_Previews: PreviewProvider {
     static var previews: some View {
         MicrophonePermissionView(
+            permissionManager: PermissionManager.shared,
+            onContinue: { print("Continue tapped") },
+            onSkip: { print("Skip tapped") }
+        )
+        .frame(width: 520, height: 620)
+    }
+}
+
+struct AccessibilityPermissionView_Previews: PreviewProvider {
+    static var previews: some View {
+        AccessibilityPermissionView(
             permissionManager: PermissionManager.shared,
             onContinue: { print("Continue tapped") },
             onSkip: { print("Skip tapped") }

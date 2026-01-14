@@ -1,0 +1,21 @@
+## Summary
+
+Successfully implemented **US-518: Microphone Permission Step** for the WispFlow onboarding wizard.
+
+**Changes made:**
+- Created `MicrophonePermissionView` in `OnboardingWindow.swift` with:
+  - Explanation of why microphone access is needed
+  - Current permission status display with visual indicators (green checkmark / red X)
+  - "Grant Access" button that triggers system permission dialog via `PermissionManager`
+  - Status auto-updates after permission granted
+  - "Continue" button enabled only after permission granted
+  - "Skip for now" link always available
+  - Microphone illustration with gradient circle and mic.fill icon
+- Added `microphone` case to `OnboardingStep` enum with `nextStep` navigation helper
+- Updated `OnboardingContainerView` to include the microphone step in the onboarding flow
+
+**Verification:** `swift build` → PASS
+
+**Commits:**
+- `ad1f7e6` feat(US-518): implement microphone permission step for onboarding wizard  
+- `2762df2` docs: update progress log for US-518 implementation
