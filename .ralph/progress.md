@@ -1947,3 +1947,34 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-it
   - System may disable taps with `.tapDisabledByTimeout` if callback takes too long - need re-enable logic
   - MainActor isolation must be handled correctly when calling PermissionManager from callbacks
 ---
+
+## [2026-01-14 12:50] - US-511: Hotkey Recording in Settings
+Thread: codex exec session
+Run: 20260114-123019-87886 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-123019-87886-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-123019-87886-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 7925809 feat(US-511): implement hotkey recording in Settings
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (mark US-511 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status with implementation notes)
+- What was implemented:
+  - Verified existing `HotkeyRecorderView` in `SettingsWindow.swift` meets all acceptance criteria
+  - Recording mode activated via `startRecording()` which installs local event monitor for `.keyDown` events
+  - Pulsing indicator implemented with `pulseAnimation` state using `.repeatForever` animation with `scaleEffect/opacity` modifiers
+  - `handleKeyEvent()` captures `event.keyCode` and modifier flags (Cmd, Shift, Option, Control)
+  - Validation rejects modifier-only keys (`.flagsChanged` events filtered) and no-modifier keys (`modifiers.isEmpty` guard)
+  - Escape key (keyCode 53) calls `stopRecording()` without changing hotkey
+  - New configuration persisted via `hotkeyManager.updateConfiguration(newConfig)` which calls `saveConfiguration()` using UserDefaults
+  - Human-readable format via `HotkeyConfiguration.displayString` property that builds strings like "⌃⌥⇧⌘Space"
+- **Learnings for future iterations:**
+  - All hotkey recording functionality was already implemented in previous iterations
+  - This run was primarily verification and documentation of existing implementation
+  - `NSEvent.addLocalMonitorForEvents` is appropriate for capturing key presses in a SwiftUI view
+  - Event type filtering (`.keyDown` vs `.flagsChanged`) is important for distinguishing actual key presses from modifier changes
+  - UserDefaults persistence is simple and reliable for hotkey configuration storage
+---
