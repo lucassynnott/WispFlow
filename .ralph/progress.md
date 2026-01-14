@@ -2079,3 +2079,31 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-123019-87886-it
   - NSPasteboard operations must happen on main thread, but delay can be in background
   - NSPasteboardItem is not Sendable (AppKit limitation), warning is informational only
 ---
+
+## [2026-01-14 12:50] - US-513: Clipboard Preservation (Verification)
+Thread: codex exec session
+Run: 20260114-124540-90947 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-124540-90947-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-124540-90947-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none (story already completed in 8f0edae feat(US-513): implement clipboard preservation)
+- Post-commit status: N/A - no new changes for this story
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - None (story already implemented)
+- What was verified:
+  - TextInserter.swift has all US-513 acceptance criteria implemented:
+    - ✅ Current clipboard content saved before text insertion (saveClipboardContents())
+    - ✅ Transcribed text placed on clipboard (pasteboard.setString())
+    - ✅ Cmd+V simulated to paste text (simulatePaste())
+    - ✅ Original clipboard content restored after delay (800ms via defaultRestoreDelay = 0.8)
+    - ✅ Restoration happens in background thread (DispatchQueue.global(qos: .utility))
+  - PRD acceptance criteria all checked off
+  - Implementation plan shows US-513 as complete with detailed notes
+- **Learnings for future iterations:**
+  - This story was already fully implemented in a prior iteration (run-20260114-123019-87886-iter-5)
+  - When assigned a completed story, verify the implementation exists and documentation is correct
+  - No code changes needed - only verification of existing implementation
+---
