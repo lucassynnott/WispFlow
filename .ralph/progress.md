@@ -1707,3 +1707,46 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-120010-80469-it
   - No code changes needed - story implementation was already present
 ---
 
+## [2026-01-14 12:15] - US-505: Low-Quality Device Warning
+Thread: codex exec session
+Run: 20260114-120010-80469 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-120010-80469-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-120010-80469-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: cdd286c feat(US-505): add low-quality device warning for audio input selection
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/AppDelegate.swift (toast notification when recording starts with flagged device)
+  - Sources/WispFlow/SettingsWindow.swift (warning icons and tooltips in AudioDevicePicker and AudioDeviceRow)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (mark US-505 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status for US-505)
+- What was implemented:
+  - Device keyword flagging: "airpods", "airpod", "bluetooth", "beats", "headset", "hfp", "wireless"
+  - Warning icon shown in device picker:
+    - Added `exclamationmark.triangle.fill` icon in amber/warning color next to flagged devices
+    - Icon appears both in the selected device display and in the dropdown list
+  - Tooltip with context-specific explanations:
+    - AirPods: "AirPods use Bluetooth compression which may reduce transcription accuracy..."
+    - Beats: "Beats headphones use Bluetooth compression..."
+    - HFP: "This device uses the Hands-Free Profile (HFP) which limits audio quality..."
+    - Headset: "Headset microphones may have limited audio quality..."
+    - Bluetooth/Wireless: "Bluetooth audio devices may have reduced quality due to compression..."
+  - Toast notification on recording start:
+    - Uses existing `ToastManager.showLowQualityDeviceWarning()` method
+    - Shows "Low-Quality Microphone" warning with device name and suggestion
+    - Includes "Settings" action button to open audio settings
+    - 5-second auto-dismiss (dismissible by user click on X)
+  - Warning subtitle in dropdown:
+    - AudioDeviceRow shows "May reduce transcription accuracy" for low-quality devices
+  - Pass audioManager to AudioDevicePicker for consistent quality detection
+  - Warning does NOT block recording - users can proceed despite the warning
+- **Learnings for future iterations:**
+  - Leverage existing `isLowQualityDevice()` method in AudioManager for consistent detection
+  - SwiftUI `.help()` modifier provides native tooltip functionality
+  - Toast system already had `showLowQualityDeviceWarning()` convenience method ready
+  - Warning should be informative but not blocking - let users continue if they choose
+---
+
