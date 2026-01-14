@@ -622,19 +622,29 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 ## Phase 6: Onboarding Wizard
 
 ### US-516: First Launch Detection
-**Status:** pending
+**Status:** complete
 **Priority:** high
 **Estimated effort:** small
 
 **Tasks:**
-- [ ] Check UserDefaults for hasCompletedOnboarding
-- [ ] Show wizard if flag not set
-- [ ] Set flag after completion
+- [x] Check UserDefaults for hasCompletedOnboarding
+- [x] Show wizard if flag not set (isFirstLaunch property)
+- [x] Set flag after completion (markOnboardingCompleted/markOnboardingSkipped)
 
 **Acceptance Criteria:**
 - First launch detected correctly
 - Flag persists across launches
 - Typecheck passes
+
+**Implementation Notes:**
+- Created `OnboardingManager.swift` with singleton pattern matching existing managers (PermissionManager, etc.)
+- `hasCompletedOnboarding` flag checked via `UserDefaults.standard.object(forKey:)` - returns nil on first launch
+- First launch: flag is nil or false → `isFirstLaunch` returns true
+- Subsequent launches: flag is true → `isFirstLaunch` returns false
+- Flag only set to true via `markOnboardingCompleted()` or `markOnboardingSkipped()` methods
+- Added `resetOnboardingState()` for testing/debug purposes
+- Uses `@Published` property for SwiftUI binding support
+- Verified via `swift build` - typecheck passes
 
 ---
 

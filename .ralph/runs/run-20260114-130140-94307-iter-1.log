@@ -1,0 +1,15 @@
+## Summary
+
+**US-515: Text Insertion Fallback** was already fully implemented and committed in a previous iteration (`0eb7f5b feat(US-515): implement text insertion fallback mechanism`). 
+
+This run verified:
+- ✅ Primary method: Cmd+V paste simulation via CGEvent in `simulatePaste()`
+- ✅ Fallback: `InsertionResult.fallbackToManualPaste` case with `showManualPasteRequired()` toast  
+- ✅ Error logging: `logSimulationError()` method with formatted box output
+- ✅ User toast: "Text copied - press Cmd+V to paste" (5-second duration)
+- ✅ Typecheck passes: `swift build` completed successfully
+
+**Commit:** `25f2c37 docs: update progress log for US-515 verification`
+**Post-commit status:** clean
+
+There are still 10 unchecked stories remaining (US-516 through US-525 in Phases 5 and 6), so the PRD is not yet complete.

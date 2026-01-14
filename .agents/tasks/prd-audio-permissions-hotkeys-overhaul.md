@@ -227,15 +227,15 @@ This PRD defines a comprehensive overhaul of WispFlow's core systems based on pr
 
 ### Phase 5: Onboarding Wizard
 
-### [ ] US-516: First Launch Detection
+### [x] US-516: First Launch Detection
 **Description:** As a developer, I need to detect first launch to show the onboarding wizard.
 
 **Acceptance Criteria:**
-- [ ] Check UserDefaults for `hasCompletedOnboarding` flag
-- [ ] First launch: flag is nil or false
-- [ ] Subsequent launches: flag is true
-- [ ] Flag only set to true after wizard completed or skipped
-- [ ] Typecheck passes
+- [x] Check UserDefaults for `hasCompletedOnboarding` flag
+- [x] First launch: flag is nil or false
+- [x] Subsequent launches: flag is true
+- [x] Flag only set to true after wizard completed or skipped
+- [x] Typecheck passes
 
 ### [ ] US-517: Onboarding Welcome Screen
 **Description:** As a new user, I want a welcome screen that explains what WispFlow does.
