@@ -1,0 +1,19 @@
+## Summary
+
+Successfully implemented **US-521: Hotkey Introduction Step** for the WispFlow onboarding wizard.
+
+**What was implemented:**
+- Created `HotkeyIntroductionView` with prominently displayed current hotkey (⌘⇧Space) using `HotkeyKeyBadge` components
+- Added "Try it now!" prompt with pulsing indicator to encourage users to test the hotkey
+- Implemented visual feedback when hotkey is pressed: icon changes to checkmark, card scales up, "Perfect!" success message appears
+- Added "Change Hotkey" option that expands `OnboardingHotkeyRecorder` for customization
+- Included default hotkey recommendation note for most users
+- Updated the onboarding flow to pass `hotkeyManager` through the component hierarchy
+
+**Commits:**
+- `b8b1e76` feat(US-521): implement hotkey introduction step for onboarding wizard
+- `3da8cc8` docs: update progress log for US-521 implementation
+
+**Verification:** `swift build` passed with only pre-existing Swift 6 informational warnings.
+
+There are still 4 stories remaining in the PRD (US-522, US-523, US-524, US-525), so the completion signal is not output.

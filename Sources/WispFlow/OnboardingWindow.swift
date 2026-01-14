@@ -10,8 +10,7 @@ enum OnboardingStep: Int, CaseIterable {
     case accessibility = 2
     case audioTest = 3
     case hotkey = 4
-    // Future steps will be added here:
-    // case completion = 5
+    case completion = 5
     
     var title: String {
         switch self {
@@ -25,6 +24,8 @@ enum OnboardingStep: Int, CaseIterable {
             return "Test Your Microphone"
         case .hotkey:
             return "Your Recording Hotkey"
+        case .completion:
+            return "You're All Set!"
         }
     }
     
@@ -1544,6 +1545,301 @@ struct HotkeyIntroductionView: View {
     }
 }
 
+// MARK: - Onboarding Completion Step (US-522)
+
+/// Completion screen shown after all onboarding steps are finished
+/// US-522: Onboarding Completion
+struct OnboardingCompletionView: View {
+    /// Permission manager for checking permission status
+    @ObservedObject var permissionManager: PermissionManager
+    
+    /// Hotkey manager for getting current hotkey configuration
+    @ObservedObject var hotkeyManager: HotkeyManager
+    
+    /// Callback when user clicks "Start Using WispFlow"
+    var onStartUsingApp: () -> Void
+    
+    /// Animation state for checkmark appearance
+    @State private var showCheckmarks = false
+    
+    /// Animation state for success icon
+    @State private var showSuccessIcon = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+                .frame(height: Spacing.xl)
+            
+            // Success illustration with animated checkmark
+            successIllustration
+            
+            Spacer()
+                .frame(height: Spacing.lg)
+            
+            // Title
+            Text("You're All Set!")
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            Spacer()
+                .frame(height: Spacing.sm)
+            
+            // Brief description
+            Text("WispFlow is ready to transcribe your voice.")
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .multilineTextAlignment(.center)
+            
+            Spacer()
+                .frame(height: Spacing.xxl)
+            
+            // Success screen with checkmarks for completed steps
+            completedStepsCard
+            
+            Spacer()
+                .frame(height: Spacing.xl)
+            
+            // Brief recap of how to use: "Press ⌘⇧Space to start recording"
+            hotkeyRecapCard
+            
+            Spacer()
+                .frame(height: Spacing.xxl)
+            
+            // "Start Using WispFlow" button closes wizard
+            Button(action: onStartUsingApp) {
+                HStack(spacing: Spacing.sm) {
+                    Text("Start Using WispFlow")
+                        .font(Font.Wispflow.headline)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: 240)
+                .padding(.vertical, Spacing.md)
+                .background(Color.Wispflow.success)
+                .cornerRadius(CornerRadius.small)
+            }
+            .buttonStyle(InteractiveScaleStyle())
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.Wispflow.background)
+        .onAppear {
+            print("OnboardingWindow: [US-522] Completion view appeared")
+            // Trigger animations with slight delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    showSuccessIcon = true
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showCheckmarks = true
+                }
+            }
+        }
+    }
+    
+    // MARK: - Success Illustration
+    
+    /// Success checkmark icon with animated entrance
+    private var successIllustration: some View {
+        ZStack {
+            // Outer celebration ring
+            Circle()
+                .stroke(Color.Wispflow.success.opacity(0.2), lineWidth: 4)
+                .frame(width: 130, height: 130)
+                .scaleEffect(showSuccessIcon ? 1.0 : 0.5)
+                .opacity(showSuccessIcon ? 1.0 : 0.0)
+            
+            // Outer glow circle
+            Circle()
+                .fill(Color.Wispflow.success.opacity(0.15))
+                .frame(width: 120, height: 120)
+                .scaleEffect(showSuccessIcon ? 1.0 : 0.7)
+            
+            // Inner circle with gradient
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.Wispflow.success.opacity(0.9), Color.Wispflow.success],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 90, height: 90)
+                .shadow(color: Color.Wispflow.success.opacity(0.3), radius: 10, x: 0, y: 5)
+                .scaleEffect(showSuccessIcon ? 1.0 : 0.5)
+            
+            // Checkmark icon
+            Image(systemName: "checkmark")
+                .font(.system(size: 44, weight: .bold))
+                .foregroundColor(.white)
+                .scaleEffect(showSuccessIcon ? 1.0 : 0.3)
+                .opacity(showSuccessIcon ? 1.0 : 0.0)
+        }
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: showSuccessIcon)
+    }
+    
+    // MARK: - Completed Steps Card
+    
+    /// Card showing checkmarks for completed steps
+    private var completedStepsCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // Card header
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "list.bullet.clipboard.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Wispflow.accent)
+                Text("Setup Complete")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Divider()
+                .background(Color.Wispflow.border)
+            
+            // Completed steps list
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                CompletedStepRow(
+                    title: "Microphone Access",
+                    isCompleted: permissionManager.microphoneStatus.isGranted,
+                    showCheckmark: showCheckmarks
+                )
+                
+                CompletedStepRow(
+                    title: "Accessibility Access",
+                    isCompleted: permissionManager.accessibilityStatus.isGranted,
+                    showCheckmark: showCheckmarks
+                )
+                
+                CompletedStepRow(
+                    title: "Audio Test",
+                    isCompleted: true, // Always shown as completed if they reached this step
+                    showCheckmark: showCheckmarks
+                )
+                
+                CompletedStepRow(
+                    title: "Hotkey Configuration",
+                    isCompleted: true, // Always shown as completed if they reached this step
+                    showCheckmark: showCheckmarks
+                )
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .wispflowShadow(.card)
+        .padding(.horizontal, Spacing.xxl)
+    }
+    
+    // MARK: - Hotkey Recap Card
+    
+    /// Brief recap of how to use: "Press ⌘⇧Space to start recording"
+    private var hotkeyRecapCard: some View {
+        VStack(spacing: Spacing.md) {
+            // Instruction text
+            Text("To start recording, press:")
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Hotkey display
+            HStack(spacing: Spacing.sm) {
+                ForEach(hotkeySymbols, id: \.self) { symbol in
+                    HotkeyKeyBadge(symbol: symbol)
+                }
+            }
+            
+            // Hotkey string
+            Text(hotkeyManager.configuration.displayString)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+        }
+        .padding(Spacing.xl)
+        .background(Color.Wispflow.accentLight.opacity(0.5))
+        .cornerRadius(CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.medium)
+                .stroke(Color.Wispflow.accent.opacity(0.3), lineWidth: 1)
+        )
+        .padding(.horizontal, Spacing.xxl)
+    }
+    
+    /// Parse hotkey display string into individual symbols
+    private var hotkeySymbols: [String] {
+        let displayString = hotkeyManager.configuration.displayString
+        var symbols: [String] = []
+        
+        // Parse modifier symbols
+        let modifiers = hotkeyManager.configuration.modifiers
+        if modifiers.contains(.control) { symbols.append("⌃") }
+        if modifiers.contains(.option) { symbols.append("⌥") }
+        if modifiers.contains(.shift) { symbols.append("⇧") }
+        if modifiers.contains(.command) { symbols.append("⌘") }
+        
+        // Get the key name (last part after modifiers)
+        let keyName = displayString.replacingOccurrences(of: "⌃", with: "")
+            .replacingOccurrences(of: "⌥", with: "")
+            .replacingOccurrences(of: "⇧", with: "")
+            .replacingOccurrences(of: "⌘", with: "")
+        
+        if !keyName.isEmpty {
+            symbols.append(keyName)
+        }
+        
+        return symbols
+    }
+}
+
+// MARK: - Completed Step Row
+
+/// A single row in the completed steps list with checkmark
+struct CompletedStepRow: View {
+    let title: String
+    let isCompleted: Bool
+    let showCheckmark: Bool
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Checkmark or X icon
+            ZStack {
+                Circle()
+                    .fill(isCompleted ? Color.Wispflow.successLight : Color.Wispflow.surface)
+                    .frame(width: 28, height: 28)
+                
+                if showCheckmark {
+                    Image(systemName: isCompleted ? "checkmark" : "minus")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(isCompleted ? Color.Wispflow.success : Color.Wispflow.textSecondary)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showCheckmark)
+            
+            // Step title
+            Text(title)
+                .font(Font.Wispflow.body)
+                .foregroundColor(isCompleted ? Color.Wispflow.textPrimary : Color.Wispflow.textSecondary)
+            
+            Spacer()
+            
+            // Status badge
+            if showCheckmark {
+                Text(isCompleted ? "Done" : "Skipped")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(isCompleted ? Color.Wispflow.success : Color.Wispflow.textSecondary)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background(isCompleted ? Color.Wispflow.successLight : Color.Wispflow.surface)
+                    .cornerRadius(CornerRadius.small)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7).delay(Double.random(in: 0...0.1)), value: showCheckmark)
+    }
+}
+
 // MARK: - Hotkey Key Badge
 
 /// A single key badge for the hotkey display
@@ -1787,6 +2083,16 @@ struct OnboardingContainerView: View {
                     }
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                
+            case .completion:
+                OnboardingCompletionView(
+                    permissionManager: permissionManager,
+                    hotkeyManager: hotkeyManager,
+                    onStartUsingApp: {
+                        completeOnboarding()
+                    }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
         }
         .animation(WispflowAnimation.smooth, value: currentStep)
@@ -1973,6 +2279,17 @@ struct HotkeyIntroductionView_Previews: PreviewProvider {
             hotkeyManager: HotkeyManager(),
             onContinue: { print("Continue tapped") },
             onSkip: { print("Skip tapped") }
+        )
+        .frame(width: 520, height: 620)
+    }
+}
+
+struct OnboardingCompletionView_Previews: PreviewProvider {
+    static var previews: some View {
+        OnboardingCompletionView(
+            permissionManager: PermissionManager.shared,
+            hotkeyManager: HotkeyManager(),
+            onStartUsingApp: { print("Start Using WispFlow tapped") }
         )
         .frame(width: 520, height: 620)
     }

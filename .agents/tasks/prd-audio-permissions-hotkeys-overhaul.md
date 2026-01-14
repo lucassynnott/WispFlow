@@ -296,16 +296,16 @@ This PRD defines a comprehensive overhaul of WispFlow's core systems based on pr
 - [x] Default hotkey recommended for most users
 - [x] Typecheck passes
 
-### [ ] US-522: Onboarding Completion
+### [x] US-522: Onboarding Completion
 **Description:** As a new user, I want confirmation that setup is complete.
 
 **Acceptance Criteria:**
-- [ ] Success screen with checkmarks for completed steps
-- [ ] Brief recap of how to use: "Press ⌘⇧Space to start recording"
-- [ ] "Start Using WispFlow" button closes wizard
-- [ ] `hasCompletedOnboarding` flag set to true
-- [ ] Menu bar icon visible and ready
-- [ ] Typecheck passes
+- [x] Success screen with checkmarks for completed steps
+- [x] Brief recap of how to use: "Press ⌘⇧Space to start recording"
+- [x] "Start Using WispFlow" button closes wizard
+- [x] `hasCompletedOnboarding` flag set to true
+- [x] Menu bar icon visible and ready
+- [x] Typecheck passes
 
 ---
 
