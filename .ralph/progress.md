@@ -2967,3 +2967,29 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21506-it
   - PRD acceptance criteria all checked off
 - **Note:** This was iteration 2 of run 21506. Feature was already complete.
 ---
+
+## [2026-01-14 21:00] - US-606: Language Selection (Verification - Run 21607 Iteration 2)
+Thread: codex exec session
+Run: 20260114-203422-21607 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21607-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21607-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: c54111c feat(US-606): implement language selection for transcription (existing)
+- Post-commit status: clean (no new code changes needed)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 0.12s)
+- What was verified:
+  - US-606 was already fully implemented and committed in previous iterations
+  - All acceptance criteria verified complete:
+    - [x] Language dropdown in Settings (Auto-detect + 11 common languages)
+    - [x] Pass language hint to WhisperKit (DecodingOptions with language and detectLanguage)
+    - [x] Remember language preference (UserDefaults with key selectedTranscriptionLanguage)
+    - [x] Auto-detect as default (.automatic case returns nil for WhisperKit)
+  - Implementation plan US-606 section is complete with all tasks marked [x]
+  - PRD acceptance criteria all checked off
+- Files verified:
+  - Sources/WispFlow/WhisperManager.swift (TranscriptionLanguage enum, selectedLanguage property, DecodingOptions usage)
+  - Sources/WispFlow/SettingsWindow.swift (LanguagePicker bound to whisperManager.selectedLanguage)
+- **Note:** This was iteration 2 of run 21607. Feature was already complete from prior iterations.
+---
