@@ -1908,3 +1908,42 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-it
   - Reuse existing PermissionManager methods rather than duplicating logic in UI
   - App activation observer is key for detecting when user returns from System Settings
 ---
+
+## [2026-01-14 12:45] - US-510: Global Event Tap for Hotkeys
+Thread: codex exec session
+Run: 20260114-121455-84404 (iteration 5)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-iter-5.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-iter-5.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 5b530f0 feat(US-510): implement global event tap for hotkeys
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/HotkeyManager.swift (rewrote to use CGEvent tap)
+  - Sources/WispFlow/AppDelegate.swift (added accessibility permission prompt)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (mark US-510 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status with implementation notes)
+- What was implemented:
+  - Rewrote HotkeyManager.swift to use CGEvent tap instead of Carbon RegisterEventHotKey
+  - Event tap installed at `kCGSessionEventTap` level for true global hotkey detection
+  - Implemented `eventTapCallback` as static C function pointer handling all key down events
+  - Added `cgEventFlags` computed property for CGEvent modifier flag matching
+  - Modifier keys detected: Command (`.maskCommand`), Shift (`.maskShift`), Option (`.maskAlternate`), Control (`.maskControl`)
+  - Default hotkey: Cmd+Shift+Space (`kVK_Space` with command+shift modifiers)
+  - Hotkey callback fires on main thread via `DispatchQueue.main.async`
+  - Event consumed (returns nil) to prevent propagation to other apps
+  - Added `onAccessibilityPermissionNeeded` callback for permission prompt
+  - Added `isActive` published property to track event tap status
+  - Added `hasAccessibilityPermission` computed property for permission checking
+  - Auto-re-enable tap if system disables it (handles `.tapDisabledByTimeout` and `.tapDisabledByUserInput`)
+  - Updated AppDelegate with `showAccessibilityPermissionPrompt()` to show alert and open System Settings
+- **Learnings for future iterations:**
+  - CGEvent tap requires accessibility permission to function (AXIsProcessTrusted check)
+  - Event tap at `.cgSessionEventTap` level works globally across all apps
+  - CGEventFlags use different naming: `.maskAlternate` for Option key, `.maskCommand` for Command
+  - Returning nil from event tap callback consumes the event (prevents propagation)
+  - System may disable taps with `.tapDisabledByTimeout` if callback takes too long - need re-enable logic
+  - MainActor isolation must be handled correctly when calling PermissionManager from callbacks
+---
