@@ -1123,3 +1123,54 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 - Reset confirmation alert prevents accidental reset
 - All calibration data persisted across app restarts via UserDefaults
 - Verified via `swift build` - typecheck passes
+
+---
+
+## Phase 8: Transcription Quality (from PRD v2)
+
+### US-605: Whisper Model Selection
+**Status:** complete
+**Priority:** high
+**Estimated effort:** medium
+
+**Description:** Allow users to choose between different Whisper model sizes for speed vs accuracy tradeoff.
+
+**Tasks:**
+- [x] Add `ModelSize` enum with `tiny`, `base`, `small`, `medium` cases to `WhisperManager`
+- [x] Add `displayName` and `description` properties for each model size
+- [x] Add model metadata (size, speed, accuracy) for UI display
+- [x] Implement `selectModel(_:)` method to change selected model
+- [x] Implement `loadModel()` to download and load selected model
+- [x] Implement `isModelDownloaded(_:)` to check if model files exist
+- [x] Add `ModelStatus` enum with `notDownloaded`, `downloading(progress)`, `downloaded`, `loading`, `ready`, `error` states
+- [x] Add `@Published downloadProgress` property for progress tracking
+- [x] Persist model selection via `UserDefaults` with key `selectedWhisperModel`
+- [x] Add `TranscriptionSettingsView` with card-based model picker
+- [x] Add `ModelSelectionCard` component showing model info (size, speed, accuracy)
+- [x] Add `GradientProgressBar` component for download visualization
+- [x] Add "Download & Load" / "Load Model" / "Delete" action buttons
+- [x] Add retry functionality for failed downloads
+- [x] Build verification (`swift build` succeeds)
+
+**Acceptance Criteria:**
+- [x] Settings option for model size (tiny, base, small, medium)
+- [x] Show estimated transcription speed and accuracy for each
+- [x] Download progress indicator for model switching
+- [x] Persist model preference across restarts
+
+**Implementation Notes:**
+- `WhisperManager.ModelSize` enum provides four model options with `displayName`, `description`, and `modelPattern` properties
+- Each model card shows:
+  - Model name (Tiny, Base, Small, Medium)
+  - Download size (~75MB, ~140MB, ~460MB, ~1.5GB)
+  - Speed indicator (Fastest, Fast, Medium, Slower)
+  - Accuracy indicator (Basic, Good, Great, Best)
+- Download progress tracked via `modelStatus: .downloading(progress: Double)` with gradient progress bar
+- Model preference persisted in UserDefaults under `selectedWhisperModel` key
+- Loads saved preference on init, defaults to `.base` if none saved
+- Model files stored in `~/Library/Application Support/WispFlow/Models/`
+- WhisperKit handles automatic download from Hugging Face repository
+- UI provides "Active" badge for loaded model, "Downloaded" badge for cached models
+- Delete functionality allows removing downloaded models to free disk space
+- Error handling with detailed messages and retry option for failed downloads
+- Verified via `swift build` - typecheck passes

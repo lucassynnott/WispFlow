@@ -83,17 +83,17 @@ This PRD outlines improvements, optimizations, and bugfixes for WispFlow, a priv
 
 ## Phase 2: Transcription Quality
 
-### US-605: Whisper Model Selection
+### [x] US-605: Whisper Model Selection
 **Priority**: High  
 **Estimate**: 3 points
 
 **Description**: Allow users to choose between different Whisper model sizes for speed vs accuracy tradeoff.
 
 **Acceptance Criteria**:
-- [ ] Settings option for model size (tiny, base, small, medium)
-- [ ] Show estimated transcription speed and accuracy for each
-- [ ] Download progress indicator for model switching
-- [ ] Persist model preference across restarts
+- [x] Settings option for model size (tiny, base, small, medium)
+- [x] Show estimated transcription speed and accuracy for each
+- [x] Download progress indicator for model switching
+- [x] Persist model preference across restarts
 
 **Technical Notes**:
 - tiny: ~39MB, fastest, lower accuracy
