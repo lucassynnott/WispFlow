@@ -506,24 +506,36 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 ## Phase 5: Text Insertion Improvements
 
 ### US-513: Clipboard Preservation
-**Status:** pending
+**Status:** complete
 **Priority:** high
 **Estimated effort:** medium
 
 **Description:** Preserve clipboard content during text insertion.
 
 **Tasks:**
-- [ ] Save clipboard before insertion
-- [ ] Place transcription on clipboard
-- [ ] Simulate Cmd+V paste
-- [ ] Restore original clipboard after 800ms
-- [ ] Use background thread for restoration
+- [x] Save clipboard before insertion
+- [x] Place transcription on clipboard
+- [x] Simulate Cmd+V paste
+- [x] Restore original clipboard after 800ms
+- [x] Use background thread for restoration
 
 **Acceptance Criteria:**
 - Original clipboard saved
 - Transcription pasted
 - Original restored after delay
 - Typecheck passes
+
+**Implementation Notes:**
+- TextInserter already had clipboard preservation functionality partially implemented
+- Updated `defaultRestoreDelay` from 0.5s (500ms) to 0.8s (800ms) per acceptance criteria
+- Refactored `scheduleClipboardRestore()` to use `DispatchQueue.global(qos: .utility)` for background delay
+- Background thread sleeps for 800ms delay, then dispatches to main thread for pasteboard restoration
+- Added `restoreClipboardContentsSync(items:)` helper method for clean separation of concerns
+- Clipboard items are deep-copied before text insertion to preserve all data types (not just strings)
+- Enhanced logging with `[US-513]` tags throughout the clipboard preservation flow
+- Immediate restoration (`restoreClipboardContents()`) still available for error cases
+- Build warning about `Sendable` conformance is informational only (NSPasteboardItem is AppKit, not marked Sendable)
+- Verified via `swift build` - typecheck passes
 
 ---
 

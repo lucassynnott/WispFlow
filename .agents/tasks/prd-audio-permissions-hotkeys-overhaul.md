@@ -189,17 +189,17 @@ This PRD defines a comprehensive overhaul of WispFlow's core systems based on pr
 
 ### Phase 4: Text Insertion Improvements
 
-### [ ] US-513: Clipboard Preservation
+### [x] US-513: Clipboard Preservation
 **Description:** As a user, I want my clipboard content preserved when WispFlow inserts text so I don't lose what I copied.
 
 **Acceptance Criteria:**
-- [ ] Current clipboard content saved before text insertion
-- [ ] Transcribed text placed on clipboard
-- [ ] Cmd+V simulated to paste text
-- [ ] Original clipboard content restored after delay (800ms)
-- [ ] Restoration happens in background thread
-- [ ] Example: User has "important text" copied → WispFlow inserts transcription → clipboard returns to "important text"
-- [ ] Typecheck passes
+- [x] Current clipboard content saved before text insertion
+- [x] Transcribed text placed on clipboard
+- [x] Cmd+V simulated to paste text
+- [x] Original clipboard content restored after delay (800ms)
+- [x] Restoration happens in background thread
+- [x] Example: User has "important text" copied → WispFlow inserts transcription → clipboard returns to "important text"
+- [x] Typecheck passes
 
 ### [ ] US-514: Keyboard Event Simulation
 **Description:** As a developer, I need reliable keyboard event simulation for paste operations.

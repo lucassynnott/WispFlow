@@ -1,0 +1,19 @@
+There are still uncompleted stories in the PRD (US-513 through US-525), so I should not output the completion signal. The task for US-512 is complete.
+
+## Summary
+
+Successfully implemented **US-512: Hotkey Conflict Detection**:
+
+1. **Added system shortcuts list** - Created `SystemShortcut` struct and defined 27+ common macOS system shortcuts including Spotlight (Cmd+Space), App Switcher (Cmd+Tab), screenshots, Mission Control, and standard app shortcuts (Copy/Paste/etc.)
+
+2. **Implemented conflict detection** - Added `checkForConflicts(_:)` and `hasConflicts(_:)` static methods to HotkeyManager
+
+3. **Updated HotkeyRecorderView** - Added conflict warning UI with:
+   - State tracking for pending configuration and conflicts
+   - SwiftUI alert that shows conflicting shortcut names and descriptions
+   - "Use Anyway" button to proceed despite warning
+   - "Cancel" button to reject the conflicting hotkey
+
+4. **Verified Reset to Default** - Confirmed existing button correctly restores Cmd+Shift+Space
+
+5. **Typecheck passes** - `swift build` completes successfully with no errors or warnings

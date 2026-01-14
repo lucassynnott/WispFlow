@@ -28,7 +28,7 @@ final class TextInserter: ObservableObject {
     private struct Constants {
         static let preserveClipboardKey = "preserveClipboard"
         static let clipboardRestoreDelayKey = "clipboardRestoreDelay"
-        static let defaultRestoreDelay: Double = 0.5  // seconds
+        static let defaultRestoreDelay: Double = 0.8  // US-513: 800ms as per acceptance criteria
         static let keystrokeDelay: UInt32 = 50_000    // 50ms in microseconds
         static let permissionPollingInterval: TimeInterval = 1.0  // 1 second polling
     }
@@ -327,17 +327,18 @@ final class TextInserter: ObservableObject {
     // MARK: - Clipboard Preservation
     
     /// Save the current clipboard contents
+    /// US-513: Saves clipboard before text insertion so it can be restored after paste
     private func saveClipboardContents() {
         let pasteboard = NSPasteboard.general
         
         // Get all items on the pasteboard
         guard let items = pasteboard.pasteboardItems else {
             savedClipboardItems = nil
-            print("TextInserter: No clipboard items to save")
+            print("TextInserter: [US-513] No clipboard items to save (pasteboard empty)")
             return
         }
         
-        // Create copies of the items
+        // Create copies of the items (deep copy to preserve data)
         savedClipboardItems = items.compactMap { item -> NSPasteboardItem? in
             let newItem = NSPasteboardItem()
             
@@ -350,28 +351,64 @@ final class TextInserter: ObservableObject {
             return newItem.types.isEmpty ? nil : newItem
         }
         
-        print("TextInserter: Saved \(savedClipboardItems?.count ?? 0) clipboard items")
+        // Log what was saved for debugging
+        let itemCount = savedClipboardItems?.count ?? 0
+        if itemCount > 0 {
+            // Get a preview of saved content for debugging
+            let preview = pasteboard.string(forType: .string)?.prefix(50) ?? "(non-text content)"
+            print("TextInserter: [US-513] Saved \(itemCount) clipboard items (preview: \(preview))")
+        } else {
+            print("TextInserter: [US-513] No clipboard items to save")
+        }
     }
     
     /// Schedule clipboard restoration after a delay
+    /// US-513: Restoration happens in background thread to avoid blocking main thread
     private func scheduleClipboardRestore() {
         let delay = clipboardRestoreDelay
+        let itemsToRestore = savedClipboardItems
         
-        Task {
-            // Wait for the delay
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        // Clear our reference since background thread will handle restoration
+        savedClipboardItems = nil
+        
+        guard let items = itemsToRestore, !items.isEmpty else {
+            print("TextInserter: [US-513] No items to schedule for restoration")
+            return
+        }
+        
+        // US-513: Use background thread for the delay, then dispatch to main for pasteboard access
+        // Use @Sendable closure to satisfy Swift concurrency requirements
+        DispatchQueue.global(qos: .utility).async { [items] in
+            // Wait for the configured delay (800ms by default)
+            Thread.sleep(forTimeInterval: delay)
             
-            // Restore on main actor
-            await MainActor.run {
-                restoreClipboardContents()
+            // Pasteboard operations must happen on main thread
+            DispatchQueue.main.async {
+                self.restoreClipboardContentsSync(items: items)
             }
         }
     }
     
-    /// Restore the previously saved clipboard contents
+    /// Restore clipboard contents synchronously (called from main thread after background delay)
+    /// US-513: This is the actual restoration logic, separated for clarity
+    private func restoreClipboardContentsSync(items: [NSPasteboardItem]?) {
+        guard let items = items, !items.isEmpty else {
+            print("TextInserter: [US-513] No clipboard items to restore")
+            return
+        }
+        
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects(items)
+        
+        print("TextInserter: [US-513] Restored \(items.count) clipboard items after delay")
+    }
+    
+    /// Restore the previously saved clipboard contents (immediate, used on error)
+    /// US-513: Called immediately on insertion failure to restore clipboard
     private func restoreClipboardContents() {
         guard let items = savedClipboardItems, !items.isEmpty else {
-            print("TextInserter: No clipboard items to restore")
+            print("TextInserter: [US-513] No clipboard items to restore (immediate)")
             savedClipboardItems = nil
             return
         }
@@ -380,7 +417,7 @@ final class TextInserter: ObservableObject {
         pasteboard.clearContents()
         pasteboard.writeObjects(items)
         
-        print("TextInserter: Restored \(items.count) clipboard items")
+        print("TextInserter: [US-513] Restored \(items.count) clipboard items (immediate, on error)")
         savedClipboardItems = nil
     }
     

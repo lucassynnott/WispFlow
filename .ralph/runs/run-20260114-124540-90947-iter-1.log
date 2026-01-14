@@ -1,0 +1,11 @@
+## Summary
+
+**US-512: Hotkey Conflict Detection** was already fully implemented in a previous iteration (commit `c1c5fd9`). This run verified that all acceptance criteria are met:
+
+1. ✅ **Common system shortcuts detected** - 27+ system shortcuts defined in `HotkeyManager.systemShortcuts` including Spotlight (Cmd+Space), App Switcher (Cmd+Tab), screenshots, and standard app shortcuts
+2. ✅ **Warning shown when conflicting hotkey recorded** - SwiftUI alert with `showConflictWarning` state variable shows conflict details
+3. ✅ **User can proceed despite warning** - "Use Anyway" button calls `applyPendingConfig()` to apply the conflicting hotkey
+4. ✅ **"Reset to Default" button restores Cmd+Shift+Space** - Button exists calling `hotkeyManager.resetToDefault()`
+5. ✅ **Typecheck passes** - `swift build` completed successfully
+
+Documentation commit: `dc285d7 docs: update progress log for US-512 verification`
