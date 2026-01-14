@@ -3288,3 +3288,109 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-20982-it
   - When language is nil, WhisperKit auto-detects; when set, it uses as hint
   - detectLanguage should be true for auto-detect, false for specific language
 ---
+
+## [2026-01-14 20:35] - US-607: Transcription Post-Processing (Verification)
+Thread: codex exec session
+Run: 20260114-203422-21532 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21532-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21532-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none (feature already fully implemented and committed by parallel runs)
+- Post-commit status: clean (no new code changes needed)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 0.13s)
+- What was verified:
+  - US-607 was already fully implemented in previous iterations
+  - All acceptance criteria verified complete:
+    - [x] Option to auto-capitalize first letter (TextCleanupManager.autoCapitalizeFirstLetter)
+    - [x] Option to add period at end of sentences (TextCleanupManager.addPeriodAtEnd)
+    - [x] Option to trim leading/trailing whitespace (TextCleanupManager.trimWhitespace)
+    - [x] Configurable in Settings (Post-Processing Options card in TextCleanupSettingsView)
+  - Implementation verified in place:
+    - TextCleanupManager.swift: Three @Published Bool properties with UserDefaults persistence
+    - TextCleanupManager.swift: applyPostProcessing(_:) method applying options in order
+    - TextCleanupManager.swift: processText(_:) method combining cleanup + post-processing
+    - SettingsWindow.swift: Post-Processing Options card with three toggles and descriptions
+    - All options default to true for optimal user experience
+    - Post-processing applies even when full text cleanup is disabled
+  - Implementation plan US-607 section already marked complete with all tasks [x]
+  - PRD US-607 heading marked [x] and all acceptance criteria checked
+- Files verified (no changes needed):
+  - Sources/WispFlow/TextCleanupManager.swift
+  - Sources/WispFlow/SettingsWindow.swift
+  - .ralph/IMPLEMENTATION_PLAN.md
+  - .agents/tasks/prd-wispflow-improvements-v2.md
+- **Learnings for future iterations:**
+  - US-607 was completed by parallel runs before this iteration started
+  - Post-processing is independent of cleanup mode - runs even when cleanup disabled
+  - Order matters: trim first, then capitalize, then add period
+  - UserDefaults keys use clear names: postProcessAutoCapitalizeFirstLetter, etc.
+---
+
+## [2026-01-14 20:52] - US-606: Language Selection (Verification - Run 21051)
+Thread: codex exec session
+Run: 20260114-203422-21051 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21051-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21051-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none (feature already implemented in c54111c by parallel runs)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 6.17s after clean rebuild)
+- What was verified:
+  - US-606 Language Selection already fully implemented and committed (c54111c)
+  - All acceptance criteria verified complete:
+    - [x] Language dropdown in Settings (Auto-detect + 11 common languages)
+    - [x] Pass language hint to WhisperKit (DecodingOptions with language and detectLanguage)
+    - [x] Remember language preference (UserDefaults with key selectedTranscriptionLanguage)
+    - [x] "Auto-detect" as default (.automatic case returns nil for WhisperKit)
+  - Implementation verified in place:
+    - WhisperManager.TranscriptionLanguage enum with 12 languages at line 147
+    - selectedLanguage @Published property with UserDefaults persistence via didSet
+    - DecodingOptions created in transcribe() method passing language hint
+    - LanguagePicker in SettingsWindow bound to $whisperManager.selectedLanguage
+- Files verified (no new changes needed):
+  - Sources/WispFlow/WhisperManager.swift
+  - Sources/WispFlow/SettingsWindow.swift
+- **Learnings for future iterations:**
+  - US-606 completed by parallel runs prior to this iteration
+  - Check git log first to verify if work is already done
+---
+
+## [2026-01-14 20:55] - US-607: Transcription Post-Processing
+Thread: codex exec session
+Run: 20260114-203422-21008 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21008-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21008-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 0c280d7 feat(US-607): implement transcription post-processing options
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 6.96s)
+- Files changed:
+  - Sources/WispFlow/TextCleanupManager.swift (post-processing properties and methods)
+  - Sources/WispFlow/SettingsWindow.swift (post-processing UI card)
+  - .agents/tasks/prd-wispflow-improvements-v2.md (US-607 acceptance criteria checked)
+  - .ralph/IMPLEMENTATION_PLAN.md (US-607 section added and marked complete)
+- What was implemented:
+  - Added three @Published properties: autoCapitalizeFirstLetter, addPeriodAtEnd, trimWhitespace
+  - Added UserDefaults persistence for all three options (keys: postProcessAutoCapitalizeFirstLetter, postProcessAddPeriodAtEnd, postProcessTrimWhitespace)
+  - Implemented applyPostProcessing() method that applies all three options in order: trim -> capitalize -> period
+  - Implemented capitalizeFirstLetterOnly() and addEndingPeriodIfNeeded() helper methods
+  - Integrated post-processing into cleanupText() - applied after cleanup or directly if cleanup disabled
+  - Added "Post-Processing" settings card in Text Cleanup tab with three toggles
+  - All options default to true (enabled) for best out-of-the-box experience
+- Acceptance Criteria verified:
+  - [x] Option to auto-capitalize first letter
+  - [x] Option to add period at end of sentences
+  - [x] Option to trim leading/trailing whitespace
+  - [x] Configurable in Settings
+- **Learnings for future iterations:**
+  - Post-processing is independent of main text cleanup - applies even when cleanup is disabled
+  - Previous iterations had partially implemented the functionality (TextCleanupManager)
+  - The UI card was already added by a parallel iteration
+  - Always check git status early to understand what work remains
+---

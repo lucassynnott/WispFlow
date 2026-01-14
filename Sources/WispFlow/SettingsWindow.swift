@@ -2375,6 +2375,102 @@ struct CleanupFeatureRow: View {
     }
 }
 
+// MARK: - US-607: Post-Processing Options Card
+
+/// Card for configuring transcription post-processing options
+/// These options are applied to all transcriptions, even when full cleanup is disabled
+struct PostProcessingOptionsCard: View {
+    @ObservedObject var textCleanupManager: TextCleanupManager
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "text.badge.checkmark")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Post-Processing Options")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("These options are applied to all transcriptions, even when full cleanup is disabled.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                // Auto-capitalize first letter toggle
+                PostProcessingToggleRow(
+                    icon: "textformat.abc",
+                    title: "Auto-Capitalize First Letter",
+                    description: "Automatically capitalize the first letter of transcription",
+                    isOn: $textCleanupManager.autoCapitalizeFirstLetter
+                )
+                
+                Divider()
+                    .background(Color.Wispflow.border)
+                
+                // Add period at end toggle
+                PostProcessingToggleRow(
+                    icon: "text.append",
+                    title: "Add Period at End",
+                    description: "Add a period at the end if no ending punctuation exists",
+                    isOn: $textCleanupManager.addPeriodAtEnd
+                )
+                
+                Divider()
+                    .background(Color.Wispflow.border)
+                
+                // Trim whitespace toggle
+                PostProcessingToggleRow(
+                    icon: "scissors",
+                    title: "Trim Whitespace",
+                    description: "Remove leading and trailing whitespace from transcription",
+                    isOn: $textCleanupManager.trimWhitespace
+                )
+            }
+        }
+        .wispflowCard()
+    }
+}
+
+// MARK: - US-607: Post-Processing Toggle Row
+
+/// Individual toggle row for post-processing options
+struct PostProcessingToggleRow: View {
+    let icon: String
+    let title: String
+    let description: String
+    @Binding var isOn: Bool
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: Spacing.md) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(isOn ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
+                .frame(width: 24, height: 24)
+            
+            // Text content
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(title)
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Text(description)
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+            
+            // Toggle
+            Toggle("", isOn: $isOn)
+                .toggleStyle(WispflowToggleStyle())
+                .labelsHidden()
+        }
+    }
+}
+
 // MARK: - Text Insertion Settings
 
 struct TextInsertionSettingsView: View {
