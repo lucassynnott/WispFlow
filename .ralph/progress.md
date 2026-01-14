@@ -1785,3 +1785,48 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-it
   - Polling + app activation observer provides redundant coverage for permission status changes
   - @MainActor isolation ensures all permission status updates happen on main thread for UI safety
 ---
+
+## [2026-01-14 12:25] - US-507: Automatic Permission Prompting
+Thread: codex exec session
+Run: 20260114-121455-84404 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 6ef70c7 feat(US-507): add automatic permission prompting
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no warnings/errors)
+- Files changed:
+  - Sources/WispFlow/PermissionManager.swift (added prompting methods)
+  - Sources/WispFlow/AppDelegate.swift (mic permission check before recording)
+  - Sources/WispFlow/TextInserter.swift (accessibility permission check on insertion)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (mark US-507 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status for US-507)
+- What was implemented:
+  - Added `requestMicrophonePermission()` async method to PermissionManager:
+    - If `.notDetermined`: Calls `AVCaptureDevice.requestAccess(for: .audio)` to show system dialog
+    - If `.denied` or `.restricted`: Opens System Settings directly via `openMicrophoneSettings()`
+    - Returns true if granted after request
+  - Added `requestAccessibilityPermission()` method to PermissionManager:
+    - Uses `AXIsProcessTrustedWithOptions` with `kAXTrustedCheckOptionPrompt` to show system dialog
+    - If not granted after prompt, opens System Settings via `openAccessibilitySettings()`
+    - Returns true if currently granted
+  - Added `openMicrophoneSettings()` helper using URL scheme `x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone`
+  - Added `openAccessibilitySettings()` helper using URL scheme `x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility`
+  - Updated `AppDelegate.toggleRecordingFromHotkey()`:
+    - Checks `PermissionManager.shared.microphoneStatus` before starting recording
+    - Awaits `requestMicrophonePermission()` if not granted, blocks until granted
+    - Example: First launch → user presses hotkey → mic permission dialog appears
+  - Updated `TextInserter.insertText()`:
+    - Checks accessibility permission on first text insertion attempt
+    - Uses `PermissionManager.shared.requestAccessibilityPermission()` for consistent prompting
+    - Re-checks local status after prompt via `recheckPermission()`
+  - All prompting uses system dialogs (not custom alerts) as required
+- **Learnings for future iterations:**
+  - `AVCaptureDevice.requestAccess(for: .audio)` is async and shows the native macOS permission dialog
+  - `AXIsProcessTrustedWithOptions` with `kAXTrustedCheckOptionPrompt: true` shows system accessibility dialog
+  - For denied permissions, opening System Settings directly is better UX than custom alert
+  - Use consistent prompting behavior across all permission types via PermissionManager singleton
+  - Check permission at the action point (recording start, text insertion) not just at app launch
+---
