@@ -1750,3 +1750,38 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-120010-80469-it
   - Warning should be informative but not blocking - let users continue if they choose
 ---
 
+
+## [2026-01-14 12:20] - US-506: Permission Status Tracking
+Thread: codex exec session
+Run: 20260114-121455-84404 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: adaa6df feat(US-506): add permission status tracking
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/PermissionManager.swift (new file)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (mark US-506 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status for US-506)
+- What was implemented:
+  - Created new `PermissionManager.swift` class with `@MainActor` isolation
+  - Implemented `PermissionStatus` enum with `.authorized`, `.denied`, `.notDetermined`, `.restricted` cases
+  - Microphone permission check using `AVCaptureDevice.authorizationStatus(for: .audio)` as required
+  - Accessibility permission check using `AXIsProcessTrusted()` as required
+  - Published properties `microphoneStatus` and `accessibilityStatus` that trigger SwiftUI updates via `@Published`
+  - App activation observer (`NSApplication.didBecomeActiveNotification`) that polls permissions when user returns from System Settings
+  - Background polling timer (1 second interval) that runs while not all permissions are granted
+  - Polling automatically stops when all permissions are granted
+  - Callbacks: `onMicrophoneStatusChanged`, `onAccessibilityStatusChanged`, `onAllPermissionsGranted`
+  - Singleton pattern (`PermissionManager.shared`) for app-wide access
+  - Helper properties: `allPermissionsGranted`, `displayName`, `isGranted` for easy UI integration
+- **Learnings for future iterations:**
+  - AVCaptureDevice.authorizationStatus maps to four states: authorized, denied, notDetermined, restricted
+  - AXIsProcessTrusted() returns boolean - maps to authorized/denied (no notDetermined state for accessibility)
+  - App activation observer is critical for detecting when user returns from System Settings after granting permission
+  - Polling + app activation observer provides redundant coverage for permission status changes
+  - @MainActor isolation ensures all permission status updates happen on main thread for UI safety
+---
