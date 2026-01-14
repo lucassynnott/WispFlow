@@ -2721,3 +2721,38 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-183639-98512-it
   - When device disconnects during recording, attempting to switch input device may or may not succeed depending on audio engine state
   - Toast notifications provide immediate user feedback for device changes without interrupting workflow
 ---
+
+---
+
+## [2026-01-14 18:50] - US-602: Audio Format Negotiation Improvement
+Thread: codex exec session
+Run: 20260114-183639-98512 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-183639-98512-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-183639-98512-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: bce52c2 feat(US-602): implement audio format negotiation improvement
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/AudioManager.swift (added audio format negotiation)
+  - .agents/tasks/prd-wispflow-improvements-v2.md (marked US-602 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (added US-602 section)
+- What was implemented:
+  - AudioFormatInfo struct with comprehensive format representation (sampleRate, channelCount, bitsPerChannel, formatID, formatFlags)
+  - Format priority scoring system (PCM +100, 48kHz +50, 44.1kHz +45, mono +15, stereo +10, 16-bit+ +5)
+  - querySupportedFormats(deviceID:) using kAudioDevicePropertyStreamConfiguration and kAudioStreamPropertyAvailablePhysicalFormats
+  - queryStreamFormats(streamID:) for per-stream physical and virtual format enumeration
+  - getFallbackFormat(deviceID:) for graceful degradation using nominal sample rate
+  - selectBestFormat(from:) preferring standard formats (44.1kHz, 48kHz stereo/mono)
+  - checkFormatCompatibility(deviceID:) with clear error messages for incompatible devices
+  - logSupportedFormats(_:) for detailed debugging output with priority scores and standard format markers
+  - AudioCaptureError.noCompatibleFormat(String) error case for graceful error handling
+  - Integration in startCapturing() with format verification before audio capture
+- **Learnings for future iterations:**
+  - kAudioStreamPropertyAvailablePhysicalFormats returns AudioStreamRangedDescription with sample rate ranges
+  - Ranged formats need expansion to specific preferred sample rates for proper scoring
+  - kAudioStreamPropertyAvailableVirtualFormats is fallback when physical formats unavailable
+  - Format ID is FourCC that can be converted to readable string for non-standard formats
+  - Priority scoring allows flexible format selection while preferring standard configurations
