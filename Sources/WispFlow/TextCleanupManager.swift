@@ -202,7 +202,13 @@ final class TextCleanupManager: ObservableObject {
         // Load cleanup enabled preference (default to true)
         isCleanupEnabled = UserDefaults.standard.object(forKey: Constants.cleanupEnabledKey) as? Bool ?? true
         
+        // US-607: Load post-processing preferences (all default to true for better UX)
+        autoCapitalizeFirstLetter = UserDefaults.standard.object(forKey: Constants.autoCapitalizeFirstLetterKey) as? Bool ?? true
+        addPeriodAtEnd = UserDefaults.standard.object(forKey: Constants.addPeriodAtEndKey) as? Bool ?? true
+        trimWhitespace = UserDefaults.standard.object(forKey: Constants.trimWhitespaceKey) as? Bool ?? true
+        
         print("TextCleanupManager initialized with mode: \(selectedMode.rawValue), cleanup enabled: \(isCleanupEnabled)")
+        print("TextCleanupManager: [US-607] Post-processing: capitalize=\(autoCapitalizeFirstLetter), period=\(addPeriodAtEnd), trim=\(trimWhitespace)")
     }
     
     // MARK: - Text Cleanup
