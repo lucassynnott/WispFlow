@@ -2144,3 +2144,42 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-124540-90947-it
   - .cghidEventTap posting location ensures events work in Electron apps and other cross-platform frameworks
   - Virtual key code 0x09 corresponds to 'V' on ANSI keyboards (kVK_ANSI_V)
 ---
+
+## [2026-01-14 13:05] - US-515: Text Insertion Fallback
+Thread: codex exec session
+Run: 20260114-124540-90947 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-124540-90947-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-124540-90947-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 0eb7f5b feat(US-515): implement text insertion fallback mechanism
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - Sources/WispFlow/TextInserter.swift (add fallback logic, error logging)
+  - Sources/WispFlow/ToastView.swift (add showManualPasteRequired method)
+  - Sources/WispFlow/AppDelegate.swift (handle fallbackToManualPaste case)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (mark US-515 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status with implementation notes)
+- What was implemented:
+  - Added new `InsertionResult.fallbackToManualPaste(String)` case for explicit fallback handling
+  - Updated `insertText()` to detect paste simulation failure and trigger fallback:
+    - When `simulatePaste()` returns `.insertionFailed`, text stays on clipboard (not restored)
+    - Toast notification shown via `ToastManager.shared.showManualPasteRequired()`
+    - `savedClipboardItems` cleared to prevent restoration (user needs clipboard for manual paste)
+  - Added `logSimulationError()` method for detailed error logging with formatted box output:
+    - Phase of failure (keyDownCreation, keyUpCreation, pasteSimulation)
+    - Error message, accessibility permission status, timestamp
+  - Added `showManualPasteRequired()` to ToastManager:
+    - Shows info toast "Text copied" with message "Press Cmd+V to paste"
+    - Uses clipboard icon and 5-second duration
+  - Updated AppDelegate's `performTextInsertion()` to handle `.fallbackToManualPaste` case:
+    - Logs reason for fallback without showing error alert
+    - User-friendly experience (just needs to press Cmd+V)
+- **Learnings for future iterations:**
+  - Fallback pattern: Keep text on clipboard when automation fails, notify user to complete manually
+  - Don't restore saved clipboard items when fallback is active - user needs the text on clipboard
+  - ToastManager is a good place for user-facing notifications that don't interrupt workflow
+  - Formatted box logging (╔═══╗ style) is useful for highlighting errors in console output
+---
