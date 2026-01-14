@@ -2840,3 +2840,32 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-201804-15086-it
   - Published CalibrationState property enables reactive SwiftUI binding for progress updates
   - Reset confirmation alert prevents accidental loss of calibration data
 ---
+
+## [2026-01-14 20:40] - US-605: Whisper Model Selection
+Thread: codex exec session
+Run: 20260114-201804-15086 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-201804-15086-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-201804-15086-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: c17339f docs(US-605): mark whisper model selection as complete
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 0.12s)
+- Files changed:
+  - .agents/tasks/prd-wispflow-improvements-v2.md (marked US-605 acceptance criteria complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (added US-605 section with tasks and implementation notes)
+- What was implemented:
+  - US-605 was already fully implemented in previous iterations. This run verified all acceptance criteria:
+  - **Settings option for model size (tiny, base, small, medium)**: WhisperManager.ModelSize enum with all four options, displayed via card-based picker in TranscriptionSettingsView
+  - **Show estimated transcription speed and accuracy**: ModelSelectionCard shows size (~75MB to ~1.5GB), speed (Fastest/Fast/Medium/Slower), and accuracy (Basic/Good/Great/Best) for each model
+  - **Download progress indicator**: GradientProgressBar component with modelStatus: .downloading(progress: Double) tracking
+  - **Persist model preference across restarts**: UserDefaults storage with key `selectedWhisperModel`, loaded on init with `.base` default
+- **Learnings for future iterations:**
+  - All core features for US-605 were already implemented as part of earlier work (US-407 polish, US-304 model download improvements)
+  - WhisperKit handles model download automatically from Hugging Face argmaxinc/whisperkit-coreml repository
+  - Model files stored in ~/Library/Application Support/WispFlow/Models/
+  - UI provides "Active" badge for loaded model, "Downloaded" badge for cached models
+  - Delete functionality allows removing downloaded models to free disk space
+  - Error handling includes detailed messages and retry option for failed downloads
+---
