@@ -490,4 +490,59 @@ final class TextCleanupManager: ObservableObject {
     var isReady: Bool {
         return modelStatus == .ready
     }
+    
+    // MARK: - US-607: Post-Processing Methods
+    
+    /// Apply post-processing options to text
+    /// This is called AFTER cleanup (or on raw text if cleanup is disabled)
+    /// These are independent, configurable options that run regardless of cleanup mode
+    /// - Parameter text: The text to post-process
+    /// - Returns: Post-processed text
+    func applyPostProcessing(_ text: String) -> String {
+        var result = text
+        
+        // Step 1: Trim whitespace (if enabled)
+        if trimWhitespace {
+            result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        // Guard against empty text after trimming
+        guard !result.isEmpty else {
+            return result
+        }
+        
+        // Step 2: Auto-capitalize first letter (if enabled)
+        if autoCapitalizeFirstLetter {
+            if let firstChar = result.first, firstChar.isLetter && firstChar.isLowercase {
+                result = result.prefix(1).uppercased() + result.dropFirst()
+            }
+        }
+        
+        // Step 3: Add period at end (if enabled and text doesn't already have ending punctuation)
+        if addPeriodAtEnd {
+            let lastChar = result.last!
+            // Only add period if text doesn't already end with punctuation
+            if !".!?;:".contains(lastChar) {
+                result = result + "."
+            }
+        }
+        
+        print("TextCleanupManager: [US-607] Post-processing applied (capitalize=\(autoCapitalizeFirstLetter), period=\(addPeriodAtEnd), trim=\(trimWhitespace)): '\(text)' -> '\(result)'")
+        
+        return result
+    }
+    
+    /// Process text with both cleanup and post-processing
+    /// This is the main entry point for full text processing
+    /// - Parameter text: The raw transcribed text
+    /// - Returns: Fully processed text
+    func processText(_ text: String) async -> String {
+        // First apply cleanup (if enabled)
+        let cleanedText = await cleanupText(text)
+        
+        // Then apply post-processing options (US-607)
+        let processedText = applyPostProcessing(cleanedText)
+        
+        return processedText
+    }
 }

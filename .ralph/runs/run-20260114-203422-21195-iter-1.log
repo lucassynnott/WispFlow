@@ -1,29 +1,21 @@
-## Summary
+There are still many incomplete stories (US-607 through US-631 are not checked off). Since US-606 is complete but the PRD has more unchecked stories, I should NOT output the `<promise>COMPLETE</promise>` signal.
 
-**US-606: Language Selection** - Verification Run
+**Summary:**
 
-This iteration verified that US-606 is already complete from prior parallel iterations.
+US-606: Language Selection is **complete**. The feature was already implemented in prior parallel iterations (commit c54111c). This run verified:
 
-### What Was Verified:
-
-1. ✅ **Language dropdown in Settings** - `LanguagePicker` component binds to `whisperManager.selectedLanguage` with Auto-detect + 11 common languages
+1. ✅ **Language dropdown in Settings** - `LanguagePicker` component with Auto-detect + 11 common languages (English, Spanish, French, German, Italian, Portuguese, Japanese, Chinese, Korean, Russian, Arabic)
 
 2. ✅ **Pass language hint to WhisperKit** - The `transcribe()` method creates `DecodingOptions` with:
-   - `language`: The Whisper language code from `selectedLanguage.whisperLanguageCode` (nil for auto-detect)
+   - `language`: The Whisper language code (or nil for auto-detect)
    - `detectLanguage`: true for automatic mode, false for specific language
-   - `usePrefillPrompt`: true for better accuracy
 
 3. ✅ **Remember language preference** - Language selection persisted via `UserDefaults` under key `selectedTranscriptionLanguage`
 
-4. ✅ **Auto-detect as default** - `TranscriptionLanguage.automatic` is the default, returning nil for language code
+4. ✅ **"Auto-detect" as default** - `TranscriptionLanguage.automatic` is the default value
 
-### Verification Commands:
-- `swift build` -> PASS (Build complete! 0.12s)
-
-### Prior Implementation:
-- Commit: c54111c feat(US-606): implement language selection for transcription
-- All implementation tasks were completed in prior iterations
-
-### Files Verified:
-- Sources/WispFlow/WhisperManager.swift - TranscriptionLanguage enum, selectedLanguage property, DecodingOptions in transcribe()
+**Verification:** `swift build` passes (Build complete! 0.12s)
+**Commit:** ba76845 docs: add verification logs for US-606 run 21195
+**Post-commit status:** clean
+ft - TranscriptionLanguage enum, selectedLanguage property, DecodingOptions in transcribe()
 - Sources/WispFlow/SettingsWindow.swift - LanguagePicker bound to $whisperManager.selectedLanguage

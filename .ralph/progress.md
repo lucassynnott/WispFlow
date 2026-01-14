@@ -3252,3 +3252,39 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-21052-it
   - Always check git log first to see if work is already done
   - Reverted unrelated changes (US-607 PostProcessingOptions) from working directory to avoid interference
 ---
+
+## [2026-01-14 20:40] - US-606: Language Selection (Verification - Run 20982)
+Thread: codex exec session
+Run: 20260114-203422-20982 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-20982-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-203422-20982-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: c54111c feat(US-606): implement language selection for transcription (existing)
+- Post-commit status: clean (no new code changes needed)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 0.28s)
+- What was verified:
+  - US-606 was already fully implemented and committed in previous iterations
+  - All acceptance criteria verified complete:
+    - [x] Language dropdown in Settings (Auto-detect + 11 common languages)
+    - [x] Pass language hint to WhisperKit (via DecodingOptions with language and detectLanguage)
+    - [x] Remember language preference (persisted via UserDefaults with key selectedTranscriptionLanguage)
+    - [x] "Auto-detect" as default (.automatic case returns nil for WhisperKit)
+  - Implementation verified in place:
+    - WhisperManager.TranscriptionLanguage enum at line 147 with 12 languages
+    - selectedLanguage @Published property with UserDefaults persistence via didSet
+    - DecodingOptions created in transcribe() method at lines 824-833
+    - LanguagePicker in SettingsWindow.swift at line 654 bound to $whisperManager.selectedLanguage
+    - LanguageRow using WhisperManager.TranscriptionLanguage type
+  - Implementation plan US-606 section already marked complete with all tasks [x]
+  - PRD acceptance criteria already all checked off
+- Files verified (no changes needed):
+  - Sources/WispFlow/WhisperManager.swift
+  - Sources/WispFlow/SettingsWindow.swift
+- **Learnings for future iterations:**
+  - US-606 was completed by parallel runs (commit c54111c)
+  - WhisperKit uses DecodingOptions struct with `language: String?` parameter
+  - When language is nil, WhisperKit auto-detects; when set, it uses as hint
+  - detectLanguage should be true for auto-detect, false for specific language
+---
