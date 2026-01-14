@@ -1695,6 +1695,62 @@ struct TextCleanupSettingsView: View {
                 }
                 .wispflowCard()
                 
+                // US-607: Post-Processing Options card
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "text.badge.plus")
+                            .foregroundColor(Color.Wispflow.accent)
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Post-Processing")
+                            .font(Font.Wispflow.headline)
+                            .foregroundColor(Color.Wispflow.textPrimary)
+                    }
+                    
+                    Text("These options apply to all transcriptions, even when full text cleanup is disabled.")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    
+                    // Auto-capitalize first letter toggle
+                    Toggle("Auto-capitalize first letter", isOn: $textCleanupManager.autoCapitalizeFirstLetter)
+                        .toggleStyle(WispflowToggleStyle())
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    Text("Automatically capitalize the first letter of each transcription.")
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .padding(.leading, Spacing.xxl + Spacing.md)
+                    
+                    Divider()
+                        .background(Color.Wispflow.border)
+                    
+                    // Add period at end toggle
+                    Toggle("Add period at end", isOn: $textCleanupManager.addPeriodAtEnd)
+                        .toggleStyle(WispflowToggleStyle())
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    Text("Add a period at the end if no punctuation is present.")
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .padding(.leading, Spacing.xxl + Spacing.md)
+                    
+                    Divider()
+                        .background(Color.Wispflow.border)
+                    
+                    // Trim whitespace toggle
+                    Toggle("Trim whitespace", isOn: $textCleanupManager.trimWhitespace)
+                        .toggleStyle(WispflowToggleStyle())
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    Text("Remove leading and trailing spaces from transcriptions.")
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .padding(.leading, Spacing.xxl + Spacing.md)
+                }
+                .wispflowCard()
+                
                 // Feature list card
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("What Text Cleanup Does")

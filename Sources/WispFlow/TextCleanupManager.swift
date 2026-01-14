@@ -152,6 +152,29 @@ final class TextCleanupManager: ObservableObject {
     /// Status messages for UI display
     @Published private(set) var statusMessage: String = "Ready"
     
+    // MARK: - US-607: Post-Processing Options
+    
+    /// Option to auto-capitalize the first letter of transcription
+    @Published var autoCapitalizeFirstLetter: Bool {
+        didSet {
+            UserDefaults.standard.set(autoCapitalizeFirstLetter, forKey: Constants.autoCapitalizeFirstLetterKey)
+        }
+    }
+    
+    /// Option to add period at the end of sentences (if no ending punctuation)
+    @Published var addPeriodAtEnd: Bool {
+        didSet {
+            UserDefaults.standard.set(addPeriodAtEnd, forKey: Constants.addPeriodAtEndKey)
+        }
+    }
+    
+    /// Option to trim leading/trailing whitespace
+    @Published var trimWhitespace: Bool {
+        didSet {
+            UserDefaults.standard.set(trimWhitespace, forKey: Constants.trimWhitespaceKey)
+        }
+    }
+    
     // MARK: - Callbacks
     
     /// Called when cleanup completes
