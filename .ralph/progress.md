@@ -2434,3 +2434,46 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-it
   - Threshold-based "has tested" flag (level > -40dB) provides good UX without requiring explicit confirmation
   - Troubleshooting tips section improves user experience for those having issues with their microphone
 ---
+
+## [2026-01-14 13:35] - US-521: Hotkey Introduction Step
+Thread: codex exec session
+Run: 20260114-131706-97414 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-131706-97414-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: b8b1e76 feat(US-521): implement hotkey introduction step for onboarding wizard
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete with only Swift 6 informational warnings)
+- Files changed:
+  - Sources/WispFlow/OnboardingWindow.swift (modified - added ~510 lines)
+  - Sources/WispFlow/AppDelegate.swift (modified)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (updated)
+- What was implemented:
+  - Created `HotkeyIntroductionView` in `OnboardingWindow.swift` with comprehensive hotkey introduction UI:
+    - Current hotkey displayed prominently using `HotkeyKeyBadge` components showing individual key symbols (⌘⇧Space)
+    - "Try it now!" prompt with pulsing dot indicator encourages user to test the hotkey
+    - Visual feedback when hotkey pressed: icon changes to checkmark, card scales up with spring animation, "Perfect!" success message appears with green background
+    - "Change Hotkey" button expands `OnboardingHotkeyRecorder` component for customization
+    - Default hotkey recommendation: "Tip: The default ⌘⇧Space works well for most users"
+  - Created `HotkeyKeyBadge` component - displays individual key symbols in styled badges (like physical keyboard keys)
+  - Created `OnboardingHotkeyRecorder` component - simplified hotkey recorder for onboarding with:
+    - Current hotkey display
+    - "Record New" button with pulsing indicator during recording
+    - "Reset to Default" button when not using default
+    - Conflict detection (US-512 integration) with alert for system shortcut conflicts
+  - Added `hotkey` case to `OnboardingStep` enum with proper `nextStep` navigation
+  - Updated `OnboardingContainerView` to accept `hotkeyManager` parameter and render `HotkeyIntroductionView`
+  - Updated `OnboardingWindowController` to accept `hotkeyManager` parameter
+  - Updated `AppDelegate.setupOnboarding()` to pass `hotkeyManager` to `OnboardingWindowController`
+  - Hotkey test listener hooks into `hotkeyManager.onHotkeyPressed` callback for visual feedback
+  - Added preview for `HotkeyIntroductionView` for development testing
+- **Learnings for future iterations:**
+  - Pass managers through the onboarding chain: AppDelegate → WindowController → ContainerView → StepView
+  - Hook into existing callbacks (like `onHotkeyPressed`) to add onboarding-specific behavior without modifying core managers
+  - Use spring animations for satisfying feedback when user completes an action
+  - HotkeyKeyBadge provides visual keyboard key representation that's clearer than just text
+  - Conflict detection from US-512 can be reused in onboarding context
+---
