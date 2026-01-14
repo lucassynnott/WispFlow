@@ -1,0 +1,15 @@
+There are still 2 unchecked stories (US-524 and US-525) in the PRD, so we do NOT output the completion signal. The US-523 story is complete.
+
+## Summary
+
+Successfully implemented **US-523: Fix Tab Visibility** for the WispFlow Settings window:
+
+1. **Increased window width** from 620px to 750px to ensure all 6 tabs are fully visible
+2. **Made window resizable** with `.resizable` style mask and minimum size of 750x560
+3. **All 6 tabs** (General, Audio, Transcription, Text Cleanup, Text Insertion, Debug) are now visible, readable, and clickable
+
+**Commits:**
+- `6091bbd` feat(US-523): fix tab visibility in Settings window
+- `999f0c2` docs: update progress log for US-523 implementation
+
+**Verification:** `swift build` → PASS
