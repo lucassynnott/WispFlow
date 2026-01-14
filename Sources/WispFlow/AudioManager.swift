@@ -755,6 +755,18 @@ final class AudioManager: NSObject, ObservableObject {
         audioEngine.prepare()
         print("AudioManager: [STAGE 1] ✓ Audio engine prepared")
         
+        // US-503: Check if any input devices are available BEFORE attempting to set one
+        // This ensures a clear error message rather than silent failure
+        guard !availableInputDevices.isEmpty else {
+            print("╔═══════════════════════════════════════════════════════════════╗")
+            print("║     ✗ US-503: NO INPUT DEVICES AVAILABLE                       ║")
+            print("╠═══════════════════════════════════════════════════════════════╣")
+            print("║ Error: No audio input devices found on this system.           ║")
+            print("║ Please connect a microphone and try again.                    ║")
+            print("╚═══════════════════════════════════════════════════════════════╝")
+            throw AudioCaptureError.noInputDevicesAvailable
+        }
+        
         // US-502: Use getDeviceForRecording() for cached fast-path or smart selection
         // This will try cached device first (~10-20ms) before falling back to full enumeration (~100-200ms)
         if let device = getDeviceForRecording() {
@@ -774,10 +786,21 @@ final class AudioManager: NSObject, ObservableObject {
         // Get the input format AFTER setting the device to ensure we get the correct format
         let inputFormat = inputNode.outputFormat(forBus: 0)
         
-        // Validate the input format
+        // US-503: Validate the input format with clear error message
+        // Invalid format (0 sample rate or 0 channels) indicates a device or configuration issue
         guard inputFormat.sampleRate > 0 && inputFormat.channelCount > 0 else {
-            print("AudioManager: [STAGE 1] ✗ Invalid input format - Sample rate: \(inputFormat.sampleRate), Channels: \(inputFormat.channelCount)")
-            throw AudioCaptureError.formatCreationFailed
+            print("╔═══════════════════════════════════════════════════════════════╗")
+            print("║     ✗ US-503: INVALID AUDIO INPUT FORMAT                       ║")
+            print("╠═══════════════════════════════════════════════════════════════╣")
+            print("║ Sample rate: \(String(format: "%10.0f", inputFormat.sampleRate)) Hz (expected: > 0)              ║")
+            print("║ Channels:    \(String(format: "%10d", inputFormat.channelCount)) (expected: > 0)                    ║")
+            print("║                                                               ║")
+            print("║ This may indicate:                                            ║")
+            print("║   - Audio device is not configured correctly                  ║")
+            print("║   - Device was disconnected during initialization             ║")
+            print("║   - System audio settings need to be checked                  ║")
+            print("╚═══════════════════════════════════════════════════════════════╝")
+            throw AudioCaptureError.invalidInputFormat(sampleRate: inputFormat.sampleRate, channels: inputFormat.channelCount)
         }
         
         print("AudioManager: [STAGE 1] Input format - Sample rate: \(inputFormat.sampleRate), Channels: \(inputFormat.channelCount)")
@@ -1514,6 +1537,8 @@ enum AudioCaptureError: LocalizedError {
     case formatCreationFailed
     case deviceSelectionFailed(OSStatus)
     case audioUnitNotAvailable
+    case noInputDevicesAvailable
+    case invalidInputFormat(sampleRate: Double, channels: UInt32)
     
     var errorDescription: String? {
         switch self {
@@ -1525,6 +1550,10 @@ enum AudioCaptureError: LocalizedError {
             return "Failed to select audio device (error: \(status))"
         case .audioUnitNotAvailable:
             return "Audio unit is not available"
+        case .noInputDevicesAvailable:
+            return "No audio input devices available. Please connect a microphone and try again."
+        case .invalidInputFormat(let sampleRate, let channels):
+            return "Invalid audio input format: sample rate = \(sampleRate) Hz, channels = \(channels). Expected sample rate > 0 and channels > 0."
         }
     }
 }

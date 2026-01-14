@@ -79,25 +79,34 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 ## Phase 2: Audio System Overhaul
 
 ### US-503: Robust Audio Engine Initialization
-**Status:** pending
+**Status:** complete
 **Priority:** critical
 **Estimated effort:** medium
 
 **Description:** Fix audio engine initialization sequence to ensure tap receives data.
 
 **Tasks:**
-- [ ] Reset audio engine before each recording
-- [ ] Prepare engine before setting input device
-- [ ] Set input device after preparation
-- [ ] Query format after device is set
-- [ ] Connect input to muted mixer sink
-- [ ] Add detailed logging at each stage
+- [x] Reset audio engine before each recording
+- [x] Prepare engine before setting input device
+- [x] Set input device after preparation
+- [x] Query format after device is set
+- [x] Connect input to muted mixer sink
+- [x] Add detailed logging at each stage
+- [x] Add clear error for no input devices available
+- [x] Add clear error for invalid format (0 sample rate, 0 channels)
 
 **Acceptance Criteria:**
 - Engine reset → prepare → set device → get format → install tap → start
 - Invalid format throws clear error
 - Tap callbacks logged during recording
 - Typecheck passes
+
+**Implementation Notes:**
+- Added `AudioCaptureError.noInputDevicesAvailable` error with clear message for when no input devices are found
+- Added `AudioCaptureError.invalidInputFormat(sampleRate:channels:)` error for invalid format detection
+- Audio engine initialization sequence follows exact order: stop (if running) → reset → prepare → check devices → set device → get format → configure graph → prepare → install tap → start
+- All stages are logged with formatted boxes for debugging
+- No input devices check happens after engine preparation but before device selection to ensure clear error
 
 ---
 

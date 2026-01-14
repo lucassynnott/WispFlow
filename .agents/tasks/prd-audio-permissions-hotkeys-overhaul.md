@@ -57,19 +57,19 @@ This PRD defines a comprehensive overhaul of WispFlow's core systems based on pr
 - [x] Subsequent recordings: cached device (~10-20ms)
 - [x] Typecheck passes
 
-### [ ] US-503: Robust Audio Engine Initialization
+### [x] US-503: Robust Audio Engine Initialization
 **Description:** As a developer, I need the audio engine to initialize reliably regardless of device state.
 
 **Acceptance Criteria:**
-- [ ] Audio engine reset before each recording session
-- [ ] Engine prepared before setting input device
-- [ ] Input device set after engine preparation (audioUnit available)
-- [ ] Format queried after device is set
-- [ ] Invalid format (0 sample rate, 0 channels) throws clear error
-- [ ] Engine connected to muted mixer sink to ensure tap receives data
-- [ ] Example: Start recording → engine reset → prepare → set device → get format → install tap → start
-- [ ] Negative case: No input devices → clear error message, not silent failure
-- [ ] Typecheck passes
+- [x] Audio engine reset before each recording session
+- [x] Engine prepared before setting input device
+- [x] Input device set after engine preparation (audioUnit available)
+- [x] Format queried after device is set
+- [x] Invalid format (0 sample rate, 0 channels) throws clear error
+- [x] Engine connected to muted mixer sink to ensure tap receives data
+- [x] Example: Start recording → engine reset → prepare → set device → get format → install tap → start
+- [x] Negative case: No input devices → clear error message, not silent failure
+- [x] Typecheck passes
 
 ### [ ] US-504: Audio Level Preview Fix
 **Description:** As a user, I want the audio preview in Settings to show my actual microphone levels so I can verify my mic is working.
