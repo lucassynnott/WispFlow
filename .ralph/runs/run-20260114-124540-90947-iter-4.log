@@ -1,0 +1,16 @@
+## Summary
+
+Successfully implemented **US-515: Text Insertion Fallback**. 
+
+**Changes made:**
+- Added `InsertionResult.fallbackToManualPaste(String)` case to handle fallback scenario explicitly
+- Updated `insertText()` in `TextInserter.swift` to detect paste simulation failure and trigger fallback: text stays on clipboard (no restoration), toast notification shown to user
+- Added `logSimulationError()` for detailed error logging with formatted output including phase, error message, accessibility status, and timestamp
+- Added `showManualPasteRequired()` to `ToastManager` - shows info toast "Text copied - press Cmd+V to paste"
+- Updated `AppDelegate.performTextInsertion()` to handle the new fallback case without showing an error alert
+
+**Commits:**
+- `0eb7f5b feat(US-515): implement text insertion fallback mechanism`
+- `d02f4ff docs: update progress log for US-515 implementation`
+
+**Verification:** `swift build` passed successfully.

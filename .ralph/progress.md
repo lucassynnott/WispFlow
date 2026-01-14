@@ -2183,3 +2183,34 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-124540-90947-it
   - ToastManager is a good place for user-facing notifications that don't interrupt workflow
   - Formatted box logging (╔═══╗ style) is useful for highlighting errors in console output
 ---
+
+## [2026-01-14 13:25] - US-515: Text Insertion Fallback (Verification)
+Thread: codex exec session
+Run: 20260114-130140-94307 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-130140-94307-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-130140-94307-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none - US-515 already implemented and committed in run-20260114-124540-90947-iter-4
+- Post-commit status: clean (working tree was already clean)
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+  - Verified all acceptance criteria are met in existing code:
+    - Primary method: Cmd+V paste simulation via CGEvent in `simulatePaste()`
+    - Fallback: `InsertionResult.fallbackToManualPaste` case with `showManualPasteRequired()` toast
+    - Error logging: `logSimulationError()` with formatted box output
+    - User toast: "Text copied - press Cmd+V to paste" (5-second duration)
+- Files changed:
+  - None - story was already complete
+- What was implemented:
+  - This was a verification run - US-515 was fully implemented in a prior iteration
+  - All acceptance criteria verified in existing code:
+    - `InsertionResult.fallbackToManualPaste(String)` case in TextInserter
+    - `showManualPasteRequired()` method in ToastManager
+    - `logSimulationError()` method for detailed error logging
+    - AppDelegate handles `.fallbackToManualPaste` case without showing error alert
+- **Learnings for future iterations:**
+  - When a story is already implemented, verify the implementation exists before attempting changes
+  - PRD and implementation plan were already updated with complete status
+  - Clean working tree indicates no further changes needed
+---
