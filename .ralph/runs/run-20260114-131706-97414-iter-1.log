@@ -1,0 +1,22 @@
+## Summary
+
+Successfully implemented **US-519: Accessibility Permission Step** for the WispFlow onboarding wizard. 
+
+**Changes made:**
+- Added `AccessibilityPermissionView` in `OnboardingWindow.swift` with:
+  - Screen explaining why accessibility access is needed (hotkeys + text insertion)
+  - Current permission status displayed with visual indicator
+  - "Open System Settings" button that opens Accessibility pane
+  - Instructions card with step-by-step numbered guide
+  - Status auto-updates when user returns to app
+  - "Continue" only enabled after permission granted (or "Skip" available)
+- Added `accessibility` case to `OnboardingStep` enum
+- Integrated step into `OnboardingContainerView` navigation flow
+- Created reusable `InstructionRow` component for numbered instructions
+- Added preview for development testing
+
+**Verification:** `swift build` passes (typecheck successful)
+
+**Commits:**
+- `2dcb5db feat(US-519): implement accessibility permission step for onboarding wizard`
+- `c537104 docs: update progress log for US-519 implementation`

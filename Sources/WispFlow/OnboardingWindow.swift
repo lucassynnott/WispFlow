@@ -8,8 +8,8 @@ enum OnboardingStep: Int, CaseIterable {
     case welcome = 0
     case microphone = 1
     case accessibility = 2
+    case audioTest = 3
     // Future steps will be added here:
-    // case audioTest = 3
     // case hotkey = 4
     // case completion = 5
     
@@ -21,6 +21,8 @@ enum OnboardingStep: Int, CaseIterable {
             return "Microphone Permission"
         case .accessibility:
             return "Accessibility Permission"
+        case .audioTest:
+            return "Test Your Microphone"
         }
     }
     
@@ -679,6 +681,509 @@ struct InstructionRow: View {
     }
 }
 
+// MARK: - Audio Test Step (US-520)
+
+/// Audio test step - allows user to test their microphone during setup
+/// US-520: Audio Test Step
+struct AudioTestView: View {
+    /// Audio manager for capturing audio and device selection
+    @ObservedObject var audioManager: AudioManager
+    
+    /// Callback when user clicks "Sounds Good!"
+    var onContinue: () -> Void
+    
+    /// Callback when user clicks "Skip"
+    var onSkip: () -> Void
+    
+    /// Whether audio test is currently running
+    @State private var isTestingAudio = false
+    
+    /// Current audio level for the meter
+    @State private var currentLevel: Float = -60.0
+    
+    /// Timer for updating audio level
+    @State private var levelTimer: Timer?
+    
+    /// Whether troubleshooting tips are shown
+    @State private var showTroubleshootingTips = false
+    
+    /// Whether the user has tested and is satisfied with the audio
+    @State private var hasTestedAudio = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+                .frame(height: Spacing.xl)
+            
+            // Illustration/icon showing audio testing
+            audioTestIllustration
+            
+            Spacer()
+                .frame(height: Spacing.lg)
+            
+            // Title
+            Text("Test Your Microphone")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            Spacer()
+                .frame(height: Spacing.sm)
+            
+            // Description
+            Text("Speak into your microphone to make sure\nit's working correctly.")
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+            
+            Spacer()
+                .frame(height: Spacing.xl)
+            
+            // Device selector (if multiple devices available)
+            if audioManager.inputDevices.count > 1 {
+                deviceSelector
+                Spacer()
+                    .frame(height: Spacing.lg)
+            }
+            
+            // Live audio level meter
+            audioLevelMeterCard
+            
+            Spacer()
+                .frame(height: Spacing.lg)
+            
+            // "Start Test" / "Stop Test" button
+            testButton
+            
+            Spacer()
+                .frame(height: Spacing.lg)
+            
+            // "Sounds Good!" button (enabled when user has tested)
+            if hasTestedAudio {
+                Button(action: onContinue) {
+                    Text("Sounds Good!")
+                        .font(Font.Wispflow.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: 200)
+                        .padding(.vertical, Spacing.md)
+                        .background(Color.Wispflow.success)
+                        .cornerRadius(CornerRadius.small)
+                }
+                .buttonStyle(InteractiveScaleStyle())
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+            
+            Spacer()
+                .frame(height: Spacing.md)
+            
+            // "Having Issues?" link shows troubleshooting tips
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    showTroubleshootingTips.toggle()
+                }
+            }) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: showTroubleshootingTips ? "chevron.up" : "questionmark.circle")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Having Issues?")
+                        .font(Font.Wispflow.caption)
+                }
+                .foregroundColor(Color.Wispflow.accent)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            // Troubleshooting tips section
+            if showTroubleshootingTips {
+                troubleshootingTipsCard
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            
+            Spacer()
+                .frame(height: Spacing.md)
+            
+            // Skip link
+            Button(action: onSkip) {
+                Text("Skip for now")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .underline()
+            }
+            .buttonStyle(PlainButtonStyle())
+            .opacity(0.7)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.Wispflow.background)
+        .onAppear {
+            print("OnboardingWindow: [US-520] Audio test view appeared")
+            audioManager.refreshAvailableDevices()
+        }
+        .onDisappear {
+            stopAudioTest()
+        }
+    }
+    
+    // MARK: - Audio Test Illustration
+    
+    /// Illustration showing audio/microphone testing
+    private var audioTestIllustration: some View {
+        ZStack {
+            // Outer animated ring (pulses when testing)
+            Circle()
+                .stroke(Color.Wispflow.accent.opacity(isTestingAudio ? 0.3 : 0.1), lineWidth: 3)
+                .frame(width: 130, height: 130)
+                .scaleEffect(isTestingAudio ? 1.1 : 1.0)
+                .animation(
+                    isTestingAudio ?
+                        .easeInOut(duration: 1.0).repeatForever(autoreverses: true) :
+                        .default,
+                    value: isTestingAudio
+                )
+            
+            // Outer glow circle
+            Circle()
+                .fill(Color.Wispflow.accent.opacity(0.15))
+                .frame(width: 120, height: 120)
+            
+            // Inner circle with gradient
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.Wispflow.accent.opacity(0.9), Color.Wispflow.accent],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 90, height: 90)
+                .shadow(color: Color.Wispflow.accent.opacity(0.3), radius: 10, x: 0, y: 5)
+            
+            // Waveform icon
+            Image(systemName: isTestingAudio ? "waveform" : "mic.fill")
+                .font(.system(size: isTestingAudio ? 32 : 40, weight: .medium))
+                .foregroundColor(.white)
+                .symbolEffect(.variableColor.iterative, options: .repeating, value: isTestingAudio)
+        }
+    }
+    
+    // MARK: - Device Selector
+    
+    /// Device selector dropdown (shown if multiple devices available)
+    private var deviceSelector: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("Select Microphone")
+                .font(Font.Wispflow.caption)
+                .fontWeight(.medium)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            Menu {
+                ForEach(audioManager.inputDevices) { device in
+                    Button(action: {
+                        audioManager.selectDevice(device)
+                        // If currently testing, restart with new device
+                        if isTestingAudio {
+                            stopAudioTest()
+                            startAudioTest()
+                        }
+                    }) {
+                        HStack {
+                            Text(device.name)
+                            if device.uid == audioManager.currentDevice?.uid {
+                                Image(systemName: "checkmark")
+                            }
+                            if device.isDefault {
+                                Text("(Default)")
+                                    .foregroundColor(Color.Wispflow.textSecondary)
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "mic.fill")
+                        .foregroundColor(Color.Wispflow.accent)
+                    Text(audioManager.currentDevice?.name ?? "Select Device")
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .padding(Spacing.md)
+                .background(Color.Wispflow.surface)
+                .cornerRadius(CornerRadius.medium)
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .stroke(Color.Wispflow.border, lineWidth: 1)
+                )
+            }
+        }
+        .padding(.horizontal, Spacing.xxl)
+    }
+    
+    // MARK: - Audio Level Meter Card
+    
+    /// Card containing the live audio level meter
+    private var audioLevelMeterCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // Level meter
+            OnboardingAudioLevelMeter(
+                level: isTestingAudio ? currentLevel : -60.0,
+                isActive: isTestingAudio
+            )
+            .frame(height: 44)
+            .animation(.easeOut(duration: 0.1), value: currentLevel)
+            
+            // Level indicator and status
+            HStack {
+                Text("Level:")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Text(isTestingAudio ? String(format: "%.1f dB", currentLevel) : "—")
+                    .font(Font.Wispflow.mono)
+                    .foregroundColor(levelColor(for: currentLevel))
+                
+                Spacer()
+                
+                // Level status badge
+                if isTestingAudio {
+                    HStack(spacing: Spacing.xs) {
+                        Circle()
+                            .fill(levelColor(for: currentLevel))
+                            .frame(width: 8, height: 8)
+                        Text(levelStatus(for: currentLevel))
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(levelColor(for: currentLevel))
+                    }
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background(levelColor(for: currentLevel).opacity(0.15))
+                    .cornerRadius(CornerRadius.small)
+                }
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.medium)
+                .stroke(isTestingAudio ? Color.Wispflow.accent.opacity(0.5) : Color.Wispflow.border, lineWidth: 1)
+        )
+        .wispflowShadow(.card)
+        .padding(.horizontal, Spacing.xxl)
+        .animation(.easeInOut(duration: 0.2), value: isTestingAudio)
+    }
+    
+    // MARK: - Test Button
+    
+    /// Start/Stop test button
+    private var testButton: some View {
+        Button(action: {
+            if isTestingAudio {
+                stopAudioTest()
+            } else {
+                startAudioTest()
+            }
+        }) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: isTestingAudio ? "stop.fill" : "mic.fill")
+                    .font(.system(size: 14, weight: .medium))
+                Text(isTestingAudio ? "Stop Test" : "Start Test")
+                    .font(Font.Wispflow.headline)
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: 180)
+            .padding(.vertical, Spacing.md)
+            .background(isTestingAudio ? Color.Wispflow.error : Color.Wispflow.accent)
+            .cornerRadius(CornerRadius.small)
+        }
+        .buttonStyle(InteractiveScaleStyle())
+    }
+    
+    // MARK: - Troubleshooting Tips Card
+    
+    /// Card with troubleshooting tips
+    private var troubleshootingTipsCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundColor(Color.Wispflow.warning)
+                    .font(.system(size: 14, weight: .medium))
+                Text("Troubleshooting Tips")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                TroubleshootingTipRow(
+                    icon: "checkmark.circle",
+                    text: "Make sure your microphone is connected and not muted"
+                )
+                TroubleshootingTipRow(
+                    icon: "gear",
+                    text: "Check System Settings > Sound > Input to verify the correct device is selected"
+                )
+                TroubleshootingTipRow(
+                    icon: "hand.raised",
+                    text: "Ensure WispFlow has microphone permission in System Settings > Privacy & Security"
+                )
+                TroubleshootingTipRow(
+                    icon: "arrow.clockwise",
+                    text: "Try selecting a different microphone from the dropdown above"
+                )
+                TroubleshootingTipRow(
+                    icon: "speaker.wave.2",
+                    text: "Speak loudly and clearly, about 6-12 inches from your microphone"
+                )
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.Wispflow.surface.opacity(0.7))
+        .cornerRadius(CornerRadius.medium)
+        .padding(.horizontal, Spacing.xxl)
+        .padding(.top, Spacing.sm)
+    }
+    
+    // MARK: - Audio Test Actions
+    
+    /// Start the audio test
+    private func startAudioTest() {
+        print("OnboardingWindow: [US-520] Starting audio test")
+        
+        audioManager.requestMicrophonePermission { granted in
+            DispatchQueue.main.async {
+                guard granted else {
+                    print("OnboardingWindow: [US-520] Microphone permission denied")
+                    return
+                }
+                
+                do {
+                    try audioManager.startCapturing()
+                    isTestingAudio = true
+                    print("OnboardingWindow: [US-520] Audio capture started")
+                    
+                    // Start timer to update level meter (20fps = 0.05s interval)
+                    levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+                        currentLevel = audioManager.currentAudioLevel
+                        
+                        // Mark as tested if level goes above threshold (user is speaking)
+                        if currentLevel > -40 {
+                            hasTestedAudio = true
+                        }
+                    }
+                } catch {
+                    print("OnboardingWindow: [US-520] Failed to start audio capture: \(error)")
+                }
+            }
+        }
+    }
+    
+    /// Stop the audio test
+    private func stopAudioTest() {
+        print("OnboardingWindow: [US-520] Stopping audio test")
+        levelTimer?.invalidate()
+        levelTimer = nil
+        audioManager.cancelCapturing()
+        isTestingAudio = false
+        currentLevel = -60.0
+    }
+    
+    // MARK: - Level Helpers
+    
+    /// Color for the current audio level
+    private func levelColor(for level: Float) -> Color {
+        if level > -10 {
+            return Color.Wispflow.error // Too loud / clipping
+        } else if level > -30 {
+            return Color.Wispflow.success // Good level
+        } else if level > -50 {
+            return Color.Wispflow.warning // Quiet
+        } else {
+            return Color.Wispflow.textSecondary // Silent
+        }
+    }
+    
+    /// Status text for the current audio level
+    private func levelStatus(for level: Float) -> String {
+        if level > -10 {
+            return "Too Loud"
+        } else if level > -30 {
+            return "Good"
+        } else if level > -50 {
+            return "Quiet"
+        } else {
+            return "Silent"
+        }
+    }
+}
+
+// MARK: - Onboarding Audio Level Meter
+
+/// Visual audio level meter for the onboarding audio test
+/// Similar to AudioLevelMeterView in SettingsWindow but styled for onboarding
+struct OnboardingAudioLevelMeter: View {
+    let level: Float
+    let isActive: Bool
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                // Background track
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .fill(Color.Wispflow.border)
+                
+                // Segmented level indicator
+                HStack(spacing: 2) {
+                    ForEach(0..<30, id: \.self) { index in
+                        let segmentLevel = -60.0 + (Double(index) * 2.0) // Each segment = 2dB
+                        let isLit = isActive && Double(level) >= segmentLevel
+                        
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(segmentColor(for: Float(segmentLevel), isLit: isLit))
+                            .opacity(isLit ? 1.0 : 0.15)
+                    }
+                }
+                .padding(Spacing.xs)
+            }
+        }
+    }
+    
+    /// Color for each segment based on level
+    private func segmentColor(for segmentLevel: Float, isLit: Bool) -> Color {
+        if segmentLevel > -10 {
+            return Color.Wispflow.error
+        } else if segmentLevel > -30 {
+            return Color.Wispflow.success
+        } else {
+            return Color.Wispflow.accent
+        }
+    }
+}
+
+// MARK: - Troubleshooting Tip Row
+
+/// A single troubleshooting tip row with icon and text
+struct TroubleshootingTipRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color.Wispflow.accent)
+                .frame(width: 16)
+            
+            Text(text)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 // MARK: - Onboarding Container View
 
 /// Main container view for the onboarding wizard
@@ -688,6 +1193,9 @@ struct OnboardingContainerView: View {
     
     /// Permission manager for tracking microphone/accessibility permissions
     @ObservedObject var permissionManager: PermissionManager = PermissionManager.shared
+    
+    /// Audio manager for the audio test step (US-520)
+    @ObservedObject var audioManager: AudioManager
     
     /// Current step in the onboarding flow
     @State private var currentStep: OnboardingStep = .welcome
@@ -729,6 +1237,18 @@ struct OnboardingContainerView: View {
             case .accessibility:
                 AccessibilityPermissionView(
                     permissionManager: permissionManager,
+                    onContinue: {
+                        advanceToNextStep()
+                    },
+                    onSkip: {
+                        advanceToNextStep()  // Skip just advances, doesn't exit
+                    }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                
+            case .audioTest:
+                AudioTestView(
+                    audioManager: audioManager,
                     onContinue: {
                         advanceToNextStep()
                     },
@@ -779,12 +1299,15 @@ struct OnboardingContainerView: View {
 final class OnboardingWindowController: NSObject {
     private var onboardingWindow: NSWindow?
     private let onboardingManager: OnboardingManager
+    /// Audio manager for the audio test step (US-520)
+    private let audioManager: AudioManager
     
     /// Callback when onboarding is complete
     var onComplete: (() -> Void)?
     
-    init(onboardingManager: OnboardingManager = OnboardingManager.shared) {
+    init(onboardingManager: OnboardingManager = OnboardingManager.shared, audioManager: AudioManager) {
         self.onboardingManager = onboardingManager
+        self.audioManager = audioManager
         super.init()
     }
     
@@ -812,6 +1335,7 @@ final class OnboardingWindowController: NSObject {
         
         let onboardingView = OnboardingContainerView(
             onboardingManager: onboardingManager,
+            audioManager: audioManager,
             onComplete: { [weak self] in
                 self?.closeOnboarding()
             }
@@ -892,6 +1416,17 @@ struct AccessibilityPermissionView_Previews: PreviewProvider {
         AccessibilityPermissionView(
             permissionManager: PermissionManager.shared,
             onContinue: { print("Continue tapped") },
+            onSkip: { print("Skip tapped") }
+        )
+        .frame(width: 520, height: 620)
+    }
+}
+
+struct AudioTestView_Previews: PreviewProvider {
+    static var previews: some View {
+        AudioTestView(
+            audioManager: AudioManager(),
+            onContinue: { print("Sounds Good tapped") },
             onSkip: { print("Skip tapped") }
         )
         .frame(width: 520, height: 620)

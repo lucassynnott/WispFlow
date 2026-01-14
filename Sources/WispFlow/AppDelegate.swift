@@ -384,7 +384,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// US-517: Set up and show onboarding wizard on first launch
     @MainActor
     private func setupOnboarding() {
-        onboardingWindowController = OnboardingWindowController()
+        // US-520: Pass audioManager to onboarding for audio test step
+        guard let audioMgr = audioManager else {
+            print("AppDelegate: [US-517] Warning - audioManager not available for onboarding")
+            return
+        }
+        
+        onboardingWindowController = OnboardingWindowController(audioManager: audioMgr)
         
         // Set up completion callback
         onboardingWindowController?.onComplete = {

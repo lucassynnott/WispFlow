@@ -761,21 +761,43 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 ---
 
 ### US-520: Audio Test Step
-**Status:** pending
+**Status:** complete
 **Priority:** medium
 **Estimated effort:** medium
 
 **Tasks:**
-- [ ] Create audio test screen
-- [ ] Add live level meter
-- [ ] Add device selector
-- [ ] Add "Sounds Good!" button
+- [x] Create audio test screen
+- [x] Add live level meter
+- [x] Add device selector
+- [x] Add "Sounds Good!" button
+- [x] Add troubleshooting tips section
 
 **Acceptance Criteria:**
 - Level meter shows mic input
 - Device selector works
 - Can proceed when satisfied
 - Typecheck passes
+
+**Implementation Notes:**
+- Created `AudioTestView` in `OnboardingWindow.swift` with comprehensive audio testing UI
+- Live audio level meter (`OnboardingAudioLevelMeter`) displays with 30 segments at 20fps (~0.05s timer interval)
+- "Start Test" button triggers `audioManager.startCapturing()` to begin audio capture
+- Visual feedback: animated pulsing ring around microphone icon, waveform icon when testing, level status badges (Good/Quiet/Silent/Too Loud)
+- Device selector dropdown (`Menu`) appears when multiple devices available, showing all input devices with checkmarks and "(Default)" indicator
+- "Sounds Good!" button appears after user speaks (level > -40dB) - advances to next onboarding step
+- "Having Issues?" link toggles `troubleshootingTipsCard` with 5 troubleshooting tips using `TroubleshootingTipRow` components:
+  1. Make sure microphone is connected and not muted
+  2. Check System Settings > Sound > Input
+  3. Ensure WispFlow has microphone permission
+  4. Try selecting a different microphone
+  5. Speak loudly and clearly, 6-12 inches from microphone
+- Added `audioTest` case to `OnboardingStep` enum with proper `nextStep` navigation
+- Updated `OnboardingContainerView` to accept `audioManager` and render `AudioTestView` for the audio test step
+- Updated `OnboardingWindowController` to accept `audioManager` parameter and pass it to `OnboardingContainerView`
+- Updated `AppDelegate.setupOnboarding()` to pass `audioManager` to `OnboardingWindowController`
+- Audio test stops automatically when view disappears (`.onDisappear` modifier)
+- Added preview for `AudioTestView` for development testing
+- Verified via `swift build` - typecheck passes
 
 ---
 

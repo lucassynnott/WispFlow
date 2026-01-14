@@ -273,17 +273,17 @@ This PRD defines a comprehensive overhaul of WispFlow's core systems based on pr
 - [x] "Continue" enabled only after permission granted (or "Skip" available)
 - [x] Typecheck passes
 
-### [ ] US-520: Audio Test Step
+### [x] US-520: Audio Test Step
 **Description:** As a new user, I want to test my microphone during setup to ensure it works.
 
 **Acceptance Criteria:**
-- [ ] Live audio level meter displayed
-- [ ] "Start Test" button begins audio capture
-- [ ] Visual feedback shows mic is working
-- [ ] Device selector dropdown if multiple devices
-- [ ] "Sounds Good!" button advances when user satisfied
-- [ ] "Having Issues?" link shows troubleshooting tips
-- [ ] Typecheck passes
+- [x] Live audio level meter displayed
+- [x] "Start Test" button begins audio capture
+- [x] Visual feedback shows mic is working
+- [x] Device selector dropdown if multiple devices
+- [x] "Sounds Good!" button advances when user satisfied
+- [x] "Having Issues?" link shows troubleshooting tips
+- [x] Typecheck passes
 
 ### [ ] US-521: Hotkey Introduction Step
 **Description:** As a new user, I want to learn and optionally customize the recording hotkey.
