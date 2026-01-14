@@ -2596,3 +2596,39 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-133822-18849-it
   - macOS TabView with 6 tabs needs ~750px width for full labels
   - The `.resizable` style mask allows users to adjust window size if needed
 ---
+
+## [2026-01-14 14:05] - US-525: Fix ScrollView Interactions
+Thread: codex exec session
+Run: 20260114-140023-24781 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-140023-24781-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-140023-24781-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: b9317a9 feat(US-525): fix ScrollView interactions with contentShape hit testing
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete)
+- Files changed:
+  - Sources/WispFlow/DesignSystem.swift
+  - Sources/WispFlow/SettingsWindow.swift
+  - .ralph/IMPLEMENTATION_PLAN.md
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md
+- What was implemented:
+  - Added `contentShape(Rectangle())` to `WispflowCardStyle` modifier for proper card hit testing
+  - Enhanced `WispflowToggleStyle` with larger hit area (52x32 frame) and `contentShape(Rectangle())` for reliable toggle interactions
+  - Added `contentShape(Rectangle())` to `WispflowButtonContent` for reliable button clicks
+  - Added `contentShape(Rectangle())` to dropdown/picker row components:
+    - `LanguageRow` for language picker dropdown items
+    - `AudioDeviceRow` for audio device picker dropdown items  
+    - `CleanupModeSegment` for cleanup mode segmented control segments
+    - `ModelSelectionCard` for Whisper model selection cards
+    - `LLMModelSelectionCard` for LLM model selection cards
+  - All interactive elements now properly respond to clicks within ScrollViews
+- **Learnings for future iterations:**
+  - SwiftUI ScrollView can have hit testing issues when interactive elements don't define their tappable area
+  - `contentShape(Rectangle())` is the standard fix for hit testing issues in SwiftUI
+  - The root cause was not ZStack overlays but missing contentShape on individual interactive elements
+  - Adding contentShape after padding but before background ensures the entire padded area is tappable
+  - Custom button styles benefit from contentShape on the wrapper content view, not just the button itself
+  - Toggle styles need both the toggle capsule AND the entire row to be tappable for good UX
+---

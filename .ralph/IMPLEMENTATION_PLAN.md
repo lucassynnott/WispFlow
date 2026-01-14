@@ -100,15 +100,19 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 - Added `contentShape(Rectangle())` to `WispflowCardStyle` modifier to ensure entire card area is tappable within ScrollViews
 - Enhanced `WispflowToggleStyle` with larger hit area (52x32 frame) and `contentShape(Rectangle())` for reliable toggle interactions
 - Added `contentShape(Rectangle())` to `WispflowButtonContent` for reliable button hit testing
+- Added `contentShape(Rectangle())` to dropdown trigger buttons:
+  - `LanguagePicker` - language selection dropdown trigger
+  - `AudioDevicePicker` - audio device selection dropdown trigger
+  - `HotkeyRecorderView` - hotkey recorder button
 - Added `contentShape(Rectangle())` to the following dropdown/picker row components:
   - `LanguageRow` - language picker dropdown items
   - `AudioDeviceRow` - audio device picker dropdown items
-  - `CleanupModeSegment` - cleanup mode segmented control segments
+  - `CleanupModeSegment` - cleanup mode segmented control segments (if applicable)
   - `ModelSelectionCard` - Whisper model selection cards
   - `LLMModelSelectionCard` - LLM model selection cards
 - All changes ensure consistent hit testing behavior across ScrollViews throughout Settings
 - No overlay or ZStack blocking issues found - the root cause was missing contentShape on interactive elements
-- Verified via `swift build` - typecheck passes
+- Verified via `swift build` - typecheck passes (iteration 5)
 
 ---
 
