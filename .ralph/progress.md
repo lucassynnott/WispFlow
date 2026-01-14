@@ -1978,3 +1978,45 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-123019-87886-it
   - Event type filtering (`.keyDown` vs `.flagsChanged`) is important for distinguishing actual key presses from modifier changes
   - UserDefaults persistence is simple and reliable for hotkey configuration storage
 ---
+
+## [2026-01-14 13:00] - US-512: Hotkey Conflict Detection
+Thread: codex exec session
+Run: 20260114-123019-87886 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-123019-87886-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-123019-87886-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: c1c5fd9 feat(US-512): implement hotkey conflict detection
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors or warnings)
+- Files changed:
+  - Sources/WispFlow/HotkeyManager.swift (add SystemShortcut struct and conflict detection)
+  - Sources/WispFlow/SettingsWindow.swift (add conflict warning alert to HotkeyRecorderView)
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (mark US-512 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status with implementation notes)
+- What was implemented:
+  - Added `SystemShortcut` struct to represent known macOS system shortcuts
+  - Defined comprehensive list of 27+ common system shortcuts including:
+    - Spotlight (Cmd+Space), App Switcher (Cmd+Tab)
+    - Screenshots (Cmd+Shift+3/4/5)
+    - Mission Control (Ctrl+Up), Space navigation (Ctrl+Left/Right)
+    - Standard app shortcuts: Quit, Close, Copy, Paste, Cut, Undo, Redo, Find, Save, etc.
+    - Siri (Cmd+Option+Space), Force Quit (Cmd+Option+Esc)
+  - Added `checkForConflicts(_:)` static method to return array of conflicting shortcuts
+  - Added `hasConflicts(_:)` static method for quick conflict detection
+  - Updated `HotkeyRecorderView` with conflict warning UI:
+    - Added `pendingConfig`, `conflictingShortcuts`, `showConflictWarning` state variables
+    - Modified `handleKeyEvent()` to check for conflicts before applying new hotkey
+    - Added SwiftUI `.alert` that shows when conflicts are detected
+    - Alert displays conflicting shortcut names and descriptions
+    - "Use Anyway" button allows user to proceed despite warning
+    - "Cancel" button rejects the conflicting hotkey
+  - Verified "Reset to Default" button already exists and correctly restores Cmd+Shift+Space
+- **Learnings for future iterations:**
+  - Carbon.HIToolbox provides `kVK_*` constants for key codes which are more readable than raw values
+  - NSEvent.ModifierFlags can be compared directly for exact modifier matching
+  - SwiftUI `.alert` with `presenting:` pattern works well for conditional alerts with dynamic content
+  - System shortcuts list should include both macOS system shortcuts and common app shortcuts (Cmd+C/V/X etc.)
+  - The default hotkey Cmd+Shift+Space is a good choice as it doesn't conflict with common system shortcuts
+---
