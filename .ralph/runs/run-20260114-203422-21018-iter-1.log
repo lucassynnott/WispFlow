@@ -1,0 +1,29 @@
+US-606: Language Selection - Implementation Complete
+
+Run: 20260114-203422-21018 (iteration 1)
+Story: US-606 - Language Selection
+Status: COMPLETE
+
+Verification:
+- swift build: PASS (Build complete! 0.12s)
+
+Files Changed:
+- Sources/WispFlow/WhisperManager.swift: Added DecodingOptions with language hint in transcribe() method
+- Sources/WispFlow/SettingsWindow.swift: Wired LanguagePicker to WhisperManager.selectedLanguage
+- .agents/tasks/prd-wispflow-improvements-v2.md: Marked US-606 acceptance criteria complete
+- .ralph/IMPLEMENTATION_PLAN.md: Added US-606 section with tasks and implementation notes
+
+Acceptance Criteria Verified:
+- [x] Language dropdown in Settings (Auto-detect + common languages)
+- [x] Pass language hint to WhisperKit
+- [x] Remember language preference
+- [x] "Auto-detect" as default
+
+Implementation Details:
+1. TranscriptionLanguage enum already existed in WhisperManager with 12 languages
+2. Added DecodingOptions to transcribe() with language and detectLanguage parameters
+3. Connected SettingsWindow LanguagePicker to WhisperManager.selectedLanguage binding
+4. Removed duplicate TranscriptionLanguage enum from SettingsWindow.swift
+5. Language preference persisted via UserDefaults with key "selectedTranscriptionLanguage"
+
+Commit: c54111c feat(US-606): implement language selection for transcription

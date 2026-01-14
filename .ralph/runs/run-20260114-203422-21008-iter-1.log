@@ -1,0 +1,17 @@
+## Summary
+
+Successfully implemented **US-606: Language Selection** for WispFlow. The changes include:
+
+1. **Wired up language persistence** - Connected the Settings UI's `LanguagePicker` to `WhisperManager.selectedLanguage` (which already had UserDefaults persistence implemented)
+
+2. **Removed duplicate enum** - Deleted the duplicate `TranscriptionLanguage` enum from SettingsWindow.swift and updated `LanguagePicker` and `LanguageRow` to use `WhisperManager.TranscriptionLanguage`
+
+3. **Language hint to WhisperKit** - Verified that the `transcribe()` method already creates `DecodingOptions` with the selected language code (or nil for auto-detect)
+
+All acceptance criteria verified:
+- ✅ Language dropdown in Settings (Auto-detect + 11 common languages)
+- ✅ Pass language hint to WhisperKit (via `DecodingOptions`)
+- ✅ Remember language preference (persisted via UserDefaults)
+- ✅ "Auto-detect" as default
+
+**Commit**: `c54111c feat(US-606): implement language selection for transcription`
