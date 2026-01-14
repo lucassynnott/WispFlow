@@ -1830,3 +1830,40 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-it
   - Use consistent prompting behavior across all permission types via PermissionManager singleton
   - Check permission at the action point (recording start, text insertion) not just at app launch
 ---
+
+## [2026-01-14 12:27] - US-508: Open System Settings Helper
+Thread: codex exec session
+Run: 20260114-121455-84404 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-121455-84404-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: c492af8 feat(US-508): verify and document Open System Settings Helper
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, no errors)
+- Files changed:
+  - .agents/tasks/prd-audio-permissions-hotkeys-overhaul.md (mark US-508 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (update task status with implementation notes)
+  - .ralph/progress.md (appended progress entry)
+- What was implemented:
+  - Verified existing `openMicrophoneSettings()` in PermissionManager.swift:
+    - Uses URL scheme `x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone`
+    - Opens Privacy & Security > Microphone pane directly
+    - Has fallback to general Privacy settings (`?Privacy`) if specific URL fails
+  - Verified existing `openAccessibilitySettings()` in PermissionManager.swift:
+    - Uses URL scheme `x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility`
+    - Opens Privacy & Security > Accessibility pane directly
+    - Has fallback to general Privacy settings if specific URL fails
+  - Verified macOS 13+ (Ventura and later) compatibility via web search
+  - Both methods are called from:
+    - `requestMicrophonePermission()` when permission is denied
+    - `requestAccessibilityPermission()` when user needs to manually enable
+  - Implementation was already complete from US-507 work; this iteration documented and verified it
+- **Learnings for future iterations:**
+  - URL scheme `x-apple.systempreferences:com.apple.preference.security?Privacy_*` works on macOS 13+
+  - Some stories may be implicitly completed during related feature work (US-508 was done as part of US-507)
+  - Always audit existing code before implementing to avoid duplicate work
+  - `NSWorkspace.shared.open(url)` is the standard way to open URL schemes on macOS
+  - Fallback URLs provide graceful degradation if specific pane URL fails
+---
