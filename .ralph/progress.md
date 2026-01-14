@@ -2756,3 +2756,43 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-183639-98512-it
   - kAudioStreamPropertyAvailableVirtualFormats is fallback when physical formats unavailable
   - Format ID is FourCC that can be converted to readable string for non-standard formats
   - Priority scoring allows flexible format selection while preferring standard configurations
+
+---
+
+## [2026-01-14 19:15] - US-603: Recording Timeout Safety
+Thread: codex exec session
+Run: 20260114-183639-98512 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-183639-98512-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260114-183639-98512-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 213e0a7 feat(US-603): implement recording timeout safety
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete, warnings are pre-existing)
+- Files changed:
+  - Sources/WispFlow/AudioManager.swift (timeout constants, timers, callbacks, configuration)
+  - Sources/WispFlow/AppDelegate.swift (timeout callback handlers)
+  - Sources/WispFlow/ToastView.swift (timeout toast methods)
+  - .agents/tasks/prd-wispflow-improvements-v2.md (marked US-603 complete)
+  - .ralph/IMPLEMENTATION_PLAN.md (added US-603 section, marked complete)
+- What was implemented:
+  - Added timeout constants: maxRecordingDurationKey, defaultMaxRecordingDuration (300s), warningOffsetFromMax (60s)
+  - Added Timer properties: recordingTimeoutWarningTimer, recordingTimeoutMaxTimer
+  - Added hasShownTimeoutWarning flag to prevent duplicate warnings
+  - Added callbacks: onRecordingTimeoutWarning((TimeInterval) -> Void), onRecordingTimeoutReached(() -> Void)
+  - Added startRecordingTimeoutTimers() with boxed logging output
+  - Added stopRecordingTimeoutTimers() for proper cleanup
+  - Integrated timers in startCapturing(), stopCapturing(), cancelCapturing()
+  - Added static properties: maxRecordingDuration (configurable via UserDefaults), warningDuration (computed)
+  - Added instance properties: elapsedRecordingTime, remainingRecordingTime
+  - Added ToastManager methods: showRecordingTimeoutWarning(remainingSeconds:), showRecordingAutoStopped()
+  - Wired up callbacks in AppDelegate to show toasts and trigger auto-stop
+  - RecordingIndicatorWindow already displays elapsed time via durationLabel (existing feature)
+- **Learnings for future iterations:**
+  - Timer.scheduledTimer with weak self prevents retain cycles in closure-based timers
+  - Warning timer should check isCapturing before firing to handle edge cases
+  - Auto-stop at max duration triggers same flow as manual stop for consistent behavior
+  - Boxed logging for timer start/warning/stop helps debug timeout issues
+  - Max recording duration configurable via UserDefaults allows future settings UI
+---
