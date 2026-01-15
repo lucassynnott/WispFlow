@@ -1,0 +1,26 @@
+## Summary
+
+US-704: Migrate Transcription Settings Section has been verified complete. The implementation was already done in a parallel run (commit `57d7c57`).
+
+**What was implemented:**
+- **TranscriptionSettingsSummary** in `MainWindow.swift` was expanded from a simple summary view to a full settings section with 4 subsections:
+  1. **Model Selection Section**: Card-based Whisper model picker (Tiny, Base, Small, Medium) with size/speed/accuracy specs
+  2. **Model Actions Section**: Download/Load buttons with gradient progress bar and error handling
+  3. **Language Selection Section**: Dropdown with 12 languages, flags, and persistence via WhisperManager
+  4. **Quality vs Speed Section**: Tradeoff info with dynamic highlighting based on selected model
+
+**New Components Created:**
+- `TranscriptionModelCard` - Card-based model selection with hover effects and status badges
+- `TranscriptionModelBadge` - Status badges for Active/Downloaded states
+- `TranscriptionModelSpec` - Small spec indicators (size, speed, accuracy)
+- `TranscriptionProgressBar` - Gradient progress bar with shimmer effect
+- `TranscriptionLanguagePicker` - Language dropdown with flags
+- `TranscriptionLanguageRow` - Individual language row items
+- `TranscriptionTradeoffRow` - Quality/speed tradeoff info rows
+
+**Verification:**
+- `swift build` → PASS
+- All acceptance criteria met
+- Post-commit status: clean
+
+**Commit:** `1fe86f8 docs: add progress log for US-704 verification run`
