@@ -5917,3 +5917,61 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142034-87809-it
   - Parallel execution of multiple runs can cause duplicate struct definitions
   - Always verify build passes after file modifications
 ---
+
+
+## [2026-01-15 14:42] - US-803: Recent Transcriptions List
+Thread: codex exec session
+Run: 20260115-142047-88309 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142047-88309-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142047-88309-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: Already committed (282de7d feat(US-803): mark Recent Transcriptions List as complete)
+- Post-commit status: working tree clean (US-803 work already committed)
+- Verification:
+  - Command: swift build -> PASS (Build complete!)
+- Files changed (from US-803 commit):
+  - Sources/Voxa/MainWindow.swift (recentTranscriptionsSection, RecentTranscriptionItem, empty state)
+  - Sources/Voxa/ToastView.swift (.navigateToHistory notification)
+- What was implemented:
+  - US-803: Recent Transcriptions List in home dashboard
+  - Section header with serif italic font (Font.Voxa.sectionHeaderItalic)
+  - View All link navigates to History via .navigateToHistory notification
+  - RecentTranscriptionItem component with icon, title, subtitle, timestamp
+  - Hover states: highlight background, title color changes to accent
+  - Shows last 5 transcriptions from UsageStatsManager
+  - Empty state when no transcriptions with hotkey hint
+- **Learnings for future iterations:**
+  - US-803 was already implemented in previous iterations
+  - Verification confirmed all acceptance criteria are met
+  - Navigation between dashboard and history uses NotificationCenter
+  - Design system provides sectionHeaderItalic for consistent styling
+---
+
+
+## [2026-01-15 14:40] - US-803: Recent Transcriptions List
+Thread: codex exec session
+Run: 20260115-142043-88159 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142043-88159-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142043-88159-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: d472e51 feat(US-803): Fix Recent Transcriptions List - remove duplicate RecentTranscriptionItem
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/Voxa/MainWindow.swift (removed duplicate RecentTranscriptionItem struct)
+- What was implemented:
+  - Fixed compilation error by removing duplicate RecentTranscriptionItem struct (lines 1306-1418)
+  - US-803 implementation already complete from previous iterations:
+    - Section header with Playfair Display italic font (`Font.Voxa.sectionHeaderItalic`)
+    - View All link navigating to History tab via `.navigateToHistory` notification
+    - `RecentTranscriptionItem` component with icon, title, subtitle, timestamp
+    - Hover states: title color changes to accent, background highlight on hover
+    - Empty state when no transcriptions with waveform icon and hint
+- **Learnings for future iterations:**
+  - Previous iterations left duplicate struct definitions that caused compilation errors
+  - Always check for existing implementations before creating new ones
+  - Use `grep -n "struct ComponentName"` to find all declarations before adding new ones
+---
