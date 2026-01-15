@@ -4942,3 +4942,45 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-124118-68794-it
   - SettingsWindow.swift was completely deleted (not just SettingsWindowController removed)
   - Build passes with all code changes applied
 ---
+
+## [2026-01-15 13:XX] - US-709: Settings Section Navigation
+Thread: codex exec session
+Run: 20260115-124121-68872 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-124121-68872-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-124121-68872-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: de115c0 feat(settings): add section navigation with smooth scroll (US-709)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build completes with only warnings, no errors)
+- Files changed:
+  - Sources/WispFlow/MainWindow.swift (major additions)
+  - .ralph/IMPLEMENTATION_PLAN.md (marked US-709 complete)
+  - .ralph/activity.log
+- What was implemented:
+  - Created `SettingsSection` enum with 6 cases (general, audio, transcription, textCleanup, textInsertion, debug)
+  - Added `displayName`, `icon`, and `description` properties for consistent UI metadata
+  - Wrapped settings ScrollView with `ScrollViewReader` for programmatic scrolling
+  - Created `sectionNavigationBar(scrollProxy:)` component with "Jump to Section" header
+  - Created `SettingsSectionNavButton` component with:
+    - Section icon (SF Symbol) and display name
+    - Active state highlighting (coral/accent background with white text)
+    - Hover effects (accentLight background, 1.02 scale)
+    - Tooltip help text ("Jump to [Section Name]")
+  - Added `.id(SettingsSection.xxx)` to each `SettingsSectionView` for scroll targeting
+  - Implemented `scrollToSection(_:using:)` method with:
+    - Active section state update for visual feedback
+    - Smooth scroll animation using `.easeInOut(duration: 0.4)`
+    - Console logging for debugging
+  - Collapsible sections already implemented via `SettingsSectionView` expand/collapse toggle
+- Acceptance Criteria Verified:
+  - [x] Section links scroll to correct section - ScrollViewReader.scrollTo() with .id targeting
+  - [x] Smooth scroll animation - .easeInOut(duration: 0.4) animation applied
+- **Learnings for future iterations:**
+  - SwiftUI ScrollViewReader wraps ScrollView to enable programmatic scrolling
+  - Use .id() modifier on views to create scroll targets
+  - scrollTo() accepts anchor parameter (.top, .center, .bottom) for positioning
+  - Combine activeSection state with animation for visual feedback during navigation
+  - SettingsSection enum centralizes section metadata (name, icon, description)
+---
