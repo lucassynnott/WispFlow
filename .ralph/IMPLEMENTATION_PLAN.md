@@ -1734,8 +1734,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-703: Migrate Audio Settings Section
-**Status:** open
+### [x] US-703: Migrate Audio Settings Section
+**Status:** complete
 **Priority:** high
 **Estimated effort:** small
 **Depends on:** US-701
@@ -1743,17 +1743,51 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Move Audio settings (device, preview, calibration) to integrated settings view.
 
 **Tasks:**
-- [ ] Show audio input device picker dropdown
-- [ ] Display real-time audio level meter
-- [ ] Include input sensitivity slider
-- [ ] Add calibration controls
-- [ ] Include device refresh button
+- [x] Show audio input device picker dropdown
+- [x] Display real-time audio level meter
+- [x] Include input sensitivity slider
+- [x] Add calibration controls
+- [x] Include device refresh button
 
 **Acceptance Criteria:**
-- [ ] Device selection works
-- [ ] Audio preview shows levels
-- [ ] Sensitivity slider adjusts threshold
-- [ ] Calibration functions correctly
+- [x] Device selection works
+- [x] Audio preview shows levels
+- [x] Sensitivity slider adjusts threshold
+- [x] Calibration functions correctly
+
+**Implementation Notes:**
+- Expanded `AudioSettingsSummary` in `MainWindow.swift` from a summary view to a full settings section (same pattern as US-702)
+- Created four main sections within the Audio settings:
+  1. **Input Device Section** with:
+     - `AudioSettingsDevicePicker` dropdown component showing all available devices
+     - Device icons based on device type (mic, laptop, airpods, USB, etc.)
+     - Low-quality device warnings with tooltips for Bluetooth/AirPods devices
+     - Refresh button to update available devices list
+  2. **Audio Preview Section** with:
+     - Real-time audio level meter (`AudioSettingsLevelMeter`) with 30 segments at 20fps
+     - Level value in dB and status badges (Good/Quiet/Silent/Too Loud)
+     - Color-coded segments: green for good, red for clipping, coral accent for quiet
+     - Start/Stop Preview button that triggers audio capture
+  3. **Input Sensitivity Section** with:
+     - Custom slider (`AudioSettingsSlider`) for input gain adjustment (0.5x to 2.0x)
+     - Visual percentage display with accent-colored badge
+     - Reset to Default button
+  4. **Calibration Section** with:
+     - `AudioSettingsCalibrationStatus` component showing current calibration state
+     - Support for all calibration states: idle, calibrating, completed, failed
+     - Calibrate/Recalibrate/Retry buttons based on state
+     - Reset to Defaults button with confirmation dialog
+     - Progress bar during calibration
+- Created supporting components:
+  - `AudioSettingsDeviceRow` for dropdown items with selection checkmarks
+  - `AudioSettingsLevelMeter` for visual audio level display
+  - `AudioSettingsSlider` with custom thumb and gradient fill
+  - `AudioSettingsCalibrationStatus`, `AudioSettingsCalibrationResult`, `AudioSettingsDefaultThreshold`
+  - `AudioSettingsCalibrationProgress`, `AudioSettingsCalibrationCompleted`, `AudioSettingsCalibrationFailed`
+  - `AudioSettingsMetric` for calibration value display
+- All components use existing design system: `Color.Wispflow`, `Font.Wispflow`, `Spacing`, `CornerRadius`, `WispflowAnimation`
+- Audio preview automatically stops when view disappears (`.onDisappear` modifier)
+- Verified via `swift build` - typecheck passes
 
 ---
 

@@ -4344,37 +4344,1089 @@ struct GeneralSettingsPermissionRow: View {
     }
 }
 
-// MARK: - Audio Settings Summary (US-701)
+// MARK: - Audio Settings Section (US-703)
 
-/// Summary view for Audio settings section
+/// Full Audio settings section migrated from SettingsWindow
+/// US-703: Migrate Audio Settings Section to integrated settings view
 struct AudioSettingsSummary: View {
     @StateObject private var audioManager = AudioManager.shared
+    @State private var isPreviewingAudio = false
+    @State private var previewTimer: Timer?
+    @State private var currentLevel: Float = -60.0
+    @State private var inputGain: Double = 1.0
+    @State private var showResetCalibrationConfirmation = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            // Current device
-            SettingsInfoRow(
-                icon: "mic",
-                title: "Input Device",
-                value: audioManager.currentDevice?.name ?? "Default"
-            )
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            // MARK: - Input Device Section (US-703 Task 1)
+            inputDeviceSection
             
-            // Devices available
-            SettingsInfoRow(
-                icon: "speaker.wave.3",
-                title: "Available Devices",
-                value: "\(audioManager.inputDevices.count) device(s)"
-            )
+            // MARK: - Audio Preview Section (US-703 Task 2)
+            audioPreviewSection
             
-            // Calibration status
-            SettingsInfoRow(
-                icon: "dial.low",
-                title: "Calibration",
-                value: audioManager.isCurrentDeviceCalibrated ? "Calibrated" : "Not Calibrated"
-            )
+            // MARK: - Input Sensitivity Section (US-703 Task 3)
+            inputSensitivitySection
             
-            // Open full settings button
-            SettingsOpenFullButton()
+            // MARK: - Calibration Section (US-703 Task 4)
+            calibrationSection
+        }
+        .onDisappear {
+            stopPreview()
+        }
+    }
+    
+    // MARK: - Input Device Section
+    
+    /// Audio input device picker with refresh button
+    private var inputDeviceSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "mic.fill")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Input Device")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Spacer()
+                
+                // US-703 Task 5: Device Refresh Button
+                Button(action: {
+                    print("[US-703] Refreshing audio devices...")
+                    audioManager.refreshAvailableDevices()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 12, weight: .medium))
+                        Text("Refresh")
+                            .font(Font.Wispflow.caption)
+                    }
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
+                    .background(Color.Wispflow.border.opacity(0.3))
+                    .cornerRadius(CornerRadius.small)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .help("Refresh available audio devices")
+            }
+            
+            Text("Select the microphone to use for voice recording. USB microphones are recommended for best accuracy.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Audio device picker dropdown (US-703 Task 1)
+            AudioSettingsDevicePicker(
+                devices: audioManager.inputDevices,
+                selectedDevice: audioManager.currentDevice,
+                onDeviceSelected: { device in
+                    print("[US-703] Device selected: \(device.name)")
+                    audioManager.selectDevice(device)
+                },
+                audioManager: audioManager
+            )
+        }
+    }
+    
+    // MARK: - Audio Preview Section
+    
+    /// Real-time audio level meter and preview controls
+    private var audioPreviewSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "waveform")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Audio Preview")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("Test your microphone and see the input level in real-time.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Audio level meter display (US-703 Task 2)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                // Level meter header
+                HStack {
+                    Text("Input Level")
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    
+                    Spacer()
+                    
+                    // Level value and status
+                    HStack(spacing: Spacing.sm) {
+                        Text(String(format: "%.1f dB", currentLevel))
+                            .font(Font.Wispflow.mono)
+                            .foregroundColor(levelColor(for: currentLevel))
+                        
+                        // Status badge
+                        Text(levelStatus(for: currentLevel))
+                            .font(Font.Wispflow.small)
+                            .fontWeight(.medium)
+                            .foregroundColor(levelColor(for: currentLevel))
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, 2)
+                            .background(levelColor(for: currentLevel).opacity(0.12))
+                            .cornerRadius(CornerRadius.small / 2)
+                    }
+                }
+                
+                // Visual audio level meter
+                AudioSettingsLevelMeter(level: currentLevel, isActive: isPreviewingAudio)
+                    .frame(height: 16)
+                
+                // Preview toggle button
+                Button(action: togglePreview) {
+                    HStack {
+                        Image(systemName: isPreviewingAudio ? "stop.fill" : "play.fill")
+                        Text(isPreviewingAudio ? "Stop Preview" : "Start Preview")
+                    }
+                }
+                .buttonStyle(WispflowButtonStyle(variant: isPreviewingAudio ? .secondary : .primary))
+                .padding(.top, Spacing.sm)
+            }
+            .padding(Spacing.lg)
+            .background(Color.Wispflow.surface)
+            .cornerRadius(CornerRadius.medium)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(isPreviewingAudio ? Color.Wispflow.accent : Color.Wispflow.border, lineWidth: 1)
+            )
+        }
+    }
+    
+    // MARK: - Input Sensitivity Section
+    
+    /// Input sensitivity slider (US-703 Task 3)
+    private var inputSensitivitySection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "dial.low")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Input Sensitivity")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("Adjust the microphone sensitivity. Higher values pick up quieter sounds but may introduce background noise.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack {
+                    Text("Sensitivity")
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    Spacer()
+                    Text(String(format: "%.0f%%", inputGain * 100))
+                        .font(Font.Wispflow.mono)
+                        .foregroundColor(Color.Wispflow.accent)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xs)
+                        .background(Color.Wispflow.accentLight)
+                        .cornerRadius(CornerRadius.small / 2)
+                }
+                
+                // Custom slider for input gain
+                AudioSettingsSlider(value: $inputGain, range: 0.5...2.0)
+                    .frame(height: 8)
+                
+                HStack {
+                    Text("Low")
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    Spacer()
+                    Text("High")
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                }
+                
+                // Reset to default
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            inputGain = 1.0
+                        }
+                        print("[US-703] Input sensitivity reset to default")
+                    }) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Reset to Default")
+                        }
+                    }
+                    .buttonStyle(WispflowButtonStyle.ghost)
+                    .disabled(inputGain == 1.0)
+                }
+            }
+            .padding(Spacing.lg)
+            .background(Color.Wispflow.surface)
+            .cornerRadius(CornerRadius.medium)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(Color.Wispflow.border, lineWidth: 1)
+            )
+        }
+    }
+    
+    // MARK: - Calibration Section
+    
+    /// Audio level calibration controls (US-703 Task 4)
+    private var calibrationSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "tuningfork")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Audio Level Calibration")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("Calibrate your microphone for optimal silence detection in your environment. This helps WispFlow distinguish between ambient noise and speech.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Calibration status display
+            AudioSettingsCalibrationStatus(audioManager: audioManager)
+            
+            // Calibration action buttons
+            HStack(spacing: Spacing.md) {
+                // Calibrate button
+                Button(action: {
+                    print("[US-703] Calibrate button tapped")
+                    audioManager.startCalibration()
+                }) {
+                    HStack {
+                        if case .calibrating = audioManager.calibrationState {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .frame(width: 16, height: 16)
+                        } else {
+                            Image(systemName: "tuningfork")
+                        }
+                        Text(calibrateButtonText)
+                    }
+                }
+                .buttonStyle(WispflowButtonStyle.primary)
+                .disabled(isCalibrationDisabled)
+                
+                // Cancel button (shown during calibration)
+                if case .calibrating = audioManager.calibrationState {
+                    Button(action: {
+                        print("[US-703] Cancel calibration button tapped")
+                        audioManager.cancelCalibration()
+                    }) {
+                        HStack {
+                            Image(systemName: "xmark")
+                            Text("Cancel")
+                        }
+                    }
+                    .buttonStyle(WispflowButtonStyle.secondary)
+                }
+                
+                Spacer()
+                
+                // Reset to defaults button (shown if device is calibrated)
+                if audioManager.isCurrentDeviceCalibrated {
+                    Button(action: {
+                        print("[US-703] Reset to defaults button tapped")
+                        showResetCalibrationConfirmation = true
+                    }) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Reset to Defaults")
+                        }
+                    }
+                    .buttonStyle(WispflowButtonStyle.ghost)
+                    .disabled(isCalibrating)
+                }
+            }
+        }
+        .alert("Reset Calibration?", isPresented: $showResetCalibrationConfirmation) {
+            Button("Reset", role: .destructive) {
+                audioManager.resetCalibrationForCurrentDevice()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will reset the calibration for \(audioManager.currentDevice?.name ?? "this device") to the default threshold of \(String(format: "%.0f", AudioManager.silenceThreshold))dB.")
+        }
+    }
+    
+    // MARK: - Preview Control Methods
+    
+    private func togglePreview() {
+        print("[US-703] togglePreview() called, isPreviewingAudio=\(isPreviewingAudio)")
+        if isPreviewingAudio {
+            stopPreview()
+        } else {
+            startPreview()
+        }
+    }
+    
+    private func startPreview() {
+        print("[US-703] startPreview() called")
+        audioManager.requestMicrophonePermission { granted in
+            print("[US-703] Permission callback received, granted=\(granted)")
+            DispatchQueue.main.async {
+                guard granted else {
+                    print("[US-703] Audio preview blocked: microphone permission denied")
+                    self.isPreviewingAudio = false
+                    self.currentLevel = -60.0
+                    return
+                }
+                // Start audio capture for preview
+                do {
+                    print("[US-703] Starting audio capture...")
+                    try self.audioManager.startCapturing()
+                    self.isPreviewingAudio = true
+                    print("[US-703] Audio capture started successfully")
+                    
+                    // Start timer to read audio level at 20fps
+                    self.previewTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+                        // Apply gain to the visual level display
+                        let rawLevel = self.audioManager.currentAudioLevel
+                        let adjustedLevel = rawLevel + Float(20 * log10(max(self.inputGain, 0.001)))
+                        self.currentLevel = adjustedLevel
+                    }
+                    print("[US-703] Timer started for level updates")
+                } catch {
+                    print("[US-703] Failed to start audio preview: \(error)")
+                    self.isPreviewingAudio = false
+                    self.currentLevel = -60.0
+                }
+            }
+        }
+    }
+    
+    private func stopPreview() {
+        previewTimer?.invalidate()
+        previewTimer = nil
+        audioManager.cancelCapturing()
+        isPreviewingAudio = false
+        currentLevel = -60.0
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func levelColor(for level: Float) -> Color {
+        if level > -10 {
+            return Color.Wispflow.error // Clipping/too loud
+        } else if level > -30 {
+            return Color.Wispflow.success // Good level
+        } else if level > -50 {
+            return Color.Wispflow.warning // Quiet
+        } else {
+            return Color.Wispflow.textSecondary // Very quiet/silent
+        }
+    }
+    
+    private func levelStatus(for level: Float) -> String {
+        if level > -10 {
+            return "Too Loud"
+        } else if level > -30 {
+            return "Good"
+        } else if level > -50 {
+            return "Quiet"
+        } else {
+            return "Silent"
+        }
+    }
+    
+    private var calibrateButtonText: String {
+        switch audioManager.calibrationState {
+        case .idle:
+            return "Calibrate"
+        case .calibrating:
+            return "Calibrating..."
+        case .completed:
+            return "Recalibrate"
+        case .failed:
+            return "Retry Calibration"
+        }
+    }
+    
+    private var isCalibrationDisabled: Bool {
+        if case .calibrating = audioManager.calibrationState {
+            return true
+        }
+        return false
+    }
+    
+    private var isCalibrating: Bool {
+        if case .calibrating = audioManager.calibrationState {
+            return true
+        }
+        return false
+    }
+}
+
+// MARK: - Audio Settings Device Picker (US-703)
+
+/// Elegant dropdown picker for audio input devices with device icons
+/// US-703: Show audio input device picker dropdown in integrated settings
+struct AudioSettingsDevicePicker: View {
+    let devices: [AudioManager.AudioInputDevice]
+    let selectedDevice: AudioManager.AudioInputDevice?
+    let onDeviceSelected: (AudioManager.AudioInputDevice) -> Void
+    var audioManager: AudioManager? = nil
+    
+    @State private var isExpanded = false
+    @State private var isHovering = false
+    
+    /// Keywords that indicate low-quality devices for flagging
+    private static let lowQualityKeywords = [
+        "airpods", "airpod", "bluetooth", "beats", "headset", "hfp", "wireless"
+    ]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Selected device display / dropdown trigger
+            Button(action: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack(spacing: Spacing.md) {
+                    // Device icon
+                    Image(systemName: deviceIcon(for: selectedDevice))
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.Wispflow.accent)
+                        .frame(width: 24)
+                    
+                    // Device name
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: Spacing.xs) {
+                            Text(selectedDevice?.name ?? "No device selected")
+                                .font(Font.Wispflow.body)
+                                .foregroundColor(Color.Wispflow.textPrimary)
+                            
+                            // Warning icon for low-quality selected device
+                            if let device = selectedDevice, isLowQualityDevice(device) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color.Wispflow.warning)
+                                    .help(lowQualityWarningText(for: device))
+                            }
+                        }
+                        
+                        if let device = selectedDevice, device.isDefault {
+                            Text("System Default")
+                                .font(Font.Wispflow.small)
+                                .foregroundColor(Color.Wispflow.textSecondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    // Dropdown indicator
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .padding(Spacing.md)
+                .contentShape(Rectangle())
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .fill(isHovering ? Color.Wispflow.border.opacity(0.3) : Color.Wispflow.surface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .stroke(isExpanded ? Color.Wispflow.accent : Color.Wispflow.border, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isHovering = hovering
+                }
+            }
+            
+            // Dropdown list
+            if isExpanded {
+                VStack(spacing: 0) {
+                    ForEach(devices) { device in
+                        AudioSettingsDeviceRow(
+                            device: device,
+                            isSelected: device.uid == selectedDevice?.uid,
+                            isLowQuality: isLowQualityDevice(device),
+                            lowQualityReason: lowQualityWarningText(for: device),
+                            onSelect: {
+                                onDeviceSelected(device)
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    isExpanded = false
+                                }
+                            }
+                        )
+                    }
+                }
+                .background(Color.Wispflow.surface)
+                .cornerRadius(CornerRadius.medium)
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .stroke(Color.Wispflow.border, lineWidth: 1)
+                )
+                .wispflowShadow(.card)
+                .padding(.top, Spacing.xs)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+            }
+        }
+    }
+    
+    private func deviceIcon(for device: AudioManager.AudioInputDevice?) -> String {
+        guard let device = device else { return "mic.slash" }
+        let name = device.name.lowercased()
+        
+        if name.contains("airpod") {
+            return "airpodspro"
+        } else if name.contains("bluetooth") || name.contains("wireless") {
+            return "wave.3.right"
+        } else if name.contains("usb") {
+            return "cable.connector"
+        } else if name.contains("built-in") || name.contains("macbook") || name.contains("internal") {
+            return "laptopcomputer"
+        } else if name.contains("headphone") || name.contains("headset") {
+            return "headphones"
+        } else {
+            return "mic"
+        }
+    }
+    
+    /// Check if a device is flagged as low quality
+    private func isLowQualityDevice(_ device: AudioManager.AudioInputDevice) -> Bool {
+        if let manager = audioManager {
+            return manager.isLowQualityDevice(device)
+        }
+        let nameLower = device.name.lowercased()
+        return Self.lowQualityKeywords.contains { keyword in
+            nameLower.contains(keyword)
+        }
+    }
+    
+    /// Generate tooltip text explaining why device may have poor quality
+    private func lowQualityWarningText(for device: AudioManager.AudioInputDevice) -> String {
+        let nameLower = device.name.lowercased()
+        
+        if nameLower.contains("airpod") || nameLower.contains("airpods") {
+            return "AirPods use Bluetooth compression which may reduce transcription accuracy. Consider using a built-in or USB microphone for better results."
+        } else if nameLower.contains("beats") {
+            return "Beats headphones use Bluetooth compression which may reduce transcription accuracy. Consider using a built-in or USB microphone for better results."
+        } else if nameLower.contains("hfp") {
+            return "This device uses the Hands-Free Profile (HFP) which limits audio quality. Consider using a different microphone for better results."
+        } else if nameLower.contains("headset") {
+            return "Headset microphones may have limited audio quality. Consider using a built-in or USB microphone for better transcription accuracy."
+        } else if nameLower.contains("bluetooth") || nameLower.contains("wireless") {
+            return "Bluetooth audio devices may have reduced quality due to compression. Consider using a built-in or USB microphone for better transcription accuracy."
+        }
+        
+        return "This device may have reduced audio quality for voice transcription."
+    }
+}
+
+// MARK: - Audio Settings Device Row (US-703)
+
+/// Single row in the audio device picker dropdown
+struct AudioSettingsDeviceRow: View {
+    let device: AudioManager.AudioInputDevice
+    let isSelected: Bool
+    var isLowQuality: Bool = false
+    var lowQualityReason: String = ""
+    let onSelect: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: Spacing.md) {
+                // Device icon
+                Image(systemName: deviceIcon(for: device))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(isSelected ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
+                    .frame(width: 20)
+                
+                // Device name
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: Spacing.xs) {
+                        Text(device.name)
+                            .font(Font.Wispflow.body)
+                            .foregroundColor(isSelected ? Color.Wispflow.accent : Color.Wispflow.textPrimary)
+                        
+                        // Warning icon for low-quality devices
+                        if isLowQuality {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Color.Wispflow.warning)
+                                .help(lowQualityReason)
+                        }
+                    }
+                    
+                    if device.isDefault {
+                        Text("System Default")
+                            .font(Font.Wispflow.small)
+                            .foregroundColor(Color.Wispflow.textSecondary)
+                    } else if isLowQuality {
+                        Text("May reduce transcription accuracy")
+                            .font(Font.Wispflow.small)
+                            .foregroundColor(Color.Wispflow.warning)
+                    }
+                }
+                
+                Spacer()
+                
+                // Selected checkmark
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.Wispflow.accent)
+                }
+            }
+            .padding(Spacing.md)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .fill(isHovering ? Color.Wispflow.accentLight : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isHovering = hovering
+            }
+        }
+    }
+    
+    private func deviceIcon(for device: AudioManager.AudioInputDevice) -> String {
+        let name = device.name.lowercased()
+        
+        if name.contains("airpod") {
+            return "airpodspro"
+        } else if name.contains("bluetooth") || name.contains("wireless") {
+            return "wave.3.right"
+        } else if name.contains("usb") {
+            return "cable.connector"
+        } else if name.contains("built-in") || name.contains("macbook") || name.contains("internal") {
+            return "laptopcomputer"
+        } else if name.contains("headphone") || name.contains("headset") {
+            return "headphones"
+        } else {
+            return "mic"
+        }
+    }
+}
+
+// MARK: - Audio Settings Level Meter (US-703)
+
+/// Visual audio level meter with smooth animation
+struct AudioSettingsLevelMeter: View {
+    let level: Float
+    let isActive: Bool
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                // Background track
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .fill(Color.Wispflow.border)
+                
+                // Segmented level indicator
+                HStack(spacing: 2) {
+                    ForEach(0..<30, id: \.self) { index in
+                        let segmentLevel = -60.0 + (Double(index) * 2.0) // Each segment = 2dB
+                        let isLit = isActive && Double(level) >= segmentLevel
+                        
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(segmentColor(for: Float(segmentLevel), isLit: isLit))
+                            .opacity(isLit ? 1.0 : 0.15)
+                    }
+                }
+                .padding(Spacing.xs)
+            }
+        }
+    }
+    
+    private func segmentColor(for segmentLevel: Float, isLit: Bool) -> Color {
+        if segmentLevel > -10 {
+            return Color.Wispflow.error
+        } else if segmentLevel > -30 {
+            return Color.Wispflow.success
+        } else {
+            return Color.Wispflow.accent
+        }
+    }
+}
+
+// MARK: - Audio Settings Slider (US-703)
+
+/// Custom styled slider for input sensitivity
+struct AudioSettingsSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    
+    @State private var isDragging = false
+    
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let normalizedValue = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+            let thumbPosition = width * CGFloat(normalizedValue)
+            
+            ZStack(alignment: .leading) {
+                // Track background
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.Wispflow.border)
+                    .frame(height: 8)
+                
+                // Filled track
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.Wispflow.accent.opacity(0.7), Color.Wispflow.accent],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: max(0, thumbPosition), height: 8)
+                
+                // Thumb
+                Circle()
+                    .fill(Color.Wispflow.surface)
+                    .frame(width: 20, height: 20)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.Wispflow.accent, lineWidth: 2)
+                    )
+                    .shadow(color: Color.Wispflow.accent.opacity(isDragging ? 0.4 : 0.2), radius: isDragging ? 8 : 4)
+                    .scaleEffect(isDragging ? 1.1 : 1.0)
+                    .offset(x: thumbPosition - 10)
+            }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        isDragging = true
+                        let newValue = range.lowerBound + (range.upperBound - range.lowerBound) * Double(gesture.location.x / width)
+                        value = min(max(newValue, range.lowerBound), range.upperBound)
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                    }
+            )
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isDragging)
+        }
+    }
+}
+
+// MARK: - Audio Settings Calibration Status (US-703)
+
+/// Display calibration status and progress
+struct AudioSettingsCalibrationStatus: View {
+    @ObservedObject var audioManager: AudioManager
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            switch audioManager.calibrationState {
+            case .idle:
+                // Show current calibration status or default
+                if let calibration = audioManager.getCalibrationForCurrentDevice() {
+                    AudioSettingsCalibrationResult(calibration: calibration)
+                } else {
+                    AudioSettingsDefaultThreshold()
+                }
+                
+            case .calibrating(let progress):
+                AudioSettingsCalibrationProgress(progress: progress)
+                
+            case .completed(let ambientLevel):
+                AudioSettingsCalibrationCompleted(ambientLevel: ambientLevel, calibration: audioManager.getCalibrationForCurrentDevice())
+                
+            case .failed(let message):
+                AudioSettingsCalibrationFailed(message: message)
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.medium)
+                .stroke(Color.Wispflow.border, lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Audio Settings Calibration Result (US-703)
+
+/// Shows the current calibration result
+struct AudioSettingsCalibrationResult: View {
+    let calibration: AudioManager.DeviceCalibration
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Status icon
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.successLight)
+                    .frame(width: 36, height: 36)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.Wispflow.success)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text("Calibrated")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    // Status badge
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.Wispflow.success)
+                            .frame(width: 6, height: 6)
+                        Text("Active")
+                            .font(Font.Wispflow.small)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(Color.Wispflow.success)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(Color.Wispflow.success.opacity(0.12))
+                    .cornerRadius(CornerRadius.small / 2)
+                }
+                
+                HStack(spacing: Spacing.md) {
+                    AudioSettingsMetric(label: "Ambient", value: String(format: "%.1f dB", calibration.ambientNoiseLevel))
+                    AudioSettingsMetric(label: "Threshold", value: String(format: "%.1f dB", calibration.silenceThreshold))
+                }
+                
+                // Calibration date
+                Text("Last calibrated: \(formattedDate(calibration.calibrationDate))")
+                    .font(Font.Wispflow.small)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+        }
+    }
+    
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Audio Settings Default Threshold (US-703)
+
+/// Shows the default threshold when not calibrated
+struct AudioSettingsDefaultThreshold: View {
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Status icon
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.border.opacity(0.3))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "circle.dashed")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text("Not Calibrated")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    // Status badge
+                    Text("Using Default")
+                        .font(Font.Wispflow.small)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, 2)
+                        .background(Color.Wispflow.border.opacity(0.3))
+                        .cornerRadius(CornerRadius.small / 2)
+                }
+                
+                AudioSettingsMetric(label: "Default Threshold", value: String(format: "%.0f dB", AudioManager.silenceThreshold))
+                
+                Text("Calibrate to optimize for your environment")
+                    .font(Font.Wispflow.small)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Audio Settings Calibration Progress (US-703)
+
+/// Shows calibration progress
+struct AudioSettingsCalibrationProgress: View {
+    let progress: Double
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.md) {
+                // Animated mic icon
+                ZStack {
+                    Circle()
+                        .fill(Color.Wispflow.accentLight)
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "waveform")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(Color.Wispflow.accent)
+                }
+                
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("Measuring ambient noise...")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    Text("Please remain quiet for 3 seconds")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                }
+                
+                Spacer()
+                
+                Text("\(Int(progress * 100))%")
+                    .font(Font.Wispflow.mono)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Color.Wispflow.accent)
+            }
+            
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color.Wispflow.border)
+                    
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.Wispflow.accent.opacity(0.7), Color.Wispflow.accent],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(0, geometry.size.width * CGFloat(progress)))
+                        .animation(.easeOut(duration: 0.3), value: progress)
+                }
+            }
+            .frame(height: 8)
+        }
+    }
+}
+
+// MARK: - Audio Settings Calibration Completed (US-703)
+
+/// Shows calibration completed state
+struct AudioSettingsCalibrationCompleted: View {
+    let ambientLevel: Float
+    let calibration: AudioManager.DeviceCalibration?
+    
+    @State private var showCheckmark = false
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Success icon with animation
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.successLight)
+                    .frame(width: 36, height: 36)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.Wispflow.success)
+                    .scaleEffect(showCheckmark ? 1.0 : 0.5)
+                    .opacity(showCheckmark ? 1.0 : 0.0)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text("Calibration Complete!")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.success)
+                }
+                
+                if let cal = calibration {
+                    HStack(spacing: Spacing.md) {
+                        AudioSettingsMetric(label: "Ambient", value: String(format: "%.1f dB", cal.ambientNoiseLevel))
+                        AudioSettingsMetric(label: "New Threshold", value: String(format: "%.1f dB", cal.silenceThreshold))
+                    }
+                }
+            }
+            
+            Spacer()
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                showCheckmark = true
+            }
+        }
+    }
+}
+
+// MARK: - Audio Settings Calibration Failed (US-703)
+
+/// Shows calibration failed state
+struct AudioSettingsCalibrationFailed: View {
+    let message: String
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Error icon
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.errorLight)
+                    .frame(width: 36, height: 36)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.Wispflow.error)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("Calibration Failed")
+                    .font(Font.Wispflow.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.Wispflow.error)
+                
+                Text(message)
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Audio Settings Metric (US-703)
+
+/// Small metric display for calibration values
+struct AudioSettingsMetric: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            Text(label + ":")
+                .font(Font.Wispflow.small)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            Text(value)
+                .font(Font.Wispflow.mono)
+                .fontWeight(.medium)
+                .foregroundColor(Color.Wispflow.accent)
         }
     }
 }

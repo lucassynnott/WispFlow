@@ -1,0 +1,21 @@
+## Summary
+
+**US-702: Migrate General Settings Section** was already completed in a parallel run (run-20260115-115703-60368, commit 94ecaa9). This verification run confirmed:
+
+1. **Build verification passed** - `swift build` completed successfully
+2. **Implementation verified** in `Sources/WispFlow/MainWindow.swift`:
+   - `GeneralSettingsSummary` expanded from summary to full settings section
+   - App info header with WispFlow logo (waveform.circle.fill), version, and description
+   - GitHub, Website, Support link buttons via `GeneralSettingsLinkButton` component
+   - `GeneralSettingsHotkeyRecorder` with full recording UI, conflict detection, and modifier validation
+   - Startup section with Launch at Login toggle using SMAppService
+   - `GeneralSettingsPermissionRow` for Microphone and Accessibility permissions
+3. **All acceptance criteria met**:
+   - ✅ App info displays correctly
+   - ✅ Hotkey recording works
+   - ✅ Startup toggle functions
+   - ✅ All links open correctly
+
+**Commit**: `4dd9b23` (docs: add progress log for US-702 verification run)
+
+**Note**: There are 7 remaining unchecked stories (US-703 through US-709), so the PRD is NOT complete.
