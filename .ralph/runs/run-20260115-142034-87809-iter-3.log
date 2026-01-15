@@ -1,0 +1,16 @@
+**Summary:**
+
+US-803: Recent Transcriptions List has been completed and verified. The implementation includes:
+
+1. **Section Header**: "Recent Transcriptions" with `Font.Voxa.sectionHeaderItalic` (Playfair Display style serif italic font)
+2. **View All Link**: Button that posts `.navigateToHistory` notification to navigate to History tab
+3. **RecentTranscriptionItem Component**: Displays each transcription with:
+   - Icon: Context-aware icon (doc.text.fill or questionmark.bubble.fill) in accentLight background
+   - Title: Auto-generated from first sentence or first 8 words with ellipsis
+   - Subtitle: Word count and duration (e.g., "42 words • 15s")
+   - Timestamp: Relative date (Today, Yesterday, X days ago)
+4. **Hover States**: Title color changes from textPrimary to accent, background highlights with surfaceSecondary
+5. **Data Connection**: Shows up to 5 most recent entries from `UsageStatsManager.shared.recentEntries`
+6. **Empty State**: Displays when no transcriptions with waveform icon and hotkey hint
+
+The build passes successfully with commit `d472e51` fixing a duplicate struct issue from parallel runs. The IMPLEMENTATION_PLAN.md has been updated with US-803 marked as complete with detailed implementation notes.
