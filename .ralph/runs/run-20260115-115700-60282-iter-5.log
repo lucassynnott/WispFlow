@@ -1,0 +1,22 @@
+## Summary
+
+**US-705: Migrate Text Cleanup Settings Section** has been verified as complete.
+
+### What was verified:
+- **Implementation Commit:** `8df6cd0` - feat(US-705): Migrate Text Cleanup Settings Section to integrated settings view
+- **Build Status:** `swift build` passes ✓
+- **Working Tree:** clean
+
+### Acceptance Criteria (All Met):
+1. **✓ Cleanup toggle works** - Enable/disable toggle bound to `textCleanupManager.isCleanupEnabled` with StatusPill indicator
+2. **✓ Filler word options functional** - Card-based mode picker (`TextCleanupModeCard`) for Basic, Standard, Thorough, and AI-Powered modes showing filler words removed per mode
+3. **✓ Post-processing toggles persist** - Three `TextCleanupToggleRow` components for auto-capitalize, add period, and trim whitespace, all persisted via UserDefaults
+
+### Components Created:
+- `TextCleanupSettingsSummary` - Expanded to full settings section with 4 subsections
+- `TextCleanupModeCard` - Card-based cleanup mode selection with hover effects
+- `TextCleanupModeBadge` - Status badges for LLM Ready/Required
+- `TextCleanupToggleRow` - Toggle row for post-processing options
+- `TextCleanupPreviewText` - Preview text display with before/after comparison
+
+The story was completed in a previous parallel run. This iteration verified the implementation and updated the progress log.

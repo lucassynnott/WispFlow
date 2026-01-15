@@ -1,0 +1,26 @@
+US-705 is complete. Let me provide a summary:
+
+## Summary
+
+**US-705: Migrate Text Cleanup Settings Section** has been verified as complete.
+
+### What was implemented:
+The `TextCleanupSettingsSummary` view was expanded from a simple summary to a full settings section with four subsections:
+
+1. **Cleanup Toggle Section** - Enable/disable toggle with status badge
+2. **Filler Word Removal Section** - Card-based mode picker (Basic, Standard, Thorough, AI-Powered)
+3. **Post-Processing Section** - Three toggles (auto-capitalize, add period, trim whitespace)
+4. **Preview Section** - Before/after text comparison showing cleanup effects
+
+### Verification:
+- ✅ `swift build` - PASS
+- ✅ All acceptance criteria met:
+  - Cleanup toggle works
+  - Filler word options functional
+  - Post-processing toggles persist
+
+### Commits:
+- `8df6cd0` - Main implementation (feat: Migrate Text Cleanup Settings Section)
+- `b29741c` - Progress log documentation
+
+The working tree is clean. There are 4 remaining unchecked stories in the PRD (US-706, US-707, US-708, US-709), so the completion signal is not output.
