@@ -5143,3 +5143,80 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142045-88235-it
   - relativeTimeString helper provides human-readable time ago strings (just now, X minutes/hours ago, yesterday, X days ago, on MMM d)
   - UsageStatsManager.recentEntries provides access to last session timestamp
 ---
+
+
+## [2026-01-15 14:XX] - US-801: Home Dashboard Header with Time-Based Greeting (Verification)
+Thread: 
+Run: 20260115-142036-87912 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142036-87912-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142036-87912-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none (story already completed by parallel agent run-20260115-142047-88309)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build completes successfully in 0.12s)
+  - Command: `git status --porcelain` -> PASS (clean tree after prior commit)
+  - Command: `git show 4326ecb --stat` -> PASS (commit includes all US-801 changes)
+- Files changed: none (all changes already committed)
+- What was verified:
+  - US-801 fully implemented in commit 4326ecb
+  - Time-based greeting logic in `greetingMessage` computed property:
+    - morning (<12pm): "Good morning."
+    - afternoon (12pm-5pm): "Good afternoon."
+    - evening (>5pm): "Good evening."
+  - `lastSessionSubtitle` shows relative time since last transcription
+  - DASHBOARD label with `.tracking(4)` for wide letter-spacing
+  - Date in top-right formatted as "EEEE, MMMM d"
+  - System Active status badge with green dot indicator
+  - `Font.Voxa.displayGreeting` (52pt serif) for Playfair Display style
+  - `relativeTimeString(from:)` helper for human-readable time formatting
+  - All acceptance criteria verified:
+    - [x] Greeting changes based on time of day
+    - [x] Subtitle shows last session time
+    - [x] Header layout matches design
+- **Learnings for future iterations:**
+  - Parallel agents completed same story simultaneously
+  - Always verify commit history before making duplicate changes
+  - Phase 11 (Minimalist Dashboard UI Redesign) has 8 stories total: US-801 through US-808
+  - 7 remaining stories: US-802, US-803, US-804, US-805, US-806, US-807, US-808
+---
+
+## [2026-01-15 14:30] - US-801: Home Dashboard Header with Time-Based Greeting (Verification Run)
+Thread: 
+Run: 20260115-142054-88543 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142054-88543-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142054-88543-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none (story already completed by parallel agent in commit 4326ecb)
+- Post-commit status: clean (working tree clean)
+- Verification:
+  - Command: `swift build` -> PASS (build completes successfully in 0.12s)
+  - Command: `git status --porcelain` -> PASS (empty output, clean tree)
+- Files changed: none (all changes already committed)
+- What was verified:
+  - US-801 fully implemented in commit 4326ecb by another parallel agent
+  - Implementation plan shows `### [x] US-801: Home Dashboard Header with Time-Based Greeting` as complete
+  - All tasks checked: [x] for all 5 tasks
+  - All acceptance criteria checked: [x] for all 3 criteria
+  - Code verified in MainWindow.swift:
+    - welcomeSection (lines 422-472) with header layout
+    - greetingMessage (lines 480-488) with time-based logic (morning <12pm, afternoon 12-5pm, evening >5pm)
+    - lastSessionSubtitle (lines 498-507) with relative time formatting
+    - DASHBOARD label (lines 426-432) with uppercase tracking(4)
+    - Date and System Active status (lines 437-456)
+  - Font system verified in DesignSystem.swift:
+    - Font.Voxa.displayGreeting (52pt serif) for editorial Playfair Display style
+    - Font.Voxa.labelUppercase (11pt medium) for DASHBOARD label
+    - Font.Voxa.sectionHeaderItalic (18pt serif italic) for section headers
+  - Acceptance criteria verified:
+    - [x] Greeting changes based on time of day (morning/afternoon/evening)
+    - [x] Subtitle shows last session time with relative formatting
+    - [x] Header layout matches minimalist design spec
+- **Learnings for future iterations:**
+  - Parallel agents completed this story - always check git log first
+  - System serif design font (.serif) provides elegant editorial appearance similar to Playfair Display without requiring custom font installation
+  - US-801 is the first story in Phase 11 (Minimalist Dashboard UI Redesign)
+  - Project was renamed from WispFlow to Voxa - all sources now in Sources/Voxa/
+---
