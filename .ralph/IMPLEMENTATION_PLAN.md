@@ -1964,8 +1964,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-707: Migrate Debug Settings Section
-**Status:** open
+### [x] US-707: Migrate Debug Settings Section
+**Status:** complete
 **Priority:** medium
 **Estimated effort:** small
 **Depends on:** US-701
@@ -1973,17 +1973,48 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Move Debug settings to integrated settings view.
 
 **Tasks:**
-- [ ] Show log level selector
-- [ ] Include Export Logs button
-- [ ] Display Open Recordings Folder button
-- [ ] Show system info
-- [ ] Add Reset All Settings option
+- [x] Show log level selector
+- [x] Include Export Logs button
+- [x] Display Open Recordings Folder button
+- [x] Show system info
+- [x] Add Reset All Settings option
 
 **Acceptance Criteria:**
-- [ ] Log level selection works
-- [ ] Export logs creates file
-- [ ] Folder buttons open Finder
-- [ ] Reset with confirmation
+- [x] Log level selection works
+- [x] Export logs creates file
+- [x] Folder buttons open Finder
+- [x] Reset with confirmation
+
+**Implementation Notes:**
+- Updated `DebugManager.swift` with US-707 features:
+  - Added `LogLevel` enum with four levels: Verbose, Info, Warning, Error
+  - Each level has icon, description, and priority properties
+  - Added `SystemInfo` struct for gathering system information:
+    - App version and build number from Bundle
+    - macOS version from ProcessInfo
+    - Machine model via sysctlbyname("hw.model")
+    - Processor info via sysctlbyname("machdep.cpu.brand_string")
+    - Memory size from physicalMemory
+  - Added `selectedLogLevel` @Published property with UserDefaults persistence
+  - Added `exportLogs()` method with NSSavePanel for file export
+  - Log export includes system info header and all log entries
+  - Added `resetAllSettings()` method to clear all WispFlow UserDefaults keys
+  - Added `getSystemInfo()` helper method
+- Updated `DebugSettingsView` in `SettingsWindow.swift`:
+  - Added `showResetConfirmation`, `showLogExportSuccess`, `logExportMessage` state variables
+  - Added Log Level Selector card with `LogLevelPicker` component
+  - Added Export Logs button in Debug Tools card
+  - Added Open Recordings Folder button (always visible)
+  - Added `SystemInfoCard` component displaying all system info with Copy button
+  - Added Reset All Settings card with confirmation alert
+- Created new UI components:
+  - `LogLevelPicker` - vertical list of selectable log levels
+  - `LogLevelPickerRow` - individual level row with icon, title, description, radio indicator
+  - `SystemInfoCard` - displays system info with Copy to clipboard button
+  - `SystemInfoRow` - single row with label and value
+- All components use existing design system: `Color.Wispflow`, `Font.Wispflow`, `Spacing`, `CornerRadius`
+- Reset confirmation uses SwiftUI alert with Cancel/Reset buttons
+- Verified via `swift build` - typecheck passes
 
 ---
 

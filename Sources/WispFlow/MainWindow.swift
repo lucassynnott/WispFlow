@@ -7193,24 +7193,84 @@ struct TextInsertionFeatureRow: View {
     }
 }
 
-// MARK: - Debug Settings Summary (US-701)
+// MARK: - Debug Settings Summary (US-701, US-707)
 
-/// Summary view for Debug settings section
+/// Full Debug settings section migrated from SettingsWindow
+/// US-707: Migrate Debug Settings Section to integrated settings view
 struct DebugSettingsSummary: View {
     @StateObject private var debugManager = DebugManager.shared
+    @State private var showResetConfirmation = false
+    @State private var showExportSuccess = false
+    @State private var exportMessage = ""
+    @State private var exportedFilePath: String? = nil
+    @State private var isPlayingAudio = false
+    @State private var selectedLogLevel: DebugLogLevel = .info
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            // Debug mode status
-            HStack(spacing: Spacing.md) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            // MARK: - Debug Mode Section
+            debugModeSection
+            
+            // MARK: - Log Level Section (US-707 Task 1)
+            logLevelSection
+            
+            // MARK: - Debug Actions Section (US-707 Tasks 2, 3)
+            debugActionsSection
+            
+            // MARK: - System Info Section (US-707 Task 4)
+            systemInfoSection
+            
+            // MARK: - Last Recording Section
+            lastRecordingSection
+            
+            // MARK: - Reset Settings Section (US-707 Task 5)
+            resetSettingsSection
+        }
+        .alert("Export Result", isPresented: $showExportSuccess) {
+            Button("OK", role: .cancel) {}
+            if let _ = exportedFilePath {
+                Button("Show in Finder") {
+                    AudioExporter.shared.revealLastExportInFinder()
+                }
+                Button("Play Audio") {
+                    togglePlayback()
+                }
+            }
+        } message: {
+            Text(exportMessage)
+        }
+        .alert("Reset All Settings?", isPresented: $showResetConfirmation) {
+            Button("Reset", role: .destructive) {
+                resetAllSettings()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will reset all WispFlow settings to their default values. This action cannot be undone.")
+        }
+        .onAppear {
+            // Set up playback completion callback
+            AudioExporter.shared.onPlaybackComplete = {
+                isPlayingAudio = false
+            }
+            // Load last exported path if available
+            if let url = AudioExporter.shared.lastExportedURL {
+                exportedFilePath = url.path
+            }
+        }
+    }
+    
+    // MARK: - Debug Mode Section
+    
+    /// Debug mode toggle and associated options
+    private var debugModeSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: "ladybug")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.Wispflow.textSecondary)
-                    .frame(width: 20)
-                
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
                 Text("Debug Mode")
-                    .font(Font.Wispflow.body)
-                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
                 
                 Spacer()
                 
@@ -7220,38 +7280,738 @@ struct DebugSettingsSummary: View {
                 )
             }
             
-            // Auto-save recordings
+            Toggle("Enable Debug Mode", isOn: $debugManager.isDebugModeEnabled)
+                .toggleStyle(WispflowToggleStyle())
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            Text("When enabled, WispFlow will log detailed information about audio capture, transcription, and text cleanup. Use this to troubleshoot issues.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Debug sub-options (only visible when debug mode is enabled)
             if debugManager.isDebugModeEnabled {
+                Divider()
+                    .background(Color.Wispflow.border)
+                
+                // Silence detection override
+                DebugSettingsToggleRow(
+                    icon: "speaker.slash",
+                    title: "Disable Silence Detection",
+                    description: "Audio will not be rejected for being too quiet. Useful for testing with silent recordings.",
+                    isOn: $debugManager.isSilenceDetectionDisabled
+                )
+                
+                Divider()
+                    .background(Color.Wispflow.border)
+                
+                // Auto-save recordings toggle
+                DebugSettingsToggleRow(
+                    icon: "arrow.down.doc",
+                    title: "Auto-Save Recordings",
+                    description: "Each recording will be saved to Documents/WispFlow/DebugRecordings/ for analysis.",
+                    isOn: $debugManager.isAutoSaveEnabled
+                )
+            }
+        }
+    }
+    
+    // MARK: - Log Level Section (US-707 Task 1)
+    
+    /// Log level selector
+    private var logLevelSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "list.bullet.rectangle")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Log Level")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("Select the verbosity of debug logging. Higher levels include more detailed information.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Log level picker
+            DebugLogLevelPicker(selectedLevel: $selectedLogLevel)
+                .opacity(debugManager.isDebugModeEnabled ? 1.0 : 0.5)
+            
+            if !debugManager.isDebugModeEnabled {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    Text("Enable Debug Mode to configure log level")
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Debug Actions Section (US-707 Tasks 2, 3)
+    
+    /// Export logs and open recordings folder buttons
+    private var debugActionsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "square.and.arrow.up")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Debug Actions")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            // Action buttons row
+            HStack(spacing: Spacing.md) {
+                // Export Logs button (US-707 Task 2)
+                Button(action: exportLogs) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "doc.text")
+                        Text("Export Logs")
+                    }
+                }
+                .buttonStyle(WispflowButtonStyle.secondary)
+                .disabled(!debugManager.isDebugModeEnabled || debugManager.logEntries.isEmpty)
+                
+                // Open Recordings Folder button (US-707 Task 3)
+                Button(action: {
+                    AudioExporter.shared.openDebugRecordingsFolder()
+                    print("[US-707] Open Recordings Folder button clicked")
+                }) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "folder")
+                        Text("Open Recordings Folder")
+                    }
+                }
+                .buttonStyle(WispflowButtonStyle.secondary)
+            }
+            
+            // Additional action buttons (when debug mode is enabled)
+            if debugManager.isDebugModeEnabled && debugManager.lastRawAudioData != nil {
                 HStack(spacing: Spacing.md) {
-                    Image(systemName: "arrow.down.doc")
+                    // Export last audio
+                    Button(action: quickExportToDocuments) {
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "waveform.badge.plus")
+                            Text("Export Last Audio")
+                        }
+                    }
+                    .buttonStyle(WispflowButtonStyle.secondary)
+                    
+                    // Playback button (if there's an exported file)
+                    if AudioExporter.shared.lastExportedURL != nil {
+                        Button(action: togglePlayback) {
+                            HStack(spacing: Spacing.sm) {
+                                Image(systemName: isPlayingAudio ? "stop.fill" : "play.fill")
+                                Text(isPlayingAudio ? "Stop" : "Play")
+                            }
+                        }
+                        .buttonStyle(WispflowButtonStyle(variant: isPlayingAudio ? .ghost : .secondary))
+                        
+                        // Show in Finder
+                        Button(action: {
+                            AudioExporter.shared.revealLastExportInFinder()
+                            print("[US-707] Show in Finder button clicked")
+                        }) {
+                            HStack(spacing: Spacing.sm) {
+                                Image(systemName: "folder.badge.questionmark")
+                                Text("Show in Finder")
+                            }
+                        }
+                        .buttonStyle(WispflowButtonStyle.secondary)
+                    }
+                }
+            }
+            
+            // Last export path
+            if let path = exportedFilePath {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("Last Export:")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    Text(path)
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.accent)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+                .padding(.top, Spacing.sm)
+            }
+            
+            if !debugManager.isDebugModeEnabled {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    Text("Enable Debug Mode to access export features")
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                }
+                .padding(.top, Spacing.xs)
+            }
+        }
+    }
+    
+    // MARK: - System Info Section (US-707 Task 4)
+    
+    /// System information display
+    private var systemInfoSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("System Info")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            // System info grid
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                DebugSystemInfoRow(label: "App Version", value: appVersion)
+                DebugSystemInfoRow(label: "Build Number", value: buildNumber)
+                DebugSystemInfoRow(label: "macOS Version", value: macOSVersion)
+                DebugSystemInfoRow(label: "Model Identifier", value: machineModel)
+                DebugSystemInfoRow(label: "Available Memory", value: availableMemory)
+            }
+            .padding(Spacing.md)
+            .background(Color.Wispflow.surface)
+            .cornerRadius(CornerRadius.medium)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(Color.Wispflow.border, lineWidth: 1)
+            )
+        }
+    }
+    
+    // MARK: - Last Recording Section
+    
+    /// Display last recording information
+    private var lastRecordingSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "waveform")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Last Recording")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            if let audioData = debugManager.lastAudioData {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    HStack(spacing: Spacing.lg) {
+                        DebugRecordingMetric(
+                            icon: "clock",
+                            label: "Duration",
+                            value: String(format: "%.2fs", audioData.duration)
+                        )
+                        
+                        DebugRecordingMetric(
+                            icon: "speaker.wave.2",
+                            label: "Peak Level",
+                            value: String(format: "%.1f dB", audioData.peakLevel),
+                            color: audioData.peakLevel > -55 ? Color.Wispflow.success : Color.Wispflow.warning
+                        )
+                        
+                        DebugRecordingMetric(
+                            icon: "waveform.path",
+                            label: "Samples",
+                            value: "\(audioData.samples.count)"
+                        )
+                    }
+                    
+                    // Mini waveform
+                    DebugCompactWaveformView(
+                        samples: audioData.samples,
+                        sampleRate: audioData.sampleRate
+                    )
+                    .frame(height: 50)
+                    .padding(.top, Spacing.xs)
+                }
+                .padding(Spacing.md)
+                .background(Color.Wispflow.surface)
+                .cornerRadius(CornerRadius.medium)
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .stroke(Color.Wispflow.border, lineWidth: 1)
+                )
+            } else {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "waveform.slash")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.Wispflow.textTertiary)
+                    Text("No recording data available")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                }
+                .padding(Spacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.Wispflow.surface)
+                .cornerRadius(CornerRadius.medium)
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .stroke(Color.Wispflow.border, lineWidth: 1)
+                )
+            }
+        }
+    }
+    
+    // MARK: - Reset Settings Section (US-707 Task 5)
+    
+    /// Reset all settings option
+    private var resetSettingsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "arrow.counterclockwise")
+                    .foregroundColor(Color.Wispflow.error)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Reset Settings")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("Reset all WispFlow settings to their default values. This cannot be undone.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            Button(action: {
+                showResetConfirmation = true
+                print("[US-707] Reset All Settings button clicked")
+            }) {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "arrow.counterclockwise")
+                    Text("Reset All Settings")
+                }
+            }
+            .buttonStyle(WispflowButtonStyle(variant: .ghost))
+            .foregroundColor(Color.Wispflow.error)
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Toggle audio playback
+    private func togglePlayback() {
+        if isPlayingAudio {
+            AudioExporter.shared.stopPlayback()
+            isPlayingAudio = false
+        } else {
+            if AudioExporter.shared.playLastExport() {
+                isPlayingAudio = true
+            }
+        }
+        print("[US-707] Toggle playback: \(isPlayingAudio ? "playing" : "stopped")")
+    }
+    
+    /// Quick export to Documents folder
+    private func quickExportToDocuments() {
+        guard let audioData = debugManager.lastRawAudioData else {
+            exportMessage = "No audio data available to export"
+            showExportSuccess = true
+            return
+        }
+        
+        let result = AudioExporter.shared.exportToDocuments(
+            audioData: audioData,
+            sampleRate: debugManager.lastRawAudioSampleRate
+        )
+        
+        switch result {
+        case .success(let url):
+            exportMessage = "Audio exported successfully to:\n\(url.path)"
+            exportedFilePath = url.path
+            print("[US-707] Audio exported to: \(url.path)")
+        case .noAudioData:
+            exportMessage = "No audio data available to export"
+        case .exportFailed(let error):
+            exportMessage = "Export failed: \(error)"
+        }
+        showExportSuccess = true
+    }
+    
+    /// Export logs to file (US-707 Task 2)
+    private func exportLogs() {
+        let logsText = debugManager.getAllLogsFormatted()
+        
+        guard !logsText.isEmpty else {
+            exportMessage = "No logs available to export"
+            showExportSuccess = true
+            return
+        }
+        
+        DispatchQueue.main.async {
+            let savePanel = NSSavePanel()
+            savePanel.title = "Export Debug Logs"
+            savePanel.nameFieldStringValue = generateLogsFilename()
+            savePanel.allowedContentTypes = [.plainText]
+            savePanel.canCreateDirectories = true
+            savePanel.message = "Choose a location to save the debug logs"
+            
+            savePanel.begin { response in
+                if response == .OK, let url = savePanel.url {
+                    do {
+                        try logsText.write(to: url, atomically: true, encoding: .utf8)
+                        exportMessage = "Logs exported successfully to:\n\(url.path)"
+                        exportedFilePath = url.path
+                        print("[US-707] Logs exported to: \(url.path)")
+                    } catch {
+                        exportMessage = "Failed to export logs: \(error.localizedDescription)"
+                    }
+                    showExportSuccess = true
+                }
+            }
+        }
+    }
+    
+    /// Generate a default logs filename with timestamp
+    private func generateLogsFilename() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = formatter.string(from: Date())
+        return "WispFlow_Logs_\(timestamp).txt"
+    }
+    
+    /// Reset all settings to defaults (US-707 Task 5)
+    private func resetAllSettings() {
+        print("[US-707] Resetting all settings to defaults...")
+        
+        // Reset debug settings
+        debugManager.isDebugModeEnabled = false
+        debugManager.isSilenceDetectionDisabled = false
+        debugManager.isAutoSaveEnabled = false
+        
+        // Reset text cleanup settings
+        TextCleanupManager.shared.isCleanupEnabled = true
+        TextCleanupManager.shared.selectedMode = .standard
+        TextCleanupManager.shared.autoCapitalizeFirstLetter = true
+        TextCleanupManager.shared.addPeriodAtEnd = true
+        TextCleanupManager.shared.trimWhitespace = true
+        
+        // Reset text insertion settings
+        TextInserter.shared.preserveClipboard = true
+        TextInserter.shared.clipboardRestoreDelay = 0.8
+        
+        // Reset hotkey to default
+        HotkeyManager.shared.resetToDefault()
+        
+        // Reset log level
+        selectedLogLevel = .info
+        
+        print("[US-707] All settings have been reset to defaults")
+    }
+    
+    // MARK: - System Info Properties
+    
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+    }
+    
+    private var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+    }
+    
+    private var macOSVersion: String {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
+    }
+    
+    private var machineModel: String {
+        var size = 0
+        sysctlbyname("hw.model", nil, &size, nil, 0)
+        var model = [CChar](repeating: 0, count: size)
+        sysctlbyname("hw.model", &model, &size, nil, 0)
+        return String(cString: model)
+    }
+    
+    private var availableMemory: String {
+        let totalMemory = ProcessInfo.processInfo.physicalMemory
+        let totalGB = Double(totalMemory) / (1024 * 1024 * 1024)
+        return String(format: "%.1f GB", totalGB)
+    }
+}
+
+// MARK: - Debug Log Level Enum (US-707)
+
+/// Log level options for debug logging
+/// US-707 Task 1: Log level selector
+enum DebugLogLevel: String, CaseIterable, Identifiable {
+    case verbose = "verbose"
+    case debug = "debug"
+    case info = "info"
+    case warning = "warning"
+    case error = "error"
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .verbose: return "Verbose"
+        case .debug: return "Debug"
+        case .info: return "Info"
+        case .warning: return "Warning"
+        case .error: return "Error"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .verbose: return "All messages including trace information"
+        case .debug: return "Debug and higher priority messages"
+        case .info: return "Info and higher priority messages"
+        case .warning: return "Warning and error messages only"
+        case .error: return "Error messages only"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .verbose: return "text.magnifyingglass"
+        case .debug: return "ladybug"
+        case .info: return "info.circle"
+        case .warning: return "exclamationmark.triangle"
+        case .error: return "xmark.circle"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .verbose: return Color.Wispflow.textSecondary
+        case .debug: return Color.Wispflow.info
+        case .info: return Color.Wispflow.success
+        case .warning: return Color.Wispflow.warning
+        case .error: return Color.Wispflow.error
+        }
+    }
+}
+
+// MARK: - Debug Log Level Picker (US-707)
+
+/// Picker for selecting log verbosity level
+/// US-707 Task 1: Log level selection works
+struct DebugLogLevelPicker: View {
+    @Binding var selectedLevel: DebugLogLevel
+    
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            ForEach(DebugLogLevel.allCases) { level in
+                DebugLogLevelRow(
+                    level: level,
+                    isSelected: selectedLevel == level,
+                    onSelect: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedLevel = level
+                        }
+                        print("[US-707] Log level selected: \(level.rawValue)")
+                    }
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Debug Log Level Row (US-707)
+
+/// Single row in the log level picker
+struct DebugLogLevelRow: View {
+    let level: DebugLogLevel
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: Spacing.md) {
+                // Level icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.small)
+                        .fill(isSelected ? level.color.opacity(0.2) : Color.Wispflow.border.opacity(0.3))
+                        .frame(width: 36, height: 36)
+                    
+                    Image(systemName: level.icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(isSelected ? level.color : Color.Wispflow.textSecondary)
+                }
+                
+                // Level info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(level.displayName)
+                        .font(Font.Wispflow.body)
+                        .fontWeight(isSelected ? .medium : .regular)
+                        .foregroundColor(isSelected ? Color.Wispflow.textPrimary : Color.Wispflow.textSecondary)
+                    
+                    Text(level.description)
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textTertiary)
+                }
+                
+                Spacer()
+                
+                // Selection indicator
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? level.color : Color.Wispflow.border, lineWidth: 2)
+                        .frame(width: 20, height: 20)
+                    
+                    if isSelected {
+                        Circle()
+                            .fill(level.color)
+                            .frame(width: 12, height: 12)
+                    }
+                }
+            }
+            .padding(Spacing.sm)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .fill(isHovering ? Color.Wispflow.border.opacity(0.2) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .stroke(isSelected ? level.color.opacity(0.5) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
+// MARK: - Debug Settings Toggle Row (US-707)
+
+/// Toggle row for debug settings options
+struct DebugSettingsToggleRow: View {
+    let icon: String
+    let title: String
+    let description: String
+    @Binding var isOn: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Toggle(isOn: $isOn) {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: icon)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Color.Wispflow.textSecondary)
                         .frame(width: 20)
                     
-                    Text("Auto-Save Recordings")
+                    Text(title)
                         .font(Font.Wispflow.body)
-                        .foregroundColor(Color.Wispflow.textSecondary)
-                    
-                    Spacer()
-                    
-                    StatusPill(
-                        text: debugManager.isAutoSaveEnabled ? "Enabled" : "Disabled",
-                        color: debugManager.isAutoSaveEnabled ? Color.Wispflow.success : Color.Wispflow.textTertiary
-                    )
+                        .foregroundColor(Color.Wispflow.textPrimary)
                 }
             }
+            .toggleStyle(WispflowToggleStyle())
             
-            // Last recording info
-            if let lastAudio = debugManager.lastAudioData {
-                SettingsInfoRow(
-                    icon: "waveform",
-                    title: "Last Recording",
-                    value: String(format: "%.1fs • %.0f dB", lastAudio.duration, lastAudio.peakLevel)
-                )
+            Text(description)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .padding(.leading, 28) // Align with title text
+        }
+    }
+}
+
+// MARK: - Debug System Info Row (US-707)
+
+/// Single row displaying system information
+/// US-707 Task 4: Show system info
+struct DebugSystemInfoRow: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(Font.Wispflow.mono)
+                .foregroundColor(Color.Wispflow.textPrimary)
+        }
+    }
+}
+
+// MARK: - Debug Recording Metric (US-707)
+
+/// Metric display for last recording info
+struct DebugRecordingMetric: View {
+    let icon: String
+    let label: String
+    let value: String
+    var color: Color = Color.Wispflow.textPrimary
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                Text(label)
+                    .font(Font.Wispflow.small)
+                    .foregroundColor(Color.Wispflow.textSecondary)
             }
             
-            // Open full settings button
-            SettingsOpenFullButton()
+            Text(value)
+                .font(Font.Wispflow.body)
+                .fontWeight(.medium)
+                .foregroundColor(color)
+        }
+    }
+}
+
+// MARK: - Debug Compact Waveform View (US-707)
+
+/// Compact waveform visualization for debug settings
+struct DebugCompactWaveformView: View {
+    let samples: [Float]
+    let sampleRate: Double
+    
+    var body: some View {
+        GeometryReader { geometry in
+            let barWidth: CGFloat = 2
+            let barSpacing: CGFloat = 1
+            let totalBarWidth = barWidth + barSpacing
+            let numberOfBars = Int(geometry.size.width / totalBarWidth)
+            let samplesPerBar = max(1, samples.count / numberOfBars)
+            
+            HStack(alignment: .center, spacing: barSpacing) {
+                ForEach(0..<numberOfBars, id: \.self) { index in
+                    let startIndex = index * samplesPerBar
+                    let endIndex = min(startIndex + samplesPerBar, samples.count)
+                    let barSamples = Array(samples[startIndex..<endIndex])
+                    
+                    // Calculate RMS for this bar segment
+                    let rms = sqrt(barSamples.map { $0 * $0 }.reduce(0, +) / Float(barSamples.count))
+                    let normalizedHeight = CGFloat(min(1.0, rms * 3)) // Scale up for visibility
+                    
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(barColor(for: rms))
+                        .frame(width: barWidth, height: max(2, geometry.size.height * normalizedHeight))
+                }
+            }
+            .frame(height: geometry.size.height, alignment: .center)
+        }
+    }
+    
+    private func barColor(for rms: Float) -> Color {
+        if rms > 0.5 {
+            return Color.Wispflow.error
+        } else if rms > 0.1 {
+            return Color.Wispflow.success
+        } else if rms > 0.01 {
+            return Color.Wispflow.accent
+        } else {
+            return Color.Wispflow.textTertiary
         }
     }
 }

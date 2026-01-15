@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import AppKit
+import UniformTypeIdentifiers
 
 /// Manages debug mode state and provides shared access to debug functionality
 /// Handles debug mode persistence and provides debug data storage
@@ -7,6 +9,56 @@ import Combine
 final class DebugManager: ObservableObject {
     
     // MARK: - Types
+    
+    /// US-707: Log level for debug output filtering
+    enum LogLevel: String, CaseIterable, Identifiable {
+        case verbose = "Verbose"
+        case info = "Info"
+        case warning = "Warning"
+        case error = "Error"
+        
+        var id: String { rawValue }
+        
+        /// Icon for this log level
+        var icon: String {
+            switch self {
+            case .verbose: return "text.alignleft"
+            case .info: return "info.circle"
+            case .warning: return "exclamationmark.triangle"
+            case .error: return "xmark.circle"
+            }
+        }
+        
+        /// Color for this log level
+        var colorName: String {
+            switch self {
+            case .verbose: return "textTertiary"
+            case .info: return "info"
+            case .warning: return "warning"
+            case .error: return "error"
+            }
+        }
+        
+        /// Description for this log level
+        var description: String {
+            switch self {
+            case .verbose: return "All debug output including detailed traces"
+            case .info: return "General information and progress messages"
+            case .warning: return "Warnings and potential issues"
+            case .error: return "Errors and critical failures only"
+            }
+        }
+        
+        /// Numeric priority (lower = more verbose)
+        var priority: Int {
+            switch self {
+            case .verbose: return 0
+            case .info: return 1
+            case .warning: return 2
+            case .error: return 3
+            }
+        }
+    }
     
     /// Debug log entry for display
     struct LogEntry: Identifiable, Equatable {
@@ -56,12 +108,81 @@ final class DebugManager: ObservableObject {
         let modelUsed: String
     }
     
+    // MARK: - US-707: System Info
+    
+    /// System information for debugging
+    struct SystemInfo {
+        let appVersion: String
+        let buildNumber: String
+        let macOSVersion: String
+        let machineModel: String
+        let processorInfo: String
+        let memorySize: String
+        
+        /// Get current system information
+        static func current() -> SystemInfo {
+            // App version
+            let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+            let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+            
+            // macOS version
+            let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+            let macOSVersion = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+            
+            // Machine model (e.g., "MacBookPro18,3")
+            var machineModel = "Unknown"
+            var size = 0
+            sysctlbyname("hw.model", nil, &size, nil, 0)
+            if size > 0 {
+                var model = [CChar](repeating: 0, count: size)
+                sysctlbyname("hw.model", &model, &size, nil, 0)
+                machineModel = String(cString: model)
+            }
+            
+            // Processor info
+            var processorInfo = "Unknown"
+            size = 0
+            sysctlbyname("machdep.cpu.brand_string", nil, &size, nil, 0)
+            if size > 0 {
+                var brand = [CChar](repeating: 0, count: size)
+                sysctlbyname("machdep.cpu.brand_string", &brand, &size, nil, 0)
+                processorInfo = String(cString: brand)
+            }
+            
+            // Memory size
+            let memoryBytes = ProcessInfo.processInfo.physicalMemory
+            let memoryGB = Double(memoryBytes) / (1024 * 1024 * 1024)
+            let memorySize = String(format: "%.0f GB", memoryGB)
+            
+            return SystemInfo(
+                appVersion: appVersion,
+                buildNumber: buildNumber,
+                macOSVersion: macOSVersion,
+                machineModel: machineModel,
+                processorInfo: processorInfo,
+                memorySize: memorySize
+            )
+        }
+        
+        /// Formatted string for clipboard/export
+        var formattedString: String {
+            return """
+            WispFlow v\(appVersion) (Build \(buildNumber))
+            macOS \(macOSVersion)
+            Model: \(machineModel)
+            Processor: \(processorInfo)
+            Memory: \(memorySize)
+            """
+        }
+    }
+    
     // MARK: - Constants
     
     private struct Constants {
         static let debugModeKey = "debugModeEnabled"
         static let silenceDetectionDisabledKey = "silenceDetectionDisabled"
         static let autoSaveRecordingsKey = "autoSaveRecordingsEnabled"
+        static let logLevelKey = "debugLogLevel"  // US-707
         static let maxLogEntries = 500
     }
     
@@ -111,6 +232,14 @@ final class DebugManager: ObservableObject {
         }
     }
     
+    /// US-707: Selected log level for filtering debug output
+    @Published var selectedLogLevel: LogLevel {
+        didSet {
+            UserDefaults.standard.set(selectedLogLevel.rawValue, forKey: Constants.logLevelKey)
+            addLogEntry(category: .system, message: "Log level changed to \(selectedLogLevel.rawValue)")
+        }
+    }
+    
     /// Log entries for the debug window
     @Published private(set) var logEntries: [LogEntry] = []
     
@@ -137,6 +266,14 @@ final class DebugManager: ObservableObject {
         isDebugModeEnabled = UserDefaults.standard.bool(forKey: Constants.debugModeKey)
         isSilenceDetectionDisabled = UserDefaults.standard.bool(forKey: Constants.silenceDetectionDisabledKey)
         isAutoSaveEnabled = UserDefaults.standard.bool(forKey: Constants.autoSaveRecordingsKey)
+        
+        // US-707: Load log level from UserDefaults
+        if let logLevelString = UserDefaults.standard.string(forKey: Constants.logLevelKey),
+           let logLevel = LogLevel(rawValue: logLevelString) {
+            selectedLogLevel = logLevel
+        } else {
+            selectedLogLevel = .info
+        }
         
         // Add initial log entry
         addLogEntry(category: .system, message: "Debug manager initialized")
@@ -293,5 +430,150 @@ final class DebugManager: ObservableObject {
     /// Get all logs as formatted text
     func getAllLogsFormatted() -> String {
         return logEntries.map { formatLogEntry($0) }.joined(separator: "\n\n")
+    }
+    
+    // MARK: - US-707: Export Logs
+    
+    /// Export error type for log export operations
+    enum ExportError: Error, LocalizedError {
+        case cancelled
+        case writeFailed(String)
+        
+        var errorDescription: String? {
+            switch self {
+            case .cancelled:
+                return "Export cancelled"
+            case .writeFailed(let message):
+                return "Failed to export logs: \(message)"
+            }
+        }
+    }
+    
+    /// Export all logs to a file with save panel
+    /// - Parameter completion: Called with the result (file URL or error)
+    func exportLogs(completion: @escaping (Result<URL, ExportError>) -> Void) {
+        let logsContent = generateExportContent()
+        
+        DispatchQueue.main.async {
+            let savePanel = NSSavePanel()
+            savePanel.title = "Export Logs"
+            savePanel.nameFieldStringValue = self.generateLogFilename()
+            savePanel.allowedContentTypes = [.plainText]
+            savePanel.canCreateDirectories = true
+            savePanel.message = "Choose a location to save the debug logs"
+            
+            savePanel.begin { response in
+                if response == .OK, let url = savePanel.url {
+                    do {
+                        try logsContent.write(to: url, atomically: true, encoding: .utf8)
+                        print("[US-707] Logs exported to: \(url.path)")
+                        completion(.success(url))
+                    } catch {
+                        print("[US-707] Failed to export logs: \(error.localizedDescription)")
+                        completion(.failure(.writeFailed(error.localizedDescription)))
+                    }
+                } else {
+                    completion(.failure(.cancelled))
+                }
+            }
+        }
+    }
+    
+    /// Generate log filename with timestamp
+    private func generateLogFilename() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = formatter.string(from: Date())
+        return "WispFlow_Logs_\(timestamp).txt"
+    }
+    
+    /// Generate content for log export including system info
+    private func generateExportContent() -> String {
+        let systemInfo = SystemInfo.current()
+        let header = """
+        ═══════════════════════════════════════════════════════════════
+                              WISPFLOW DEBUG LOG
+        ═══════════════════════════════════════════════════════════════
+        Export Date: \(DateFormatter.localizedString(from: Date(), dateStyle: .full, timeStyle: .medium))
+        
+        SYSTEM INFORMATION
+        ───────────────────────────────────────────────────────────────
+        \(systemInfo.formattedString)
+        
+        LOG ENTRIES (\(logEntries.count) total)
+        ───────────────────────────────────────────────────────────────
+        
+        """
+        
+        let logsContent = getAllLogsFormatted()
+        return header + logsContent
+    }
+    
+    // MARK: - US-707: Reset All Settings
+    
+    /// Reset all WispFlow settings to defaults
+    /// This removes all UserDefaults keys used by WispFlow
+    func resetAllSettings() {
+        print("[US-707] Resetting all settings to defaults...")
+        
+        // Debug settings
+        UserDefaults.standard.removeObject(forKey: Constants.debugModeKey)
+        UserDefaults.standard.removeObject(forKey: Constants.silenceDetectionDisabledKey)
+        UserDefaults.standard.removeObject(forKey: Constants.autoSaveRecordingsKey)
+        UserDefaults.standard.removeObject(forKey: Constants.logLevelKey)
+        
+        // Whisper model settings
+        UserDefaults.standard.removeObject(forKey: "selectedWhisperModel")
+        UserDefaults.standard.removeObject(forKey: "selectedTranscriptionLanguage")
+        
+        // Audio settings
+        UserDefaults.standard.removeObject(forKey: "selectedAudioDeviceUID")
+        UserDefaults.standard.removeObject(forKey: "preferredAudioDeviceUID")
+        UserDefaults.standard.removeObject(forKey: "audioCalibrationData")
+        UserDefaults.standard.removeObject(forKey: "maxRecordingDuration")
+        
+        // Text cleanup settings
+        UserDefaults.standard.removeObject(forKey: "cleanupEnabled")
+        UserDefaults.standard.removeObject(forKey: "cleanupMode")
+        UserDefaults.standard.removeObject(forKey: "autoCapitalizeFirstLetter")
+        UserDefaults.standard.removeObject(forKey: "addPeriodAtEnd")
+        UserDefaults.standard.removeObject(forKey: "trimWhitespace")
+        
+        // LLM settings
+        UserDefaults.standard.removeObject(forKey: "selectedLLMModel")
+        UserDefaults.standard.removeObject(forKey: "useCustomModelPath")
+        UserDefaults.standard.removeObject(forKey: "customModelPath")
+        
+        // Text insertion settings
+        UserDefaults.standard.removeObject(forKey: "preserveClipboard")
+        UserDefaults.standard.removeObject(forKey: "clipboardRestoreDelay")
+        
+        // Hotkey settings
+        UserDefaults.standard.removeObject(forKey: "hotkeyConfiguration")
+        
+        // Onboarding settings
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        
+        // Synchronize defaults
+        UserDefaults.standard.synchronize()
+        
+        // Reset local state to defaults
+        isDebugModeEnabled = false
+        isSilenceDetectionDisabled = false
+        isAutoSaveEnabled = false
+        selectedLogLevel = .info
+        
+        // Clear log entries
+        logEntries.removeAll()
+        addLogEntry(category: .system, message: "All settings reset to defaults")
+        
+        print("[US-707] All settings have been reset to defaults")
+    }
+    
+    // MARK: - US-707: Get System Info
+    
+    /// Get current system information
+    func getSystemInfo() -> SystemInfo {
+        return SystemInfo.current()
     }
 }

@@ -126,6 +126,9 @@ struct DebugSettingsView: View {
     @State private var exportMessage = ""
     @State private var exportedFilePath: String? = nil
     @State private var isPlayingAudio = false
+    @State private var showResetConfirmation = false  // US-707
+    @State private var showLogExportSuccess = false    // US-707
+    @State private var logExportMessage = ""           // US-707
     
     var body: some View {
         ScrollView {
@@ -188,6 +191,26 @@ struct DebugSettingsView: View {
                 }
                 .wispflowCard()
                 
+                // US-707: Log Level Selector card
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundColor(Color.Wispflow.accent)
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Log Level")
+                            .font(Font.Wispflow.headline)
+                            .foregroundColor(Color.Wispflow.textPrimary)
+                    }
+                    
+                    Text("Select the verbosity of debug logging. Lower levels show more detailed information.")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    
+                    // Log level picker
+                    LogLevelPicker(selectedLevel: $debugManager.selectedLogLevel)
+                }
+                .wispflowCard()
+                
                 // Debug Tools card
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     Text("Debug Tools")
@@ -205,6 +228,28 @@ struct DebugSettingsView: View {
                         }
                         .buttonStyle(WispflowButtonStyle.primary)
                         .disabled(!debugManager.isDebugModeEnabled)
+                        
+                        // US-707: Export Logs button
+                        Button(action: exportLogs) {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                Text("Export Logs")
+                            }
+                        }
+                        .buttonStyle(WispflowButtonStyle.secondary)
+                    }
+                    
+                    // US-707: Open Recordings Folder button (always available when auto-save is enabled)
+                    HStack(spacing: Spacing.md) {
+                        Button(action: {
+                            AudioExporter.shared.openDebugRecordingsFolder()
+                        }) {
+                            HStack {
+                                Image(systemName: "folder")
+                                Text("Open Recordings Folder")
+                            }
+                        }
+                        .buttonStyle(WispflowButtonStyle.secondary)
                         
                         Button(action: exportLastAudio) {
                             HStack {
@@ -291,6 +336,9 @@ struct DebugSettingsView: View {
                 }
                 .wispflowCard()
                 
+                // US-707: System Information card
+                SystemInfoCard(debugManager: debugManager)
+                
                 // Last Recording card
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("Last Recording")
@@ -339,11 +387,40 @@ struct DebugSettingsView: View {
                 }
                 .wispflowCard()
                 
+                // US-707: Reset All Settings card
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .foregroundColor(Color.Wispflow.error)
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Reset All Settings")
+                            .font(Font.Wispflow.headline)
+                            .foregroundColor(Color.Wispflow.textPrimary)
+                    }
+                    
+                    Text("Reset WispFlow to factory defaults. This will clear all your settings including hotkey configuration, audio preferences, and model selections. Downloaded models will not be deleted.")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    
+                    Button(action: {
+                        showResetConfirmation = true
+                    }) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text("Reset All Settings")
+                        }
+                    }
+                    .buttonStyle(WispflowButtonStyle(variant: .ghost))
+                    .foregroundColor(Color.Wispflow.error)
+                }
+                .wispflowCard()
+                
                 Spacer()
             }
             .padding(Spacing.xl)
         }
         .background(Color.Wispflow.background)
+        // Audio export alert
         .alert("Export Result", isPresented: $showExportSuccess) {
             Button("OK", role: .cancel) {}
             if let _ = exportedFilePath {
@@ -356,6 +433,21 @@ struct DebugSettingsView: View {
             }
         } message: {
             Text(exportMessage)
+        }
+        // US-707: Log export alert
+        .alert("Log Export", isPresented: $showLogExportSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(logExportMessage)
+        }
+        // US-707: Reset confirmation alert
+        .alert("Reset All Settings?", isPresented: $showResetConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reset", role: .destructive) {
+                debugManager.resetAllSettings()
+            }
+        } message: {
+            Text("This will reset all WispFlow settings to their defaults. Downloaded models will not be deleted. This action cannot be undone.")
         }
         .onAppear {
             // Set up playback completion callback
@@ -431,6 +523,21 @@ struct DebugSettingsView: View {
             }
         }
     }
+    
+    // US-707: Export logs to file
+    private func exportLogs() {
+        debugManager.exportLogs { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let url):
+                    logExportMessage = "Logs exported successfully to:\n\(url.path)"
+                case .failure(let error):
+                    logExportMessage = error.localizedDescription
+                }
+                showLogExportSuccess = true
+            }
+        }
+    }
 }
 
 struct DebugFeatureRow: View {
@@ -457,6 +564,189 @@ struct DebugFeatureRow: View {
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovering = hovering
             }
+        }
+    }
+}
+
+// MARK: - Log Level Picker (US-707)
+
+/// Picker for selecting debug log verbosity level
+/// US-707 Task 1: Log level selection works
+struct LogLevelPicker: View {
+    @Binding var selectedLevel: DebugManager.LogLevel
+    
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            ForEach(DebugManager.LogLevel.allCases) { level in
+                LogLevelPickerRow(
+                    level: level,
+                    isSelected: selectedLevel == level,
+                    onSelect: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedLevel = level
+                        }
+                        print("[US-707] Log level selected: \(level.rawValue)")
+                    }
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Log Level Picker Row (US-707)
+
+/// Single row in the log level picker
+struct LogLevelPickerRow: View {
+    let level: DebugManager.LogLevel
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: Spacing.md) {
+                // Level icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.small)
+                        .fill(isSelected ? Color.Wispflow.accentLight : Color.Wispflow.border.opacity(0.3))
+                        .frame(width: 32, height: 32)
+                    
+                    Image(systemName: level.icon)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(isSelected ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
+                }
+                
+                // Level info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(level.rawValue)
+                        .font(Font.Wispflow.body)
+                        .fontWeight(isSelected ? .medium : .regular)
+                        .foregroundColor(isSelected ? Color.Wispflow.textPrimary : Color.Wispflow.textSecondary)
+                    
+                    Text(level.description)
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textTertiary)
+                }
+                
+                Spacer()
+                
+                // Selection indicator
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.Wispflow.accent : Color.Wispflow.border, lineWidth: 2)
+                        .frame(width: 18, height: 18)
+                    
+                    if isSelected {
+                        Circle()
+                            .fill(Color.Wispflow.accent)
+                            .frame(width: 10, height: 10)
+                    }
+                }
+            }
+            .padding(Spacing.sm)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .fill(isHovering ? Color.Wispflow.border.opacity(0.2) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .stroke(isSelected ? Color.Wispflow.accent.opacity(0.5) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
+// MARK: - System Info Card (US-707)
+
+/// Card displaying system information for debugging
+/// US-707 Task 4: Show system info
+struct SystemInfoCard: View {
+    @ObservedObject var debugManager: DebugManager
+    
+    private var systemInfo: DebugManager.SystemInfo {
+        DebugManager.SystemInfo.current()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("System Information")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Spacer()
+                
+                // Copy button
+                Button(action: {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(systemInfo.formattedString, forType: .string)
+                    print("[US-707] System info copied to clipboard")
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "doc.on.doc")
+                        Text("Copy")
+                    }
+                    .font(Font.Wispflow.small)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background(Color.Wispflow.border.opacity(0.3))
+                    .cornerRadius(CornerRadius.small)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // System info grid
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                SystemInfoRow(label: "App Version", value: "\(systemInfo.appVersion) (\(systemInfo.buildNumber))")
+                SystemInfoRow(label: "macOS Version", value: systemInfo.macOSVersion)
+                SystemInfoRow(label: "Model", value: systemInfo.machineModel)
+                SystemInfoRow(label: "Processor", value: systemInfo.processorInfo)
+                SystemInfoRow(label: "Memory", value: systemInfo.memorySize)
+            }
+            .padding(Spacing.md)
+            .background(Color.Wispflow.surface)
+            .cornerRadius(CornerRadius.medium)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(Color.Wispflow.border, lineWidth: 1)
+            )
+        }
+        .wispflowCard()
+    }
+}
+
+/// Row displaying a single system info item
+struct SystemInfoRow: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .frame(width: 100, alignment: .leading)
+            
+            Text(value)
+                .font(Font.Wispflow.mono)
+                .foregroundColor(Color.Wispflow.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            
+            Spacer()
         }
     }
 }
