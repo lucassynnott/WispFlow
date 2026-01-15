@@ -477,6 +477,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.openSettings()
         }
         
+        // US-802: Observe toggleRecording notification from Start Recording button
+        NotificationCenter.default.addObserver(
+            forName: .toggleRecording,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.toggleRecordingFromHotkey()
+        }
+        
         // US-632: Initialize main window controller
         mainWindowController = MainWindowController()
         
@@ -595,6 +604,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Recording State Handling
     
     private func handleRecordingStateChange(_ state: RecordingState) {
+        // US-802: Post notification so Start Recording button can update its state
+        NotificationCenter.default.post(name: .recordingStateChanged, object: state)
+        
         switch state {
         case .idle:
             // Disconnect audio level meter

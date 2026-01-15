@@ -387,6 +387,13 @@ struct HomeContentView: View {
     @StateObject private var statsManager = UsageStatsManager.shared
     @State private var hoveredQuickAction: QuickAction?
     
+    /// US-802: Recording state for Start Recording button
+    @State private var isRecording = false
+    /// US-802: Hover state for Start Recording button lift effect
+    @State private var isRecordingButtonHovered = false
+    /// US-802: Pulse animation state for microphone icon
+    @State private var isPulsing = false
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -457,19 +464,134 @@ struct HomeContentView: View {
                 }
             }
             
-            // MARK: - Main Greeting
+            // MARK: - Main Greeting and Start Recording Button
             // US-801: Time-based greeting with Playfair Display style font (~48-60pt)
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text(greetingMessage)
-                    .font(Font.Voxa.displayGreeting)
-                    .foregroundColor(Color.Voxa.textPrimary)
+            // US-802: Start Recording Button positioned prominently
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(greetingMessage)
+                        .font(Font.Voxa.displayGreeting)
+                        .foregroundColor(Color.Voxa.textPrimary)
+                    
+                    // Subtitle with last session info
+                    Text(lastSessionSubtitle)
+                        .font(Font.Voxa.body)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                }
                 
-                // Subtitle with last session info
-                Text(lastSessionSubtitle)
-                    .font(Font.Voxa.body)
-                    .foregroundColor(Color.Voxa.textSecondary)
+                Spacer()
+                
+                // US-802: Start Recording Button - Pill-shaped, terracotta background
+                startRecordingButton
             }
         }
+    }
+    
+    // MARK: - US-802: Start Recording Button
+    
+    /// Prominent pill-shaped Start Recording button with pulse animation and hover lift effect
+    private var startRecordingButton: some View {
+        Button(action: toggleRecording) {
+            HStack(spacing: Spacing.md) {
+                // Microphone icon with pulse animation when recording
+                ZStack {
+                    // Pulse animation circle (only visible when recording)
+                    if isRecording {
+                        Circle()
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 32, height: 32)
+                            .scaleEffect(isPulsing ? 1.4 : 1.0)
+                            .opacity(isPulsing ? 0.0 : 0.5)
+                            .animation(
+                                .easeOut(duration: 1.0)
+                                .repeatForever(autoreverses: false),
+                                value: isPulsing
+                            )
+                    }
+                    
+                    // Microphone or stop icon
+                    Image(systemName: isRecording ? "stop.fill" : "mic.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                .frame(width: 24, height: 24)
+                
+                // Button text
+                Text(isRecording ? "Stop Recording" : "Start Recording")
+                    .font(Font.Voxa.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                
+                // US-802: Keyboard shortcut badge
+                shortcutBadge
+            }
+            .padding(.horizontal, Spacing.lg + 4)
+            .padding(.vertical, Spacing.md)
+            .background(
+                Capsule()
+                    .fill(isRecording ? Color.Voxa.error : Color.Voxa.accent)
+            )
+            // US-802: Hover lift effect - shadow and slight Y offset
+            .shadow(
+                color: (isRecording ? Color.Voxa.error : Color.Voxa.accent).opacity(isRecordingButtonHovered ? 0.4 : 0.2),
+                radius: isRecordingButtonHovered ? 12 : 6,
+                x: 0,
+                y: isRecordingButtonHovered ? 4 : 2
+            )
+            .scaleEffect(isRecordingButtonHovered ? 1.02 : 1.0)
+            .offset(y: isRecordingButtonHovered ? -2 : 0)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hovering in
+            withAnimation(VoxaAnimation.quick) {
+                isRecordingButtonHovered = hovering
+            }
+        }
+        .onChange(of: isRecording) { _, newValue in
+            // Start or stop pulse animation when recording state changes
+            if newValue {
+                withAnimation {
+                    isPulsing = true
+                }
+            } else {
+                isPulsing = false
+            }
+        }
+        .onAppear {
+            // Subscribe to recording state changes from the app
+            NotificationCenter.default.addObserver(
+                forName: .recordingStateChanged,
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let state = notification.object as? RecordingState {
+                    withAnimation(VoxaAnimation.smooth) {
+                        isRecording = (state == .recording)
+                    }
+                }
+            }
+        }
+    }
+    
+    /// US-802: Keyboard shortcut badge showing ⌘⇧Space
+    private var shortcutBadge: some View {
+        HStack(spacing: 2) {
+            Text("⌘⇧Space")
+                .font(Font.Voxa.monoSmall)
+                .foregroundColor(.white.opacity(0.8))
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.15))
+        )
+    }
+    
+    /// US-802: Toggle recording state and notify the app
+    private func toggleRecording() {
+        // Post notification to trigger recording toggle via AppDelegate
+        NotificationCenter.default.post(name: .toggleRecording, object: nil)
     }
     
     // MARK: - Time-Based Greeting Logic (US-801)

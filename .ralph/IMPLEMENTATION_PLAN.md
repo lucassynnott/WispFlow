@@ -2128,8 +2128,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-802: Start Recording Button
-**Status:** open
+### [x] US-802: Start Recording Button
+**Status:** complete
 **Priority:** high
 **Estimated effort:** small
 **Depends on:** US-801
@@ -2137,16 +2137,37 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Prominent pill-shaped Start Recording button in dashboard header.
 
 **Tasks:**
-- [ ] Create pill-shaped button with terracotta background
-- [ ] Add microphone icon with pulse animation
-- [ ] Add keyboard shortcut badge
-- [ ] Implement hover lift effect
-- [ ] Connect to recording functionality
+- [x] Create pill-shaped button with terracotta background
+- [x] Add microphone icon with pulse animation
+- [x] Add keyboard shortcut badge
+- [x] Implement hover lift effect
+- [x] Connect to recording functionality
 
 **Acceptance Criteria:**
-- [ ] Button triggers recording
-- [ ] Hover state with lift effect
-- [ ] Shows Stop Recording when active
+- [x] Button triggers recording
+- [x] Hover state with lift effect
+- [x] Shows Stop Recording when active
+
+**Implementation Notes:**
+- Created `startRecordingButton` computed property in `HomeContentView` (MainWindow.swift)
+- **Pill-shaped button**: Uses `Capsule()` shape with `Color.Voxa.accent` (terracotta) background
+- **Microphone icon with pulse animation**: 
+  - ZStack with pulsing circle animation when recording (`isPulsing` state)
+  - Circle scales 1.0 → 1.4 and fades with `repeatForever` animation
+  - Icon changes from `mic.fill` to `stop.fill` when recording
+- **Keyboard shortcut badge**: `shortcutBadge` component shows "⌘⇧Space" in `monoSmall` font
+  - Semi-transparent white capsule background (0.15 opacity)
+- **Hover lift effect**: 
+  - `isRecordingButtonHovered` state tracks hover
+  - Shadow increases radius (6 → 12) and Y offset (2 → 4) on hover
+  - Scale effect 1.0 → 1.02 on hover
+  - Y offset -2 on hover for lift effect
+- **Recording functionality connected via NotificationCenter**:
+  - Posts `.toggleRecording` notification on button tap
+  - Subscribes to `.recordingStateChanged` notification to update `isRecording` state
+  - Button label changes to "Stop Recording" when recording
+  - Button color changes to `Color.Voxa.error` (red) when recording
+- Verified via `swift build` - typecheck passes
 
 ---
 

@@ -459,6 +459,10 @@ final class StatusBarController: NSObject {
         updateIcon()
         onRecordingStateChanged?(recordingState)
         
+        // US-802: Post notification for recording state changes
+        // This allows the Start Recording button in HomeContentView to update
+        NotificationCenter.default.post(name: .recordingStateChanged, object: recordingState)
+        
         // Log state change for debugging
         print("Recording state changed to: \(recordingState.rawValue)")
     }
@@ -538,6 +542,10 @@ final class StatusBarController: NSObject {
         recordingState = state
         updateIcon()
         onRecordingStateChanged?(recordingState)
+        
+        // US-802: Post notification for recording state changes
+        // This allows the Start Recording button in HomeContentView to update
+        NotificationCenter.default.post(name: .recordingStateChanged, object: recordingState)
     }
 }
 
