@@ -3610,3 +3610,51 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-102854-27838-it
   - US-523 was fully completed in earlier iterations; iteration 5 commits remaining log files
   - Always ensure all log files are staged and committed to achieve clean post-commit status
 ---
+
+## [2026-01-15 10:50] - US-615: Design System Foundation
+Thread: codex exec session
+Run: 20260115-104318-43714 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-104318-43714-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-104318-43714-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 06c5937 feat(US-615): Design System Foundation - cohesive design tokens
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (Build complete! 7.65s)
+- Files changed:
+  - Sources/WispFlow/DesignSystem.swift (351 insertions, 38 deletions)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated US-615 section to complete)
+- What was implemented:
+  - **Color Palette Enhancement:**
+    - Added `Color.Wispflow.primary` as main brand color accessor (coral #E07A5F)
+    - Added `accentContrast` (#C4563F) - darker coral for WCAG AA compliant text
+    - Added `info` (#5B8FB9), `textTertiary` (#A0A0A0), `surfaceSecondary` (#F5F3F0), `borderStrong` (#D0CCC7)
+    - Added light variants: `warningLight`, `infoLight`
+  - **Fallback System:**
+    - All primary colors now compute at runtime with fallback to system colors (accentColor, windowBackgroundColor, labelColor, etc.)
+    - Ensures graceful degradation if hex initialization fails
+  - **Typography Enhancement:**
+    - Added `Font.Wispflow.bodyBold` (14pt semibold) for emphasized body text
+    - Added `Font.Wispflow.monoSmall` (11pt monospaced) for compact code
+  - **Spacing Enhancement:**
+    - Added `Spacing.unit` (4pt) as explicit base unit reference
+    - Added `Spacing.xxxl` (48pt) for large gaps
+  - **Corner Radius Enhancement:**
+    - Added `CornerRadius.none` (0pt) for sharp edges
+    - Added `CornerRadius.capsule(height:)` helper function
+  - **Comprehensive Documentation:**
+    - Added box-style comment headers with design philosophy
+    - Added usage guides with code examples for each section
+    - Documented design decisions (e.g., soft/organic corner radius philosophy)
+- Acceptance Criteria verified:
+  - [x] Color.Wispflow.primary returns the primary brand color (coral #E07A5F)
+  - [x] Fallback to system colors if custom colors fail to load (implemented in computed properties)
+- **Learnings for future iterations:**
+  - Design system was already well-established; US-615 enhanced it with:
+    - `primary` alias for consistency with other design systems
+    - Fallback system for robustness
+    - Comprehensive documentation for developer experience
+  - SF Rounded is used for display typography to create distinctive, friendly feel
+  - 4pt grid system ensures pixel-perfect alignment
+---
