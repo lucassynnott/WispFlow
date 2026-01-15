@@ -3970,3 +3970,70 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-104318-43714-it
   - Use alternative method signature overloads for convenience APIs
   - Swift 6 concurrency warnings are informational in Swift 5 mode
 ---
+
+
+## [2026-01-15 12:30] - US-636: Custom Dictionary View
+Thread: 
+Run: 20260115-105838-46628 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-105838-46628-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-105838-46628-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 54fef56 feat(US-636): Custom Dictionary View with CRUD, search, and import/export
+- Post-commit status: clean
+- Verification:
+  - Command: swift build -> PASS
+- Files changed:
+  - Sources/WispFlow/DictionaryManager.swift (new - dictionary data model and management)
+  - Sources/WispFlow/MainWindow.swift (modified - full DictionaryContentView implementation)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated - US-636 tasks and acceptance criteria marked complete)
+- What was implemented:
+  - **DictionaryManager.swift:** Complete dictionary storage and management singleton
+    - DictionaryEntry struct with id, word, optional pronunciationHint, timestamps
+    - CRUD: createEntry, updateEntry, deleteEntry, getEntry
+    - Search via searchEntries(query:)
+    - Duplicate validation via wordExists(_:excludingEntryId:)
+    - Import/export: exportAsText(), importFromText(), exportAsJSON(), importFromJSON()
+    - UserDefaults persistence with max 1000 entries
+    - Automatic alphabetical sorting by word
+  - **DictionaryContentView:** Full dictionary view with:
+    - Header with Import/Export buttons, Add Word button
+    - Search bar with real-time filtering
+    - Word count badge and last updated timestamp
+    - Empty state explaining feature benefits with four benefit rows
+    - No search results state with clear button
+    - LazyVStack list of dictionary entries
+  - **DictionaryEntryRow:** Entry display with:
+    - First letter icon in accent square
+    - Word with semibold weight
+    - Pronunciation hint badge when present
+    - Updated timestamp
+    - Edit and Delete action buttons (visible on hover)
+    - Hover effects with shadow changes
+    - Search query highlighting using AttributedString
+  - **CreateDictionaryEntrySheet:** New entry form with:
+    - Word/Phrase text field with duplicate validation
+    - Collapsible pronunciation hint field
+    - Examples section (WispFlow → WISP-flow, GitHub → git-hub, etc.)
+    - Cancel and Add Word buttons
+  - **EditDictionaryEntrySheet:** Edit form with:
+    - Pre-populated fields
+    - Collapsible pronunciation hint section
+    - Validation excluding current entry
+    - Created/Updated metadata display
+    - Save Changes button disabled until changes made
+  - Delete confirmation alert
+  - **Import/Export:** fileImporter for .plainText and .json, NSSavePanel for export
+- Acceptance Criteria verified:
+  - [x] Dictionary entries listed
+  - [x] Add, edit, delete functional
+  - [x] Import/export works
+  - [x] Search filters dictionary
+  - [x] Empty state explains feature benefits
+- **Learnings for future iterations:**
+  - Use Task { @MainActor in } for async validation in SwiftUI onChange handlers
+  - @MainActor singletons require main actor access for all methods
+  - Use method names that match the pattern of similar managers (wordExists vs isDuplicate)
+  - SwiftUI .sheet(item:) requires Identifiable conformance on the presented type
+  - Tab-separated format is good for dictionary import/export (simple and human-readable)
+---
