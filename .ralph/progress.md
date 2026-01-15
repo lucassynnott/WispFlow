@@ -4088,3 +4088,54 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115703-60368-it
   - TextInserter does not have insertionMethod property; uses paste (⌘V) by default
   - Swift 6 produces warnings for @MainActor static properties in nonisolated contexts
 ---
+
+## [2026-01-15 12:00] - US-701: Create SettingsContentView for Main Window
+Thread: 
+Run: 20260115-115705-60444 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115705-60444-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115705-60444-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 62147f5 feat(US-701): SettingsContentView with 6 expandable sections in main window
+- Post-commit status: clean
+- Verification:
+  - Command: swift build -> PASS
+- Files changed:
+  - Sources/WispFlow/MainWindow.swift (modified - SettingsContentView and supporting components)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated - US-701 tasks and acceptance criteria marked complete)
+- What was implemented:
+  - **SettingsContentView:** Complete settings display in main window content area with:
+    - ScrollView with vertical layout for smooth scrolling
+    - Header section with "Settings" title and description
+    - 6 expandable settings sections (General, Audio, Transcription, Text Cleanup, Text Insertion, Debug)
+  - **SettingsSectionView:** Reusable expandable section container with:
+    - Section icon in accentLight background
+    - Title and description
+    - Chevron expand/collapse indicator with rotation animation
+    - wispflowShadow(.subtle) styling
+    - Smooth expand/collapse animation
+  - **Section Summary Views:**
+    - GeneralSettingsSummary: App version, hotkey display, permission badges (mic, accessibility)
+    - AudioSettingsSummary: Current input device, available device count, calibration status
+    - TranscriptionSettingsSummary: Whisper model with status indicator, language with flag emoji
+    - TextCleanupSettingsSummary: Cleanup enabled/disabled, cleanup mode, post-processing option badges
+    - TextInsertionSettingsSummary: Insertion method, clipboard preservation status
+    - DebugSettingsSummary: Debug mode status, auto-save status, last recording info
+  - **Supporting Components:**
+    - SettingsInfoRow: Icon + title + value row
+    - PermissionBadge: Circular badge showing granted/denied status
+    - ModelStatusIndicator: Whisper model status pill (Ready/Loading/Error)
+    - StatusPill: Generic status pill (Enabled/Disabled)
+    - MiniFeatureBadge: Small icon badge for enabled features
+    - SettingsOpenFullButton: "Open Full Settings" button to open modal settings window
+- Acceptance Criteria verified:
+  - [x] Settings display in main window content area
+  - [x] All 6 sections visible with clear headers
+  - [x] Consistent styling with other main window views (uses same design system)
+  - [x] Smooth scrolling for long content (ScrollView)
+- **Learnings for future iterations:**
+  - All managers have .shared singletons, enabling @StateObject usage in any view
+  - SettingsSectionView with expand/collapse provides progressive disclosure UX
+  - Status indicators and badges convey state without cluttering UI
+  - "Open Full Settings" button provides escape hatch to detailed configuration
+---
