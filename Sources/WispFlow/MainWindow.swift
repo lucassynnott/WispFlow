@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 
 // MARK: - Navigation Item Enum
 
@@ -3753,62 +3754,593 @@ struct SettingsSectionView<Content: View>: View {
     }
 }
 
-// MARK: - General Settings Summary (US-701)
+// MARK: - General Settings Section (US-702)
 
-/// Summary view for General settings section
+/// Full General settings section migrated from SettingsWindow
+/// US-702: Migrate General Settings Section to integrated settings view
 struct GeneralSettingsSummary: View {
     @StateObject private var hotkeyManager = HotkeyManager.shared
     @StateObject private var permissionManager = PermissionManager.shared
+    @State private var isRecordingHotkey = false
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    
+    /// Get the app version from the bundle
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.5"
+    }
+    
+    /// Get the build number from the bundle
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            // App Info row
-            SettingsInfoRow(
-                icon: "info.circle",
-                title: "App Info",
-                value: "WispFlow v\(appVersion)"
-            )
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            // MARK: - App Info Header (US-702 Task 1)
+            appInfoHeader
             
-            // Hotkey row
-            SettingsInfoRow(
-                icon: "keyboard",
-                title: "Global Hotkey",
-                value: hotkeyManager.configuration.displayString
-            )
+            // MARK: - Link Buttons (US-702 Task 2)
+            linkButtonsSection
             
-            // Permissions row
-            HStack(spacing: Spacing.md) {
-                Image(systemName: "lock.shield")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.Wispflow.textSecondary)
-                    .frame(width: 20)
-                
-                Text("Permissions")
-                    .font(Font.Wispflow.body)
-                    .foregroundColor(Color.Wispflow.textSecondary)
-                
-                Spacer()
-                
-                // Permission status badges
-                HStack(spacing: Spacing.sm) {
-                    PermissionBadge(
-                        icon: "mic.fill",
-                        isGranted: permissionManager.microphoneStatus.isGranted
-                    )
-                    PermissionBadge(
-                        icon: "hand.raised.fill",
-                        isGranted: permissionManager.accessibilityStatus.isGranted
-                    )
-                }
-            }
+            // MARK: - Global Hotkey Configuration (US-702 Task 3)
+            hotkeySection
             
-            // Open full settings button
-            SettingsOpenFullButton()
+            // MARK: - Startup Options (US-702 Task 4)
+            startupSection
+            
+            // MARK: - Permissions Section
+            permissionsSection
+        }
+        .onAppear {
+            // Refresh launch at login status
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+            // Refresh permission status on appear
+            permissionManager.refreshAllStatuses()
         }
     }
     
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.5"
+    // MARK: - App Info Header
+    
+    /// App info header with icon, version, and description
+    private var appInfoHeader: some View {
+        VStack(spacing: Spacing.md) {
+            // Logo and branding
+            VStack(spacing: Spacing.md) {
+                // App Icon representation using SF Symbols
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.Wispflow.accent.opacity(0.15), Color.Wispflow.accent.opacity(0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 72, height: 72)
+                    
+                    Image(systemName: "waveform.circle.fill")
+                        .font(.system(size: 40, weight: .medium))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.Wispflow.accent, Color.Wispflow.accent.opacity(0.8)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+                
+                // App name
+                Text("WispFlow")
+                    .font(Font.Wispflow.title)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                // Version display
+                Text("Version \(appVersion)")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.xs)
+                    .background(Color.Wispflow.border.opacity(0.5))
+                    .cornerRadius(CornerRadius.small / 2)
+            }
+            
+            // Tagline/Description
+            Text("Voice-to-text dictation with AI-powered transcription and auto-editing. All processing happens locally on your device.")
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, Spacing.md)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Spacing.lg)
+        .background(Color.Wispflow.border.opacity(0.2))
+        .cornerRadius(CornerRadius.medium)
+    }
+    
+    // MARK: - Link Buttons Section
+    
+    /// GitHub, Website, Support link buttons
+    private var linkButtonsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("Links")
+                .font(Font.Wispflow.headline)
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            HStack(spacing: Spacing.md) {
+                GeneralSettingsLinkButton(
+                    title: "GitHub",
+                    icon: "chevron.left.forwardslash.chevron.right",
+                    url: "https://github.com"
+                )
+                
+                GeneralSettingsLinkButton(
+                    title: "Website",
+                    icon: "globe",
+                    url: "https://wispflow.app"
+                )
+                
+                GeneralSettingsLinkButton(
+                    title: "Support",
+                    icon: "questionmark.circle",
+                    url: "https://wispflow.app/support"
+                )
+            }
+        }
+    }
+    
+    // MARK: - Hotkey Section
+    
+    /// Global hotkey configuration with recording UI
+    private var hotkeySection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "keyboard")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Global Hotkey")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("Press this keyboard shortcut from any app to start/stop voice recording.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            HStack(spacing: Spacing.md) {
+                // Hotkey recorder component
+                GeneralSettingsHotkeyRecorder(
+                    hotkeyManager: hotkeyManager,
+                    isRecording: $isRecordingHotkey
+                )
+                
+                // Reset to default button
+                Button(action: {
+                    print("[US-702] Button action: Reset Hotkey to Default")
+                    hotkeyManager.resetToDefault()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text("Reset")
+                    }
+                }
+                .buttonStyle(WispflowButtonStyle.secondary)
+                .disabled(hotkeyManager.configuration == .defaultHotkey)
+            }
+            
+            if isRecordingHotkey {
+                HStack(spacing: Spacing.sm) {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(width: 12, height: 12)
+                    Text("Press your desired key combination...")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.accent)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isRecordingHotkey)
+    }
+    
+    // MARK: - Startup Section
+    
+    /// Launch at login toggle
+    private var startupSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "power")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Startup")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Toggle("Launch WispFlow at Login", isOn: $launchAtLogin)
+                    .toggleStyle(WispflowToggleStyle())
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        setLaunchAtLogin(enabled: newValue)
+                    }
+                
+                Text("Automatically start WispFlow when you log in to your Mac. WispFlow runs quietly in the menu bar.")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .padding(.leading, Spacing.xxl + Spacing.md)
+            }
+        }
+    }
+    
+    // MARK: - Permissions Section
+    
+    /// Permissions status display with grant buttons
+    private var permissionsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "lock.shield")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Permissions")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("WispFlow requires these permissions to function. Grant permissions to enable voice recording and text insertion.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Microphone Permission Status
+            GeneralSettingsPermissionRow(
+                title: "Microphone",
+                description: "Required for voice recording",
+                icon: "mic.fill",
+                isGranted: permissionManager.microphoneStatus.isGranted,
+                onGrantPermission: {
+                    Task {
+                        _ = await permissionManager.requestMicrophonePermission()
+                    }
+                }
+            )
+            
+            Divider()
+                .background(Color.Wispflow.border)
+            
+            // Accessibility Permission Status
+            GeneralSettingsPermissionRow(
+                title: "Accessibility",
+                description: "Required for global hotkeys and text insertion",
+                icon: "hand.raised.fill",
+                isGranted: permissionManager.accessibilityStatus.isGranted,
+                onGrantPermission: {
+                    _ = permissionManager.requestAccessibilityPermission()
+                }
+            )
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Set launch at login preference
+    private func setLaunchAtLogin(enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+                print("[US-702] Launch at login enabled")
+            } else {
+                try SMAppService.mainApp.unregister()
+                print("[US-702] Launch at login disabled")
+            }
+        } catch {
+            print("[US-702] Failed to \(enabled ? "enable" : "disable") launch at login: \(error)")
+            // Revert the toggle on failure
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+}
+
+// MARK: - General Settings Link Button (US-702)
+
+/// A styled link button for the General settings section
+/// US-702: Add GitHub, Website, Support link buttons
+struct GeneralSettingsLinkButton: View {
+    let title: String
+    let icon: String
+    let url: String
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: {
+            if let linkURL = URL(string: url) {
+                NSWorkspace.shared.open(linkURL)
+            }
+        }) {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .medium))
+                Text(title)
+                    .font(Font.Wispflow.caption)
+            }
+            .foregroundColor(isHovering ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(isHovering ? Color.Wispflow.accentLight : Color.Wispflow.border.opacity(0.3))
+            .cornerRadius(CornerRadius.small)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
+// MARK: - General Settings Hotkey Recorder (US-702)
+
+/// Hotkey recorder component for the General settings section
+/// US-702: Include Global Hotkey configuration with recording UI
+struct GeneralSettingsHotkeyRecorder: View {
+    @ObservedObject var hotkeyManager: HotkeyManager
+    @Binding var isRecording: Bool
+    @State private var localEventMonitor: Any?
+    @State private var isHovering = false
+    @State private var pulseAnimation = false
+    
+    // Conflict detection state
+    @State private var pendingConfig: HotkeyManager.HotkeyConfiguration?
+    @State private var conflictingShortcuts: [HotkeyManager.SystemShortcut] = []
+    @State private var showConflictWarning = false
+    
+    var body: some View {
+        Button(action: {
+            if isRecording {
+                stopRecording()
+            } else {
+                startRecording()
+            }
+        }) {
+            HStack(spacing: Spacing.sm) {
+                if isRecording {
+                    // Animated recording indicator
+                    Circle()
+                        .fill(Color.Wispflow.accent)
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(pulseAnimation ? 1.2 : 0.8)
+                        .opacity(pulseAnimation ? 1.0 : 0.6)
+                    
+                    Text("Recording...")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.accent)
+                } else {
+                    // Keyboard icon
+                    Image(systemName: "command")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(isHovering ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
+                    
+                    Text(hotkeyManager.hotkeyDisplayString)
+                        .font(Font.Wispflow.mono)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                }
+            }
+            .frame(minWidth: 140)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .contentShape(Rectangle())
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .fill(isRecording ? Color.Wispflow.accentLight : (isHovering ? Color.Wispflow.border.opacity(0.3) : Color.Wispflow.surface))
+                    
+                    if !isRecording {
+                        RoundedRectangle(cornerRadius: CornerRadius.medium)
+                            .stroke(Color.Wispflow.border.opacity(0.5), lineWidth: 1)
+                    }
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(
+                        isRecording ? Color.Wispflow.accent : (isHovering ? Color.Wispflow.accent.opacity(0.5) : Color.Wispflow.border),
+                        lineWidth: isRecording ? 2 : 1
+                    )
+            )
+            .shadow(
+                color: isRecording ? Color.Wispflow.accent.opacity(0.4) : (isHovering ? Color.Wispflow.accent.opacity(0.15) : Color.clear),
+                radius: isRecording ? 12 : 6,
+                x: 0,
+                y: 0
+            )
+            .scaleEffect(isRecording ? 1.02 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+        .onDisappear {
+            stopRecording()
+        }
+        .onChange(of: isRecording) { _, newValue in
+            if newValue {
+                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                    pulseAnimation = true
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    pulseAnimation = false
+                }
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
+        .animation(.easeInOut(duration: 0.15), value: isHovering)
+        .alert("Shortcut Conflict", isPresented: $showConflictWarning, presenting: pendingConfig) { config in
+            Button("Use Anyway", role: .destructive) {
+                applyPendingConfig()
+            }
+            Button("Cancel", role: .cancel) {
+                cancelPendingConfig()
+            }
+        } message: { config in
+            let conflictDescriptions = conflictingShortcuts.map { "• \($0.name): \($0.description)" }.joined(separator: "\n")
+            Text("\(config.displayString) conflicts with:\n\n\(conflictDescriptions)\n\nUsing this hotkey may prevent these system shortcuts from working.")
+        }
+    }
+    
+    private func startRecording() {
+        isRecording = true
+        
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            if event.type == .keyDown {
+                handleKeyEvent(event)
+                return nil
+            }
+            return event
+        }
+    }
+    
+    private func stopRecording() {
+        isRecording = false
+        if let monitor = localEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            localEventMonitor = nil
+        }
+    }
+    
+    private func handleKeyEvent(_ event: NSEvent) {
+        let relevantFlags: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
+        let modifiers = event.modifierFlags.intersection(relevantFlags)
+        
+        guard !modifiers.isEmpty else {
+            print("[US-702] Hotkey must include at least one modifier")
+            return
+        }
+        
+        // Ignore Escape key (cancel)
+        if event.keyCode == 53 {
+            stopRecording()
+            return
+        }
+        
+        let newConfig = HotkeyManager.HotkeyConfiguration(
+            keyCode: event.keyCode,
+            modifierFlags: modifiers
+        )
+        
+        let conflicts = HotkeyManager.checkForConflicts(newConfig)
+        
+        if !conflicts.isEmpty {
+            pendingConfig = newConfig
+            conflictingShortcuts = conflicts
+            showConflictWarning = true
+            stopRecording()
+            print("[US-702] Conflict detected: \(conflicts.map { $0.name }.joined(separator: ", "))")
+        } else {
+            hotkeyManager.updateConfiguration(newConfig)
+            stopRecording()
+            print("[US-702] New hotkey set to \(newConfig.displayString)")
+        }
+    }
+    
+    private func applyPendingConfig() {
+        guard let config = pendingConfig else { return }
+        hotkeyManager.updateConfiguration(config)
+        print("[US-702] User proceeded despite conflict, hotkey set to \(config.displayString)")
+        pendingConfig = nil
+        conflictingShortcuts = []
+    }
+    
+    private func cancelPendingConfig() {
+        print("[US-702] User cancelled conflicting hotkey")
+        pendingConfig = nil
+        conflictingShortcuts = []
+    }
+}
+
+// MARK: - General Settings Permission Row (US-702)
+
+/// Permission status row component for the General settings section
+/// US-702: Display permission status with grant button
+struct GeneralSettingsPermissionRow: View {
+    let title: String
+    let description: String
+    let icon: String
+    let isGranted: Bool
+    let onGrantPermission: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Permission icon
+            ZStack {
+                Circle()
+                    .fill(isGranted ? Color.Wispflow.successLight : Color.Wispflow.errorLight)
+                    .frame(width: 36, height: 36)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(isGranted ? Color.Wispflow.success : Color.Wispflow.error)
+            }
+            
+            // Permission info
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text(title)
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    // Status indicator
+                    HStack(spacing: 4) {
+                        Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(isGranted ? "Granted" : "Not Granted")
+                            .font(Font.Wispflow.small)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(isGranted ? Color.Wispflow.success : Color.Wispflow.error)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background((isGranted ? Color.Wispflow.success : Color.Wispflow.error).opacity(0.12))
+                    .cornerRadius(CornerRadius.small / 2)
+                }
+                
+                Text(description)
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+            
+            // Grant Permission button
+            if !isGranted {
+                Button(action: onGrantPermission) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "arrow.right.circle")
+                        Text("Grant")
+                    }
+                }
+                .buttonStyle(WispflowButtonStyle.primary)
+            }
+        }
+        .padding(.vertical, Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.small)
+                .fill(isHovering ? Color.Wispflow.border.opacity(0.2) : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isGranted)
     }
 }
 

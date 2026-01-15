@@ -1,0 +1,28 @@
+There are still unchecked stories (US-702 through US-709), so I should NOT output the completion signal.
+
+## Summary
+
+**US-701: Create SettingsContentView for Main Window** has been verified as complete. 
+
+The implementation was already done in a previous run (commit `62147f5`), which included:
+- **SettingsContentView** with a full ScrollView layout for smooth vertical scrolling
+- **6 expandable sections** using `SettingsSectionView` component:
+  - General (app info, hotkey, permissions)
+  - Audio (input device, device count, calibration)
+  - Transcription (Whisper model with status, language with flag)
+  - Text Cleanup (cleanup toggle, mode, post-processing badges)
+  - Text Insertion (paste method, clipboard preservation)
+  - Debug (debug mode, auto-save, last recording info)
+- **wispflowCard() styling** via background colors, shadows, and rounded corners
+- **Color.Wispflow design tokens** used throughout for consistent theming
+- **Supporting components**: SettingsInfoRow, PermissionBadge, ModelStatusIndicator, StatusPill, MiniFeatureBadge, SettingsOpenFullButton
+
+All acceptance criteria are met:
+- ✅ Settings display in main window content area
+- ✅ All 6 sections visible with clear headers
+- ✅ Consistent styling with other main window views
+- ✅ Smooth scrolling for long content
+
+**Verification**: Build passes (`swift build` succeeds)  
+**Commit**: `4fc9260 docs: add progress log for US-701 verification run`  
+**Post-commit status**: clean
