@@ -2175,8 +2175,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-803: Recent Transcriptions List
-**Status:** open
+### [x] US-803: Recent Transcriptions List
+**Status:** complete
 **Priority:** high
 **Estimated effort:** medium
 **Depends on:** none
@@ -2184,17 +2184,40 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Display recent transcriptions with icons, titles, and timestamps.
 
 **Tasks:**
-- [ ] Create section header with Playfair Display italic
-- [ ] Add View All link
-- [ ] Build transcription item component with icon, title, subtitle, timestamp
-- [ ] Implement hover states
-- [ ] Connect to transcription history data
+- [x] Create section header with Playfair Display italic
+- [x] Add View All link
+- [x] Build transcription item component with icon, title, subtitle, timestamp
+- [x] Implement hover states
+- [x] Connect to transcription history data
 
 **Acceptance Criteria:**
-- [ ] Shows last 3-5 transcriptions
-- [ ] Each item has icon, title, metadata, timestamp
-- [ ] Hover highlights and changes title color
-- [ ] Empty state when no transcriptions
+- [x] Shows last 3-5 transcriptions
+- [x] Each item has icon, title, metadata, timestamp
+- [x] Hover highlights and changes title color
+- [x] Empty state when no transcriptions
+
+**Implementation Notes:**
+- Created `recentTranscriptionsSection` computed property in `HomeContentView` (MainWindow.swift)
+- **Section header**: Uses `Font.Voxa.sectionHeaderItalic` (serif italic 18pt) for "Recent Transcriptions" title
+- **View All link**: Button in header that posts `.navigateToHistory` notification to switch to History tab
+- **Recent transcriptions list** (`recentTranscriptionsList`): Shows up to 5 entries from `statsManager.recentEntries`
+- **Transcription item** (`RecentTranscriptionItem` component):
+  - Icon: Context-aware icon in accentLight rounded square (question bubble for questions, doc.text.fill for general)
+  - Title: Generated from first sentence or first 8 words of transcription text
+  - Subtitle: Shows word count and duration (e.g., "42 words • 15s")
+  - Timestamp: Relative date string (e.g., "2 hours ago", "Yesterday")
+- **Hover states**:
+  - `isHovered` state tracks hover via `.onHover` modifier
+  - Title color changes from `textPrimary` to `accent` on hover
+  - Background highlight using `surfaceSecondary.opacity(0.5)` on hover
+  - Smooth animation via `VoxaAnimation.quick`
+- **Empty state** (`recentTranscriptionsEmptyState`):
+  - Centered layout with waveform icon in surfaceSecondary circle
+  - "No transcriptions yet" message with hotkey hint
+  - Background uses surface color with rounded corners and subtle shadow
+- **Connected to transcription history**: Uses `UsageStatsManager.shared.recentEntries` for data
+- **Navigation**: `.navigateToHistory` notification defined in `ToastView.swift` and handled in `MainWindowView`
+- Verified via `swift build` - typecheck passes
 
 ---
 

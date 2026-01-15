@@ -142,6 +142,12 @@ struct MainWindowView: View {
                         selectedItem = .settings
                     }
                 }
+                // US-803: Listen for navigation requests to history view
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToHistory)) { _ in
+                    withAnimation(VoxaAnimation.smooth) {
+                        selectedItem = .history
+                    }
+                }
             }
             .blur(radius: showOnboarding ? 3 : 0)
             .disabled(showOnboarding)
@@ -817,7 +823,7 @@ struct HomeContentView: View {
     // MARK: - Recent Transcriptions Section (US-803)
     
     /// US-803: Recent Transcriptions List with section header, View All link, and transcription items
-    private var recentActivitySection: some View {
+    private var recentTranscriptionsSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             // MARK: - Section Header with Playfair Display Italic + View All Link
             HStack(alignment: .center) {
@@ -919,6 +925,116 @@ struct HomeContentView: View {
             return String(format: "%.1fK", Double(number) / 1_000)
         }
         return "\(number)"
+    }
+}
+
+// MARK: - US-803: Recent Transcription Item Component
+
+/// Individual transcription item for the Recent Transcriptions list
+/// US-803: Build transcription item component with icon, title, subtitle, timestamp
+struct RecentTranscriptionItem: View {
+    let entry: TranscriptionEntry
+    let isLast: Bool
+    
+    /// US-803: Hover state for highlight and title color change
+    @State private var isHovered = false
+    
+    /// Derived title from transcription text (first line or truncated)
+    private var title: String {
+        // Get first meaningful line as title
+        let lines = entry.textPreview.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        if let firstLine = lines.first {
+            // Truncate if too long
+            if firstLine.count > 50 {
+                return String(firstLine.prefix(47)) + "..."
+            }
+            return firstLine
+        }
+        return entry.textPreview.prefix(50).description
+    }
+    
+    /// Subtitle showing word count and duration
+    private var subtitle: String {
+        let wordText = entry.wordCount == 1 ? "word" : "words"
+        let duration = String(format: "%.1fs", entry.durationSeconds)
+        return "\(entry.wordCount) \(wordText) • \(duration)"
+    }
+    
+    /// Relative timestamp (e.g., "2 hours ago", "Yesterday")
+    private var relativeTimestamp: String {
+        entry.relativeDateString == "Today" ? entry.timeString : entry.relativeDateString
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: Spacing.md) {
+                // MARK: - Icon (waveform in circle)
+                // US-803: Icon for transcription item
+                ZStack {
+                    Circle()
+                        .fill(isHovered ? Color.Voxa.accentLight : Color.Voxa.surfaceSecondary)
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: "waveform")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(isHovered ? Color.Voxa.accent : Color.Voxa.textSecondary)
+                }
+                
+                // MARK: - Title and Subtitle
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    // US-803: Title (text content preview)
+                    // Hover changes title color to accent
+                    Text(title)
+                        .font(Font.Voxa.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(isHovered ? Color.Voxa.accent : Color.Voxa.textPrimary)
+                        .lineLimit(1)
+                    
+                    // US-803: Subtitle with metadata
+                    Text(subtitle)
+                        .font(Font.Voxa.caption)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                }
+                
+                Spacer()
+                
+                // MARK: - Timestamp
+                // US-803: Timestamp aligned right
+                Text(relativeTimestamp)
+                    .font(Font.Voxa.small)
+                    .foregroundColor(Color.Voxa.textTertiary)
+                
+                // Chevron indicator on hover
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color.Voxa.textTertiary)
+                    .opacity(isHovered ? 1 : 0)
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.md)
+            // US-803: Hover highlight background
+            .background(isHovered ? Color.Voxa.surfaceSecondary.opacity(0.5) : Color.clear)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                withAnimation(VoxaAnimation.quick) {
+                    isHovered = hovering
+                }
+            }
+            .onTapGesture {
+                // Copy to clipboard on tap (quick action)
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(entry.fullText, forType: .string)
+                ToastManager.shared.showCopiedToClipboard()
+            }
+            
+            // Divider (not shown for last item)
+            if !isLast {
+                Divider()
+                    .background(Color.Voxa.border.opacity(0.5))
+                    .padding(.leading, Spacing.md + 40 + Spacing.md) // Align with text, past icon
+            }
+        }
     }
 }
 
@@ -1182,6 +1298,120 @@ struct ActivityTimelineEntry: View {
                 withAnimation(VoxaAnimation.quick) {
                     isHovered = hovering
                 }
+            }
+        }
+    }
+}
+
+// MARK: - US-803: Recent Transcription Item Component
+
+/// Individual transcription item for the Recent Transcriptions section
+/// US-803: Displays icon, title, subtitle (metadata), and timestamp with hover states
+struct RecentTranscriptionItem: View {
+    let entry: TranscriptionEntry
+    let isLast: Bool
+    
+    /// US-803: Hover state for highlight and title color change
+    @State private var isHovered = false
+    
+    /// US-803: Generate a descriptive title from the transcription text
+    /// Takes first 3-5 words or first sentence, whichever is shorter
+    private var transcriptionTitle: String {
+        let text = entry.textPreview.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Try to get first sentence (up to first period, question mark, or exclamation)
+        if let sentenceEnd = text.firstIndex(where: { $0 == "." || $0 == "?" || $0 == "!" }) {
+            let firstSentence = String(text[..<sentenceEnd])
+            // If first sentence is short enough, use it
+            if firstSentence.count <= 60 {
+                return firstSentence + String(text[sentenceEnd])
+            }
+        }
+        
+        // Otherwise, take first 5-8 words
+        let words = text.split(separator: " ").prefix(8)
+        let title = words.joined(separator: " ")
+        
+        if title.count < text.count {
+            return title + "..."
+        }
+        return title
+    }
+    
+    /// US-803: Subtitle showing word count and duration
+    private var subtitle: String {
+        let duration = String(format: "%.0fs", entry.durationSeconds)
+        return "\(entry.wordCount) words • \(duration)"
+    }
+    
+    /// US-803: Formatted relative timestamp
+    private var timestampText: String {
+        entry.relativeDateString
+    }
+    
+    /// US-803: Icon based on content type (simple heuristic)
+    private var iconName: String {
+        // Simple heuristic: if text contains question, use question mark icon
+        if entry.textPreview.contains("?") {
+            return "questionmark.bubble.fill"
+        }
+        // Default: document icon for general transcription
+        return "doc.text.fill"
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: Spacing.md) {
+                // MARK: - Icon
+                // US-803: Icon with subtle background
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.small)
+                        .fill(Color.Voxa.accentLight)
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: iconName)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.Voxa.accent)
+                }
+                
+                // MARK: - Title & Subtitle
+                VStack(alignment: .leading, spacing: Spacing.xs - 2) {
+                    // US-803: Title with hover color change
+                    Text(transcriptionTitle)
+                        .font(Font.Voxa.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(isHovered ? Color.Voxa.accent : Color.Voxa.textPrimary)
+                        .lineLimit(1)
+                    
+                    // US-803: Subtitle with metadata
+                    Text(subtitle)
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textTertiary)
+                }
+                
+                Spacer()
+                
+                // MARK: - Timestamp
+                Text(timestampText)
+                    .font(Font.Voxa.small)
+                    .foregroundColor(Color.Voxa.textTertiary)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            // US-803: Hover highlight background
+            .background(isHovered ? Color.Voxa.surfaceSecondary.opacity(0.5) : Color.clear)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                withAnimation(VoxaAnimation.quick) {
+                    isHovered = hovering
+                }
+            }
+            
+            // MARK: - Separator (except for last item)
+            if !isLast {
+                Divider()
+                    .background(Color.Voxa.border)
+                    .padding(.leading, Spacing.lg + 40 + Spacing.md) // Align with text, skip icon
             }
         }
     }
