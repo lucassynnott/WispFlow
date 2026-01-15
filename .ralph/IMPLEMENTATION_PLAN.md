@@ -1644,3 +1644,217 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 - Delete confirmation alert prevents accidental deletion
 - All components use existing design system: `Color.Wispflow`, `Font.Wispflow`, `Spacing`, `CornerRadius`, `WispflowAnimation`
 - Verified via `swift build` - typecheck passes
+
+---
+
+## Phase 10: Settings Integration (from prd-settings-integration.json)
+
+### [x] US-701: Create SettingsContentView for Main Window
+**Status:** complete
+**Priority:** high
+**Estimated effort:** medium
+**Depends on:** none
+
+**Description:** Create SettingsContentView that displays all settings in the main window content area when Settings is selected in sidebar.
+
+**Tasks:**
+- [x] Create SettingsContentView with vertical scrollable layout
+- [x] Add section headers for each settings group
+- [x] Group settings into: General, Audio, Transcription, Text Cleanup, Text Insertion, Debug
+- [x] Apply wispflowCard() styling to each section
+- [x] Use Color.Wispflow design tokens throughout
+- [x] Enable smooth vertical scrolling
+
+**Acceptance Criteria:**
+- [x] Settings display in main window content area
+- [x] All 6 sections visible with clear headers
+- [x] Consistent styling with other main window views
+- [x] Smooth scrolling for long content
+
+**Implementation Notes:**
+- Created `SettingsContentView` in `MainWindow.swift` with full ScrollView layout
+- Implemented `SettingsSectionView` reusable component with wispflowCard() styling:
+  - Expandable/collapsible sections with smooth animation
+  - Section icon in accentLight background
+  - Title and description text
+  - Chevron expand/collapse indicator with rotation animation
+- Created 6 summary views:
+  - `GeneralSettingsSummary`: App info, hotkey display, permission badges
+  - `AudioSettingsSummary`: Input device, device count, calibration status
+  - `TranscriptionSettingsSummary`: Whisper model with status badge, language with flag
+  - `TextCleanupSettingsSummary`: Cleanup toggle, mode, post-processing badges
+  - `TextInsertionSettingsSummary`: Insertion method, clipboard preservation status
+  - `DebugSettingsSummary`: Debug mode status, auto-save, last recording info
+- Created supporting components: `SettingsInfoRow`, `PermissionBadge`, `ModelStatusIndicator`, `StatusPill`, `MiniFeatureBadge`, `SettingsOpenFullButton`
+- Each section has "Open Full Settings" button to open detailed settings window
+- All components use Color.Wispflow design tokens and Font.Wispflow typography
+- Verified via `swift build` - typecheck passes
+
+---
+
+### [ ] US-702: Migrate General Settings Section
+**Status:** open
+**Priority:** high
+**Estimated effort:** small
+**Depends on:** US-701
+
+**Description:** Move General settings (hotkey, startup) to integrated settings view.
+
+**Tasks:**
+- [ ] Display app info header (icon, version, description)
+- [ ] Add GitHub, Website, Support link buttons
+- [ ] Include Global Hotkey configuration with recording UI
+- [ ] Add Startup options (launch at login toggle)
+- [ ] Maintain all existing bindings to HotkeyManager
+
+**Acceptance Criteria:**
+- [ ] App info displays correctly
+- [ ] Hotkey recording works
+- [ ] Startup toggle functions
+- [ ] All links open correctly
+
+---
+
+### [ ] US-703: Migrate Audio Settings Section
+**Status:** open
+**Priority:** high
+**Estimated effort:** small
+**Depends on:** US-701
+
+**Description:** Move Audio settings (device, preview, calibration) to integrated settings view.
+
+**Tasks:**
+- [ ] Show audio input device picker dropdown
+- [ ] Display real-time audio level meter
+- [ ] Include input sensitivity slider
+- [ ] Add calibration controls
+- [ ] Include device refresh button
+
+**Acceptance Criteria:**
+- [ ] Device selection works
+- [ ] Audio preview shows levels
+- [ ] Sensitivity slider adjusts threshold
+- [ ] Calibration functions correctly
+
+---
+
+### [ ] US-704: Migrate Transcription Settings Section
+**Status:** open
+**Priority:** high
+**Estimated effort:** small
+**Depends on:** US-701
+
+**Description:** Move Transcription settings (model, language) to integrated settings view.
+
+**Tasks:**
+- [ ] Show Whisper model size picker
+- [ ] Display model download progress
+- [ ] Include language selection dropdown
+- [ ] Show quality/speed tradeoff info
+
+**Acceptance Criteria:**
+- [ ] Model selection works with download progress
+- [ ] Language selection persists
+- [ ] Tradeoff info displayed
+
+---
+
+### [ ] US-705: Migrate Text Cleanup Settings Section
+**Status:** open
+**Priority:** medium
+**Estimated effort:** small
+**Depends on:** US-701
+
+**Description:** Move Text Cleanup settings to integrated settings view.
+
+**Tasks:**
+- [ ] Show text cleanup enable/disable toggle
+- [ ] Display filler word removal options
+- [ ] Include post-processing toggles
+
+**Acceptance Criteria:**
+- [ ] Cleanup toggle works
+- [ ] Filler word options functional
+- [ ] Post-processing toggles persist
+
+---
+
+### [ ] US-706: Migrate Text Insertion Settings Section
+**Status:** open
+**Priority:** medium
+**Estimated effort:** small
+**Depends on:** US-701
+
+**Description:** Move Text Insertion settings to integrated settings view.
+
+**Tasks:**
+- [ ] Show text insertion method options
+- [ ] Include clipboard preservation toggle
+- [ ] Display timing options if applicable
+
+**Acceptance Criteria:**
+- [ ] Insertion method selection works
+- [ ] Clipboard preservation toggle functions
+
+---
+
+### [ ] US-707: Migrate Debug Settings Section
+**Status:** open
+**Priority:** medium
+**Estimated effort:** small
+**Depends on:** US-701
+
+**Description:** Move Debug settings to integrated settings view.
+
+**Tasks:**
+- [ ] Show log level selector
+- [ ] Include Export Logs button
+- [ ] Display Open Recordings Folder button
+- [ ] Show system info
+- [ ] Add Reset All Settings option
+
+**Acceptance Criteria:**
+- [ ] Log level selection works
+- [ ] Export logs creates file
+- [ ] Folder buttons open Finder
+- [ ] Reset with confirmation
+
+---
+
+### [ ] US-708: Remove Separate Settings Window
+**Status:** open
+**Priority:** high
+**Estimated effort:** small
+**Depends on:** US-702, US-703, US-704, US-705, US-706, US-707
+
+**Description:** Remove the separate Settings popout window.
+
+**Tasks:**
+- [ ] Remove or repurpose SettingsWindow.swift
+- [ ] Remove 'Open Settings Window' button from placeholder
+- [ ] Update StatusBarController Settings menu to open main window
+- [ ] Clean up unused settings window code
+
+**Acceptance Criteria:**
+- [ ] No separate settings window opens
+- [ ] Menu bar Settings opens main window with Settings selected
+- [ ] No orphaned code remains
+
+---
+
+### [ ] US-709: Settings Section Navigation
+**Status:** open
+**Priority:** low
+**Estimated effort:** small
+**Depends on:** US-701
+
+**Description:** Add quick navigation to settings sections.
+
+**Tasks:**
+- [ ] Add section jump buttons at top of settings view
+- [ ] Implement smooth scroll to section
+- [ ] Consider collapsible sections
+
+**Acceptance Criteria:**
+- [ ] Section links scroll to correct section
+- [ ] Smooth scroll animation

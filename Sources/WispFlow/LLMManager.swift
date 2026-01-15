@@ -6,6 +6,12 @@ import LlamaSwift
 @MainActor
 final class LLMManager: ObservableObject {
     
+    // MARK: - Singleton
+    
+    /// Shared instance for app-wide access
+    /// US-701: Added for SettingsContentView in MainWindow
+    static let shared = LLMManager()
+    
     // MARK: - Types
     
     /// Available LLM model sizes

@@ -3581,43 +3581,632 @@ struct DictionaryExampleRow: View {
     }
 }
 
-/// Settings view placeholder (redirects to Settings window)
+/// Settings content view that displays all settings in the main window content area
+/// US-701: Create SettingsContentView for Main Window
 struct SettingsContentView: View {
     var body: some View {
-        VStack(spacing: Spacing.lg) {
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 48, weight: .light))
-                .foregroundColor(Color.Wispflow.accent.opacity(0.5))
-            
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
+                // MARK: - Header
+                settingsHeader
+                
+                // MARK: - General Section
+                SettingsSectionView(
+                    title: "General",
+                    icon: "gear",
+                    description: "App information, global hotkey, startup options, and permissions"
+                ) {
+                    GeneralSettingsSummary()
+                }
+                
+                // MARK: - Audio Section
+                SettingsSectionView(
+                    title: "Audio",
+                    icon: "speaker.wave.2",
+                    description: "Input device selection, audio preview, and sensitivity settings"
+                ) {
+                    AudioSettingsSummary()
+                }
+                
+                // MARK: - Transcription Section
+                SettingsSectionView(
+                    title: "Transcription",
+                    icon: "waveform",
+                    description: "Whisper model selection and language preferences"
+                ) {
+                    TranscriptionSettingsSummary()
+                }
+                
+                // MARK: - Text Cleanup Section
+                SettingsSectionView(
+                    title: "Text Cleanup",
+                    icon: "text.badge.checkmark",
+                    description: "AI-powered text cleanup and post-processing options"
+                ) {
+                    TextCleanupSettingsSummary()
+                }
+                
+                // MARK: - Text Insertion Section
+                SettingsSectionView(
+                    title: "Text Insertion",
+                    icon: "doc.on.clipboard",
+                    description: "How transcribed text is inserted into your applications"
+                ) {
+                    TextInsertionSettingsSummary()
+                }
+                
+                // MARK: - Debug Section
+                SettingsSectionView(
+                    title: "Debug",
+                    icon: "ladybug",
+                    description: "Debug tools, logging, and audio export options"
+                ) {
+                    DebugSettingsSummary()
+                }
+                
+                Spacer(minLength: Spacing.xxl)
+            }
+            .padding(Spacing.xl)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.Wispflow.background)
+    }
+    
+    // MARK: - Header View
+    
+    private var settingsHeader: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             Text("Settings")
                 .font(Font.Wispflow.largeTitle)
                 .foregroundColor(Color.Wispflow.textPrimary)
             
-            Text("Configure WispFlow preferences")
+            Text("Configure WispFlow preferences and options")
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+        }
+    }
+}
+
+// MARK: - Settings Section View (US-701)
+
+/// A reusable section container for settings groups
+/// Applies consistent wispflowCard() styling to each section
+struct SettingsSectionView<Content: View>: View {
+    let title: String
+    let icon: String
+    let description: String
+    @ViewBuilder let content: () -> Content
+    
+    @State private var isExpanded: Bool = true
+    @State private var isHovering: Bool = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section Header
+            Button(action: {
+                withAnimation(WispflowAnimation.quick) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack(spacing: Spacing.md) {
+                    // Section icon
+                    ZStack {
+                        RoundedRectangle(cornerRadius: CornerRadius.small)
+                            .fill(Color.Wispflow.accentLight)
+                            .frame(width: 36, height: 36)
+                        
+                        Image(systemName: icon)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.Wispflow.accent)
+                    }
+                    
+                    // Title and description
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text(title)
+                            .font(Font.Wispflow.headline)
+                            .foregroundColor(Color.Wispflow.textPrimary)
+                        
+                        Text(description)
+                            .font(Font.Wispflow.caption)
+                            .foregroundColor(Color.Wispflow.textSecondary)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    // Expand/collapse indicator
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.Wispflow.textTertiary)
+                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
+                }
+                .padding(Spacing.lg)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .background(
+                RoundedRectangle(cornerRadius: isExpanded ? CornerRadius.medium : CornerRadius.medium)
+                    .fill(isHovering && !isExpanded ? Color.Wispflow.border.opacity(0.3) : Color.clear)
+            )
+            .onHover { hovering in
+                withAnimation(WispflowAnimation.quick) {
+                    isHovering = hovering
+                }
+            }
+            
+            // Section Content (expandable)
+            if isExpanded {
+                Divider()
+                    .background(Color.Wispflow.border)
+                    .padding(.horizontal, Spacing.lg)
+                
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    content()
+                }
+                .padding(Spacing.lg)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .wispflowShadow(.subtle)
+    }
+}
+
+// MARK: - General Settings Summary (US-701)
+
+/// Summary view for General settings section
+struct GeneralSettingsSummary: View {
+    @StateObject private var hotkeyManager = HotkeyManager.shared
+    @StateObject private var permissionManager = PermissionManager.shared
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // App Info row
+            SettingsInfoRow(
+                icon: "info.circle",
+                title: "App Info",
+                value: "WispFlow v\(appVersion)"
+            )
+            
+            // Hotkey row
+            SettingsInfoRow(
+                icon: "keyboard",
+                title: "Global Hotkey",
+                value: hotkeyManager.configuration.displayString
+            )
+            
+            // Permissions row
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .frame(width: 20)
+                
+                Text("Permissions")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Spacer()
+                
+                // Permission status badges
+                HStack(spacing: Spacing.sm) {
+                    PermissionBadge(
+                        icon: "mic.fill",
+                        isGranted: permissionManager.microphoneStatus.isGranted
+                    )
+                    PermissionBadge(
+                        icon: "hand.raised.fill",
+                        isGranted: permissionManager.accessibilityStatus.isGranted
+                    )
+                }
+            }
+            
+            // Open full settings button
+            SettingsOpenFullButton()
+        }
+    }
+    
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.5"
+    }
+}
+
+// MARK: - Audio Settings Summary (US-701)
+
+/// Summary view for Audio settings section
+struct AudioSettingsSummary: View {
+    @StateObject private var audioManager = AudioManager.shared
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Current device
+            SettingsInfoRow(
+                icon: "mic",
+                title: "Input Device",
+                value: audioManager.currentDevice?.name ?? "Default"
+            )
+            
+            // Devices available
+            SettingsInfoRow(
+                icon: "speaker.wave.3",
+                title: "Available Devices",
+                value: "\(audioManager.inputDevices.count) device(s)"
+            )
+            
+            // Calibration status
+            SettingsInfoRow(
+                icon: "dial.low",
+                title: "Calibration",
+                value: audioManager.isCurrentDeviceCalibrated ? "Calibrated" : "Not Calibrated"
+            )
+            
+            // Open full settings button
+            SettingsOpenFullButton()
+        }
+    }
+}
+
+// MARK: - Transcription Settings Summary (US-701)
+
+/// Summary view for Transcription settings section
+struct TranscriptionSettingsSummary: View {
+    @StateObject private var whisperManager = WhisperManager.shared
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Current model
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .frame(width: 20)
+                
+                Text("Whisper Model")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Spacer()
+                
+                HStack(spacing: Spacing.sm) {
+                    Text(whisperManager.selectedModel.displayName.components(separatedBy: " (").first ?? "Unknown")
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    // Status badge
+                    ModelStatusIndicator(status: whisperManager.modelStatus)
+                }
+            }
+            
+            // Language
+            SettingsInfoRow(
+                icon: "globe",
+                title: "Language",
+                value: "\(whisperManager.selectedLanguage.flag) \(whisperManager.selectedLanguage.displayName)"
+            )
+            
+            // Open full settings button
+            SettingsOpenFullButton()
+        }
+    }
+}
+
+// MARK: - Text Cleanup Settings Summary (US-701)
+
+/// Summary view for Text Cleanup settings section
+struct TextCleanupSettingsSummary: View {
+    @StateObject private var textCleanupManager = TextCleanupManager.shared
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Cleanup enabled status
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .frame(width: 20)
+                
+                Text("Text Cleanup")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Spacer()
+                
+                StatusPill(
+                    text: textCleanupManager.isCleanupEnabled ? "Enabled" : "Disabled",
+                    color: textCleanupManager.isCleanupEnabled ? Color.Wispflow.success : Color.Wispflow.textTertiary
+                )
+            }
+            
+            // Cleanup mode
+            SettingsInfoRow(
+                icon: "slider.horizontal.3",
+                title: "Cleanup Mode",
+                value: textCleanupManager.selectedMode.displayName
+            )
+            
+            // Post-processing
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "text.badge.plus")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .frame(width: 20)
+                
+                Text("Post-Processing")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Spacer()
+                
+                HStack(spacing: Spacing.xs) {
+                    if textCleanupManager.autoCapitalizeFirstLetter {
+                        MiniFeatureBadge(icon: "textformat.abc")
+                    }
+                    if textCleanupManager.addPeriodAtEnd {
+                        MiniFeatureBadge(icon: "period")
+                    }
+                    if textCleanupManager.trimWhitespace {
+                        MiniFeatureBadge(icon: "text.alignleft")
+                    }
+                }
+            }
+            
+            // Open full settings button
+            SettingsOpenFullButton()
+        }
+    }
+}
+
+// MARK: - Text Insertion Settings Summary (US-701)
+
+/// Summary view for Text Insertion settings section
+struct TextInsertionSettingsSummary: View {
+    @StateObject private var textInserter = TextInserter.shared
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Insertion method - using paste (⌘V) by default
+            SettingsInfoRow(
+                icon: "keyboard.badge.ellipsis",
+                title: "Insertion Method",
+                value: "Paste (⌘V)"
+            )
+            
+            // Clipboard preservation
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .frame(width: 20)
+                
+                Text("Clipboard Preservation")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Spacer()
+                
+                StatusPill(
+                    text: textInserter.preserveClipboard ? "Enabled" : "Disabled",
+                    color: textInserter.preserveClipboard ? Color.Wispflow.success : Color.Wispflow.textTertiary
+                )
+            }
+            
+            // Open full settings button
+            SettingsOpenFullButton()
+        }
+    }
+}
+
+// MARK: - Debug Settings Summary (US-701)
+
+/// Summary view for Debug settings section
+struct DebugSettingsSummary: View {
+    @StateObject private var debugManager = DebugManager.shared
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Debug mode status
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "ladybug")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .frame(width: 20)
+                
+                Text("Debug Mode")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Spacer()
+                
+                StatusPill(
+                    text: debugManager.isDebugModeEnabled ? "Enabled" : "Disabled",
+                    color: debugManager.isDebugModeEnabled ? Color.Wispflow.warning : Color.Wispflow.textTertiary
+                )
+            }
+            
+            // Auto-save recordings
+            if debugManager.isDebugModeEnabled {
+                HStack(spacing: Spacing.md) {
+                    Image(systemName: "arrow.down.doc")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .frame(width: 20)
+                    
+                    Text("Auto-Save Recordings")
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                    
+                    Spacer()
+                    
+                    StatusPill(
+                        text: debugManager.isAutoSaveEnabled ? "Enabled" : "Disabled",
+                        color: debugManager.isAutoSaveEnabled ? Color.Wispflow.success : Color.Wispflow.textTertiary
+                    )
+                }
+            }
+            
+            // Last recording info
+            if let lastAudio = debugManager.lastAudioData {
+                SettingsInfoRow(
+                    icon: "waveform",
+                    title: "Last Recording",
+                    value: String(format: "%.1fs • %.0f dB", lastAudio.duration, lastAudio.peakLevel)
+                )
+            }
+            
+            // Open full settings button
+            SettingsOpenFullButton()
+        }
+    }
+}
+
+// MARK: - Supporting Components (US-701)
+
+/// A row displaying a settings info item with icon, title, and value
+struct SettingsInfoRow: View {
+    let icon: String
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .frame(width: 20)
+            
+            Text(title)
                 .font(Font.Wispflow.body)
                 .foregroundColor(Color.Wispflow.textSecondary)
             
-            Button(action: {
-                // Post notification to open settings
-                NotificationCenter.default.post(name: .openSettings, object: nil)
-            }) {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "arrow.up.right.square")
-                        .font(.system(size: 14, weight: .medium))
-                    Text("Open Settings Window")
-                }
+            Spacer()
+            
+            Text(value)
                 .font(Font.Wispflow.body)
-                .foregroundColor(.white)
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, Spacing.md)
-                .background(Color.Wispflow.accent)
-                .cornerRadius(CornerRadius.small)
-            }
-            .buttonStyle(InteractiveScaleStyle())
-            .padding(.top, Spacing.md)
+                .foregroundColor(Color.Wispflow.textPrimary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.Wispflow.background)
+    }
+}
+
+/// A small permission badge showing granted/denied status
+struct PermissionBadge: View {
+    let icon: String
+    let isGranted: Bool
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(isGranted ? Color.Wispflow.successLight : Color.Wispflow.errorLight)
+                .frame(width: 28, height: 28)
+            
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(isGranted ? Color.Wispflow.success : Color.Wispflow.error)
+        }
+        .overlay(
+            Circle()
+                .stroke(isGranted ? Color.Wispflow.success.opacity(0.3) : Color.Wispflow.error.opacity(0.3), lineWidth: 1)
+        )
+        .help(isGranted ? "Permission granted" : "Permission not granted")
+    }
+}
+
+/// A compact status indicator for Whisper model status
+struct ModelStatusIndicator: View {
+    let status: WhisperManager.ModelStatus
+    
+    private var color: Color {
+        switch status {
+        case .ready: return Color.Wispflow.success
+        case .loading, .downloading: return Color.Wispflow.warning
+        case .downloaded: return Color.Wispflow.accent
+        case .notDownloaded: return Color.Wispflow.textTertiary
+        case .error: return Color.Wispflow.error
+        }
+    }
+    
+    private var text: String {
+        switch status {
+        case .ready: return "Ready"
+        case .loading: return "Loading"
+        case .downloading: return "Downloading"
+        case .downloaded: return "Downloaded"
+        case .notDownloaded: return "Not Loaded"
+        case .error: return "Error"
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+            Text(text)
+                .font(Font.Wispflow.small)
+                .foregroundColor(color)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 2)
+        .background(color.opacity(0.12))
+        .cornerRadius(CornerRadius.small / 2)
+    }
+}
+
+/// A pill-shaped status indicator
+struct StatusPill: View {
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        Text(text)
+            .font(Font.Wispflow.small)
+            .fontWeight(.medium)
+            .foregroundColor(color)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.12))
+            .cornerRadius(CornerRadius.small / 2)
+    }
+}
+
+/// A mini badge showing a feature is enabled
+struct MiniFeatureBadge: View {
+    let icon: String
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.Wispflow.accentLight)
+                .frame(width: 22, height: 22)
+            
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(Color.Wispflow.accent)
+        }
+    }
+}
+
+/// Button to open the full settings window
+struct SettingsOpenFullButton: View {
+    var body: some View {
+        Button(action: {
+            NotificationCenter.default.post(name: .openSettings, object: nil)
+        }) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "arrow.up.right.square")
+                    .font(.system(size: 12, weight: .medium))
+                Text("Open Full Settings")
+                    .font(Font.Wispflow.caption)
+            }
+            .foregroundColor(Color.Wispflow.accent)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(Color.Wispflow.accentLight)
+            .cornerRadius(CornerRadius.small)
+        }
+        .buttonStyle(InteractiveScaleStyle())
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.top, Spacing.sm)
     }
 }
 

@@ -146,7 +146,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Setup
     
     private func setupAudioManager() {
-        audioManager = AudioManager()
+        // US-701: Use shared singleton instance
+        audioManager = AudioManager.shared
         
         // Set up error handling
         audioManager?.onCaptureError = { error in
@@ -327,7 +328,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     @MainActor
     private func setupWhisperManager() {
-        whisperManager = WhisperManager()
+        // US-701: Use shared singleton instance
+        whisperManager = WhisperManager.shared
         
         // Set up callbacks
         whisperManager?.onTranscriptionComplete = { text in
@@ -348,7 +350,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     @MainActor
     private func setupTextCleanupManager() {
-        textCleanupManager = TextCleanupManager()
+        // US-701: Use shared singleton instance
+        textCleanupManager = TextCleanupManager.shared
         
         // Set up callbacks
         textCleanupManager?.onCleanupComplete = { text in
@@ -362,7 +365,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     @MainActor
     private func setupLLMManager() {
-        llmManager = LLMManager()
+        // US-701: Use shared singleton instance
+        llmManager = LLMManager.shared
         
         // Set up callbacks
         llmManager?.onCleanupComplete = { text in
@@ -382,7 +386,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     @MainActor
     private func setupTextInserter() {
-        textInserter = TextInserter()
+        // US-701: Use shared singleton instance
+        textInserter = TextInserter.shared
         
         // Set up callbacks
         textInserter?.onInsertionComplete = {
@@ -415,7 +420,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func setupHotkeyManager() {
-        hotkeyManager = HotkeyManager()
+        // US-701: Use shared singleton instance
+        hotkeyManager = HotkeyManager.shared
         
         hotkeyManager?.onHotkeyPressed = { [weak self] in
             self?.toggleRecordingFromHotkey()

@@ -1,0 +1,196 @@
+{
+  "version": 1,
+  "project": "WispFlow Settings Integration",
+  "overview": "Integrate the Settings window into the main app UI. Currently clicking Settings in the sidebar shows a placeholder that opens a separate popout window. This PRD covers embedding all settings content directly in the main window content area, removing the separate Settings window, and adapting the UI to fit the sidebar-based layout.",
+  "goals": [
+    "Embed all settings content in the main window when Settings is selected",
+    "Remove the separate popout Settings window",
+    "Adapt settings UI to use vertical sections instead of horizontal tabs",
+    "Maintain all existing settings functionality",
+    "Apply consistent WispFlow design system styling"
+  ],
+  "nonGoals": [
+    "Adding new settings options",
+    "Changing settings persistence logic",
+    "Modifying the sidebar navigation structure"
+  ],
+  "successMetrics": [
+    "Settings fully accessible from main window sidebar",
+    "No separate Settings window opens",
+    "All 6 settings sections (General, Audio, Transcription, Text Cleanup, Text Insertion, Debug) accessible",
+    "Build passes with swift build"
+  ],
+  "openQuestions": [],
+  "stack": {
+    "framework": "SwiftUI",
+    "hosting": "Local macOS app",
+    "database": "UserDefaults",
+    "auth": "N/A"
+  },
+  "routes": [],
+  "uiNotes": [
+    "Settings content displays in main window content area",
+    "Use vertical scrollable list with collapsible sections or cards",
+    "Apply WispFlow design system colors (Color.Wispflow.*)",
+    "Use wispflowCard() styling for settings groups",
+    "Maintain visual consistency with Home, History, Snippets, Dictionary views"
+  ],
+  "dataModel": [],
+  "importFormat": {
+    "description": "N/A",
+    "example": {}
+  },
+  "rules": [
+    "All existing settings must remain functional",
+    "Settings changes must persist via UserDefaults as before",
+    "Remove SettingsWindow.swift or repurpose as SettingsContentView"
+  ],
+  "qualityGates": ["swift build"],
+  "stories": [
+    {
+      "id": "US-701",
+      "title": "Create SettingsContentView for Main Window",
+      "status": "open",
+      "dependsOn": [],
+      "description": "As a user, I want to see settings content directly in the main window when I click Settings in the sidebar.",
+      "acceptanceCriteria": [
+        "Create SettingsContentView that displays all settings in the main window content area",
+        "Use vertical scrollable layout with section headers",
+        "Group settings into sections: General, Audio, Transcription, Text Cleanup, Text Insertion, Debug",
+        "Each section uses wispflowCard() styling with clear headers",
+        "Apply Color.Wispflow design tokens throughout",
+        "Settings scroll smoothly within the content area",
+        "Example: User clicks Settings in sidebar -> main content shows scrollable settings",
+        "Negative case: Content too tall -> smooth vertical scrolling enabled"
+      ]
+    },
+    {
+      "id": "US-702",
+      "title": "Migrate General Settings Section",
+      "status": "open",
+      "dependsOn": ["US-701"],
+      "description": "As a user, I want the General settings (hotkey, startup options) in the integrated settings view.",
+      "acceptanceCriteria": [
+        "Display app info header (icon, version, description)",
+        "Include GitHub, Website, Support link buttons",
+        "Show Global Hotkey configuration with recording UI",
+        "Include Startup options (launch at login toggle)",
+        "Maintain all existing bindings to HotkeyManager and settings",
+        "Example: User changes hotkey -> new hotkey saved and active",
+        "Negative case: Hotkey conflict -> warning displayed"
+      ]
+    },
+    {
+      "id": "US-703",
+      "title": "Migrate Audio Settings Section",
+      "status": "open",
+      "dependsOn": ["US-701"],
+      "description": "As a user, I want the Audio settings (device selection, preview, calibration) in the integrated settings view.",
+      "acceptanceCriteria": [
+        "Show audio input device picker dropdown",
+        "Display real-time audio level meter/preview",
+        "Include input sensitivity slider",
+        "Show calibration controls",
+        "Include device refresh button",
+        "Maintain all bindings to AudioManager",
+        "Example: User selects different mic -> audio preview updates",
+        "Negative case: No audio devices -> show appropriate message"
+      ]
+    },
+    {
+      "id": "US-704",
+      "title": "Migrate Transcription Settings Section",
+      "status": "open",
+      "dependsOn": ["US-701"],
+      "description": "As a user, I want the Transcription settings (model, language) in the integrated settings view.",
+      "acceptanceCriteria": [
+        "Show Whisper model size picker (tiny, base, small, medium)",
+        "Display model download progress when switching",
+        "Include language selection dropdown",
+        "Show transcription quality/speed tradeoff info",
+        "Maintain all bindings to WhisperManager",
+        "Example: User selects larger model -> download progress shown",
+        "Negative case: Download fails -> retry option displayed"
+      ]
+    },
+    {
+      "id": "US-705",
+      "title": "Migrate Text Cleanup Settings Section",
+      "status": "open",
+      "dependsOn": ["US-701"],
+      "description": "As a user, I want the Text Cleanup settings (filler words, post-processing) in the integrated settings view.",
+      "acceptanceCriteria": [
+        "Show text cleanup enable/disable toggle",
+        "Display filler word removal options",
+        "Include post-processing toggles (capitalize, period, trim)",
+        "Show preview of cleanup effects if applicable",
+        "Maintain all bindings to TextCleanupManager",
+        "Example: User enables auto-capitalize -> setting persisted",
+        "Negative case: All options disabled -> cleanup bypassed"
+      ]
+    },
+    {
+      "id": "US-706",
+      "title": "Migrate Text Insertion Settings Section",
+      "status": "open",
+      "dependsOn": ["US-701"],
+      "description": "As a user, I want the Text Insertion settings (method, clipboard behavior) in the integrated settings view.",
+      "acceptanceCriteria": [
+        "Show text insertion method options",
+        "Include clipboard preservation toggle",
+        "Display insertion delay/timing options if applicable",
+        "Maintain all bindings to relevant managers",
+        "Example: User enables clipboard preservation -> setting active",
+        "Negative case: Insertion fails -> fallback behavior described"
+      ]
+    },
+    {
+      "id": "US-707",
+      "title": "Migrate Debug Settings Section",
+      "status": "open",
+      "dependsOn": ["US-701"],
+      "description": "As a user, I want the Debug settings (logs, diagnostics) in the integrated settings view.",
+      "acceptanceCriteria": [
+        "Show log level selector",
+        "Include Export Logs button",
+        "Display Open Recordings Folder button",
+        "Show system info (macOS version, app version)",
+        "Include Reset All Settings option with confirmation",
+        "Example: User clicks Export Logs -> log file saved/shared",
+        "Negative case: No logs available -> appropriate message shown"
+      ]
+    },
+    {
+      "id": "US-708",
+      "title": "Remove Separate Settings Window",
+      "status": "open",
+      "dependsOn": ["US-702", "US-703", "US-704", "US-705", "US-706", "US-707"],
+      "description": "As a developer, I want to remove the separate Settings popout window now that settings are integrated.",
+      "acceptanceCriteria": [
+        "Remove or deprecate SettingsWindow.swift (or convert to SettingsContentView)",
+        "Remove 'Open Settings Window' button from Settings placeholder view",
+        "Remove openSettingsWindow() calls from StatusBarController menu",
+        "Update StatusBarController Settings menu item to open main window with Settings selected",
+        "Clean up any unused settings window code",
+        "Verify no references to old settings window remain",
+        "Example: User clicks Settings in menu bar -> main window opens with Settings view",
+        "Negative case: N/A - cleanup task"
+      ]
+    },
+    {
+      "id": "US-709",
+      "title": "Settings Section Navigation",
+      "status": "open",
+      "dependsOn": ["US-701"],
+      "description": "As a user, I want to quickly jump to specific settings sections.",
+      "acceptanceCriteria": [
+        "Add section anchor links or jump buttons at top of settings view",
+        "Clicking section name scrolls to that section smoothly",
+        "Consider collapsible/expandable sections for long content",
+        "Highlight current section while scrolling (optional)",
+        "Example: User clicks 'Audio' link -> view scrolls to Audio section",
+        "Negative case: Section already visible -> no scroll needed"
+      ]
+    }
+  ]
+}

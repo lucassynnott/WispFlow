@@ -6,6 +6,12 @@ import WhisperKit
 @MainActor
 final class WhisperManager: ObservableObject {
     
+    // MARK: - Singleton
+    
+    /// Shared instance for app-wide access
+    /// US-701: Added for SettingsContentView in MainWindow
+    static let shared = WhisperManager()
+    
     // MARK: - Types
     
     /// User-friendly error types for transcription failures

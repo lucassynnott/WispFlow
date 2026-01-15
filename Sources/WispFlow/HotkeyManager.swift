@@ -6,6 +6,12 @@ import Carbon.HIToolbox
 /// that works regardless of which app is focused and even when WispFlow window is not visible.
 final class HotkeyManager: ObservableObject {
     
+    // MARK: - Singleton
+    
+    /// Shared instance for app-wide access
+    /// US-701: Added for SettingsContentView in MainWindow
+    static let shared = HotkeyManager()
+    
     // MARK: - Constants
     
     private struct Constants {

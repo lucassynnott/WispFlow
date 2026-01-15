@@ -1,0 +1,7 @@
+Successfully fixed the build error where the `isDuplicate` method was being called instead of `wordExists`. The fix involved:
+
+1. **In `CreateDictionaryEntrySheet.validateWord()`**: Changed from `DictionaryManager.shared.isDuplicate(word: trimmed)` to `DictionaryManager.shared.wordExists(trimmed)` wrapped in `Task { @MainActor in }` for async validation
+
+2. **In `EditDictionaryEntrySheet.validateWord()`**: Changed from `DictionaryManager.shared.isDuplicate(word: trimmed, excludingId: currentEntryId)` to `DictionaryManager.shared.wordExists(trimmed, excludingEntryId: currentEntryId)` with the same async Task wrapper
+
+The build now passes successfully and the commit (54fef56) includes the complete US-636 implementation with all acceptance criteria verified.

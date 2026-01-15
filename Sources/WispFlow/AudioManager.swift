@@ -6,6 +6,12 @@ import Combine
 /// Handles microphone permissions, audio input device enumeration, and audio buffering
 final class AudioManager: NSObject, ObservableObject {
     
+    // MARK: - Singleton
+    
+    /// Shared instance for app-wide access
+    /// US-701: Added for SettingsContentView in MainWindow
+    static let shared = AudioManager()
+    
     // MARK: - Types
     
     /// Represents an available audio input device
