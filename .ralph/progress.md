@@ -5085,3 +5085,61 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-124118-68794-it
   - All PRD stories complete: Phase 1-10 (47 total user stories)
 ---
 
+
+## [2026-01-15 14:30] - US-801: Home Dashboard Header with Time-Based Greeting
+Thread: codex exec session
+Run: 20260115-142047-88309 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142047-88309-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142047-88309-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 4326ecb feat(dashboard): add time-based greeting header with period (US-801)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/Voxa/MainWindow.swift (updated greetingMessage and lastSessionSubtitle)
+  - .ralph/IMPLEMENTATION_PLAN.md (marked US-801 complete)
+- What was implemented:
+  - Time-based greeting logic with period (Good morning./afternoon./evening.)
+  - Subtitle format: "Ready to capture your thoughts? Your last session was X ago."
+  - No-session fallback: "Ready to capture your thoughts?"
+  - DASHBOARD label (uppercase, tracking-widest via 4pt letter spacing)
+  - Date in top-right (formatted as "Thursday, January 15")
+  - System Active status with green dot indicator
+  - Used serif display font (52pt) for editorial Playfair Display style
+  - Relative time formatting (just now, X minutes ago, X hours ago, yesterday, X days ago)
+- **Learnings for future iterations:**
+  - Design system already had serif fonts (Font.Voxa.displayGreeting) added previously
+  - Header structure was already in place from US-633, needed only greeting format refinements
+  - Project was renamed from WispFlow to Voxa - sources now in Sources/Voxa/
+  - US-801 is first story in Phase 11 (Minimalist Dashboard UI Redesign)
+---
+
+## [2026-01-15 14:24] - US-801: Home Dashboard Header with Time-Based Greeting
+Thread: 
+Run: 20260115-142045-88235 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142045-88235-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142045-88235-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 4326ecb feat(dashboard): add time-based greeting header with period (US-801)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build completes successfully)
+- Files changed:
+  - Sources/Voxa/MainWindow.swift (welcomeSection, greetingMessage, lastSessionSubtitle, relativeTimeString)
+  - Sources/Voxa/DesignSystem.swift (displayGreeting serif font at 52pt)
+  - .ralph/IMPLEMENTATION_PLAN.md (US-801 marked complete with implementation notes)
+- What was implemented:
+  - Time-based greeting logic (morning <12pm, afternoon 12-5pm, evening >5pm)
+  - Playfair Display style serif font for greeting (52pt via Font.Voxa.displayGreeting)
+  - Subtitle with last session info (relative time formatting)
+  - DASHBOARD label (uppercase, tracking-widest)
+  - Date and System Active status in top-right with green dot indicator
+- **Learnings for future iterations:**
+  - Story was already implemented by another parallel agent
+  - System serif design font provides elegant editorial appearance similar to Playfair Display
+  - relativeTimeString helper provides human-readable time ago strings (just now, X minutes/hours ago, yesterday, X days ago, on MMM d)
+  - UsageStatsManager.recentEntries provides access to last session timestamp
+---
