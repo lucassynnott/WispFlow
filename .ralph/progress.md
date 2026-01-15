@@ -3777,3 +3777,56 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-104318-43714-it
   - Hover lift effect achieved with scaleEffect + offset + shadow changes
   - Recording duration flows through processTranscription → processTextCleanup → UsageStatsManager
 ---
+
+## [2026-01-15 11:05] - US-634: Transcription History View
+Thread: 
+Run: 20260115-105838-46628 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-105838-46628-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-105838-46628-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: d6eea7a feat(US-634): Transcription History View with search, grouping, and management
+- Post-commit status: clean
+- Verification:
+  - Command: swift build -> PASS
+- Files changed:
+  - Sources/WispFlow/MainWindow.swift - Replaced placeholder HistoryContentView with full implementation
+  - Sources/WispFlow/UsageStatsManager.swift - Extended data model and added search/grouping methods
+  - .ralph/IMPLEMENTATION_PLAN.md - Marked US-634 tasks and acceptance criteria complete
+- What was implemented:
+  - **TranscriptionEntry data model extended:**
+    - Added fullText field for complete transcription text
+    - Added migration decoder for backward compatibility
+    - Enhanced removeEntry() to update totals on deletion
+    - Added searchEntries() for real-time search filtering
+    - Added groupEntriesByDate() for date category grouping
+  - **DateCategory enum:** Today, Yesterday, This Week, This Month, Older with sorting support
+  - **HistoryContentView:**
+    - Header with title, entry count badge, and search bar
+    - Real-time search with clear button and no-results state
+    - Empty state with helpful message and hotkey hint
+    - LazyVStack grouped by date categories
+  - **HistoryEntryCard component:**
+    - Time, word count, duration, WPM metadata display
+    - Preview (2-line) and full text modes with expand/collapse
+    - Copy button with toast notification
+    - Delete button with confirmation dialog
+    - Search query highlighting using AttributedString
+    - Hover effects with shadow and scale animation
+  - **Animations:**
+    - Smooth filtering via WispflowAnimation.smooth
+    - Entry transitions with opacity and scale
+    - Hover/expand animations with WispflowAnimation.quick
+- Acceptance Criteria verified:
+  - [x] Past transcriptions listed with date/time/preview
+  - [x] Search filters results in real-time
+  - [x] Copy and delete work correctly
+  - [x] Entries grouped by date
+  - [x] Empty state message when no history
+- **Learnings for future iterations:**
+  - Codable migration with decodeIfPresent handles schema evolution gracefully
+  - AttributedString highlighting requires range conversion from String indices
+  - LazyVStack with ForEach by category provides efficient grouped list rendering
+  - Delete confirmation uses SwiftUI .alert with presenting parameter
+  - Search highlighting with warningLight background provides good contrast
+---
