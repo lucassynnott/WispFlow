@@ -2271,8 +2271,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-805: Quick Tools Section
-**Status:** open
+### [x] US-805: Quick Tools Section
+**Status:** complete
 **Priority:** medium
 **Estimated effort:** small
 **Depends on:** none
@@ -2280,15 +2280,39 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Quick access buttons for AI Text Cleanup and Import Audio.
 
 **Tasks:**
-- [ ] Create Quick Tools section with italic header
-- [ ] Build bordered button components with icons
-- [ ] Implement hover states (border and icon turn terracotta)
-- [ ] Connect button actions
+- [x] Create Quick Tools section with italic header
+- [x] Build bordered button components with icons
+- [x] Implement hover states (border and icon turn terracotta)
+- [x] Connect button actions
 
 **Acceptance Criteria:**
-- [ ] Two tool buttons displayed
-- [ ] Hover changes border and icon color
-- [ ] Buttons trigger appropriate actions
+- [x] Two tool buttons displayed
+- [x] Hover changes border and icon color
+- [x] Buttons trigger appropriate actions
+
+**Implementation Notes:**
+- Added `QuickToolAction` enum with `aiTextCleanup` and `importAudio` cases
+- Created `QuickToolButton` component with:
+  - Bordered button style with 1px border (turns terracotta on hover)
+  - Icon on left that changes to terracotta color on hover
+  - Title and description text
+  - Chevron indicator on right that also turns terracotta on hover
+  - Smooth animation via `VoxaAnimation.quick`
+- Added `quickToolsSection` computed property in `HomeContentView`:
+  - Section header uses `Font.Voxa.sectionHeaderItalic` (serif italic 18pt)
+  - Two buttons displayed horizontally with `Spacing.lg` gap
+- Connected button actions via NotificationCenter:
+  - AI Text Cleanup → Posts `.navigateToTextCleanup` → Opens Settings tab
+  - Import Audio → Posts `.openAudioImport` → Shows `NSOpenPanel` for audio files
+- Added `showAudioImportPicker()` helper function with:
+  - NSOpenPanel configured for audio files (.audio, .mp3, .wav, .mpeg4Audio, .aiff)
+  - Posts `.audioFileSelected` notification with selected file URL
+- Added notification names to ToastView.swift:
+  - `.navigateToTextCleanup`, `.openAudioImport`, `.audioFileSelected`
+- Added notification handlers in `MainWindowView`:
+  - `.navigateToTextCleanup` → Navigate to Settings tab
+  - `.openAudioImport` → Call `showAudioImportPicker()`
+- Verified via `swift build` - typecheck passes
 
 ---
 

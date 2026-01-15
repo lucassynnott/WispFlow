@@ -148,6 +148,20 @@ struct MainWindowView: View {
                         selectedItem = .history
                     }
                 }
+                // US-805: Listen for navigation to Text Cleanup settings
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToTextCleanup)) { _ in
+                    withAnimation(VoxaAnimation.smooth) {
+                        selectedItem = .settings
+                    }
+                    // Post a follow-up notification to scroll to Text Cleanup section
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        NotificationCenter.default.post(name: .scrollToTextCleanupSection, object: nil)
+                    }
+                }
+                // US-805: Listen for audio import picker request
+                .onReceive(NotificationCenter.default.publisher(for: .openAudioImport)) { _ in
+                    showAudioImportPicker()
+                }
             }
             .blur(radius: showOnboarding ? 3 : 0)
             .disabled(showOnboarding)

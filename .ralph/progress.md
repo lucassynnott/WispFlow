@@ -6155,3 +6155,31 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142054-88543-it
   - This run performed final verification confirming all criteria met
   - 4 stories remain in Phase 11: US-805, US-806, US-807, US-808
 ---
+
+## [2026-01-15] - US-804: Daily Insights Sidebar
+Thread: 
+Run: 20260115-142052-88463 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142052-88463-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142052-88463-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 0210ab4 fix(US-805): fix broken notification names in Quick Tools section
+- Post-commit status: clean
+- Verification:
+  - Command: swift build -> PASS (with only expected warnings)
+- Files changed:
+  - Sources/Voxa/MainWindow.swift (notification name fixes)
+- What was implemented:
+  - US-804 Daily Insights Sidebar was already implemented in a previous iteration
+  - This iteration fixed build errors caused by incomplete US-805 code (broken notification names)
+  - Fixed .navigateToTextCleanupSettings -> .navigateToTextCleanup
+  - Fixed .showAudioImportPicker -> .openAudioImport
+- **Learnings for future iterations:**
+  - Multiple parallel agent runs can cause race conditions and file conflicts
+  - US-804 Daily Insights Sidebar implementation includes:
+    - dailyInsightsSidebar computed property in HomeContentView
+    - DailyInsightCard component for stat cards
+    - PercentageChangeIndicator for percentage change display
+    - Connected to UsageStatsManager for actual usage data
+  - Build can fail due to incomplete code from other stories (US-805)
+---
