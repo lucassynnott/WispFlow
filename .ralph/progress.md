@@ -6051,3 +6051,73 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142041-88087-it
   - UsageStatsManager already had computed properties for daily insights
   - 4 stories remain in Phase 11: US-805, US-806, US-807, US-808
 ---
+
+## [2026-01-15 14:50] - US-803: Recent Transcriptions List (Verification)
+Thread: codex exec session
+Run: 20260115-142039-88012 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142039-88012-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142039-88012-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: Already committed (d472e51 feat(US-803): Fix Recent Transcriptions List)
+- Post-commit status: clean (working tree clean)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete!)
+- What was verified:
+  - US-803 implementation already complete from parallel runs
+  - Duplicate RecentTranscriptionItem struct was removed in commit d472e51
+  - All acceptance criteria confirmed met:
+    - [x] Shows last 3-5 transcriptions (prefix(5))
+    - [x] Each item has icon, title, metadata, timestamp
+    - [x] Hover highlights and changes title color
+    - [x] Empty state when no transcriptions
+- Key components verified:
+  - `recentTranscriptionsSection` with section header and View All link
+  - `RecentTranscriptionItem` with icon, title, subtitle, timestamp, hover states
+  - `recentTranscriptionsEmptyState` with waveform icon and hint
+- **Learnings for future iterations:**
+  - US-803 was completed across multiple parallel runs
+  - Always verify build passes before marking story complete
+  - Font.Voxa.sectionHeaderItalic provides serif italic styling for headers
+---
+
+## [2026-01-15 14:45] - US-804: Daily Insights Sidebar (Verification)
+Thread: codex exec session
+Run: 20260115-142036-87912 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142036-87912-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142036-87912-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: Already committed (d472e51 feat(US-803): includes US-804 implementation)
+- Post-commit status: clean (US-804 work already committed)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete!)
+- Files verified:
+  - Sources/Voxa/MainWindow.swift:
+    - `dailyInsightsSidebar` property in HomeContentView (280px fixed width in right column)
+    - `DailyInsightsSection` component for sidebar display
+    - `DailyInsightCard` component for individual stat cards
+    - `PercentageChangeIndicator` for colored change arrows
+    - `DailyInsightsStatCard` for sidebar stats
+    - `DailyInsightsEmptyState` for no-activity state
+  - Sources/Voxa/UsageStatsManager.swift:
+    - `todayWordsSpoken` computed property
+    - `yesterdayWordsSpoken` computed property
+    - `wordsSpokenPercentageChange` computed property
+    - `todayTimeSavedSeconds` and `todayTimeSavedFormatted`
+    - `timeSavedComparisonLabel` property
+    - `hasTodayActivity` computed property
+- Acceptance criteria verified:
+  - [x] Large numbers displayed prominently (Font.Voxa.largeTitle for values)
+  - [x] Percentage change with colored indicator (green up/red down arrows)
+  - [x] Stats from actual usage data (UsageStatsManager computed properties)
+- What was verified:
+  - US-804 fully implemented and committed as part of US-803 work
+  - All acceptance criteria met
+  - Build passes successfully
+  - Implementation notes in IMPLEMENTATION_PLAN.md complete
+- **Learnings for future iterations:**
+  - US-804 was implemented alongside US-803 in the same commit
+  - Related stories can be grouped when they share common components
+  - Daily Insights appears in both sidebar and dashboard right column
+---
