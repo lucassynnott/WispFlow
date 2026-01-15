@@ -956,28 +956,438 @@ struct ActivityTimelineEntry: View {
     }
 }
 
-// MARK: - Placeholder Content Views
+// MARK: - US-634: Transcription History View
 
-/// History view placeholder (to be implemented in US-634)
+/// Full transcription history view with search, filtering, and management
+/// US-634: Browse and search transcription history
 struct HistoryContentView: View {
+    @StateObject private var statsManager = UsageStatsManager.shared
+    
+    /// Search query for filtering entries
+    @State private var searchQuery: String = ""
+    
+    /// Entry pending deletion (for confirmation dialog)
+    @State private var entryToDelete: TranscriptionEntry?
+    
+    /// Whether to show delete confirmation dialog
+    @State private var showDeleteConfirmation = false
+    
+    /// Filtered entries based on search query
+    private var filteredEntries: [TranscriptionEntry] {
+        statsManager.searchEntries(query: searchQuery)
+    }
+    
+    /// Grouped entries by date category
+    private var groupedEntries: [DateCategory: [TranscriptionEntry]] {
+        statsManager.groupEntriesByDate(filteredEntries)
+    }
+    
+    /// Sorted date categories for display
+    private var sortedCategories: [DateCategory] {
+        groupedEntries.keys.sorted()
+    }
+    
     var body: some View {
-        VStack(spacing: Spacing.lg) {
-            Image(systemName: "clock.fill")
-                .font(.system(size: 48, weight: .light))
-                .foregroundColor(Color.Wispflow.accent.opacity(0.5))
+        VStack(spacing: 0) {
+            // MARK: - Header with search bar
+            historyHeader
             
-            Text("History")
-                .font(Font.Wispflow.largeTitle)
-                .foregroundColor(Color.Wispflow.textPrimary)
+            Divider()
+                .background(Color.Wispflow.border)
             
-            Text("Transcription history will appear here")
-                .font(Font.Wispflow.body)
-                .foregroundColor(Color.Wispflow.textSecondary)
+            // MARK: - Content
+            if statsManager.recentEntries.isEmpty {
+                // Empty state when no history
+                emptyHistoryState
+            } else if filteredEntries.isEmpty {
+                // No results for search
+                noSearchResultsState
+            } else {
+                // History list grouped by date
+                historyList
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.Wispflow.background)
+        .alert("Delete Transcription?", isPresented: $showDeleteConfirmation, presenting: entryToDelete) { entry in
+            Button("Delete", role: .destructive) {
+                withAnimation(WispflowAnimation.smooth) {
+                    statsManager.removeEntry(entry)
+                }
+                entryToDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                entryToDelete = nil
+            }
+        } message: { entry in
+            Text("This transcription will be permanently deleted. This action cannot be undone.")
+        }
+    }
+    
+    // MARK: - Header
+    
+    private var historyHeader: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack {
+                Text("Transcription History")
+                    .font(Font.Wispflow.largeTitle)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Spacer()
+                
+                // Entry count badge
+                if !statsManager.recentEntries.isEmpty {
+                    Text("\(statsManager.recentEntries.count) \(statsManager.recentEntries.count == 1 ? "entry" : "entries")")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xs)
+                        .background(Color.Wispflow.surfaceSecondary)
+                        .cornerRadius(CornerRadius.small)
+                }
+            }
+            
+            // Search bar
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Wispflow.textTertiary)
+                
+                TextField("Search transcriptions...", text: $searchQuery)
+                    .textFieldStyle(.plain)
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                if !searchQuery.isEmpty {
+                    Button(action: {
+                        withAnimation(WispflowAnimation.quick) {
+                            searchQuery = ""
+                        }
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color.Wispflow.textTertiary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(Color.Wispflow.surface)
+            .cornerRadius(CornerRadius.small)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .stroke(Color.Wispflow.border, lineWidth: 1)
+            )
+        }
+        .padding(Spacing.xl)
+    }
+    
+    // MARK: - Empty State
+    
+    private var emptyHistoryState: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+            
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.accentLight)
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: "clock.badge.questionmark")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundColor(Color.Wispflow.accent)
+            }
+            
+            VStack(spacing: Spacing.sm) {
+                Text("No transcription history")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Text("Your transcriptions will appear here after you record them.\nPress ⌘⇧Space to start recording.")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(Spacing.xl)
+    }
+    
+    // MARK: - No Search Results State
+    
+    private var noSearchResultsState: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+            
+            ZStack {
+                Circle()
+                    .fill(Color.Wispflow.surfaceSecondary)
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundColor(Color.Wispflow.textTertiary)
+            }
+            
+            VStack(spacing: Spacing.sm) {
+                Text("No results found")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Text("No transcriptions match \"\(searchQuery)\".\nTry a different search term.")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button(action: {
+                withAnimation(WispflowAnimation.quick) {
+                    searchQuery = ""
+                }
+            }) {
+                Text("Clear Search")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.accent)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(Spacing.xl)
+    }
+    
+    // MARK: - History List
+    
+    private var historyList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: Spacing.lg) {
+                ForEach(sortedCategories, id: \.self) { category in
+                    if let entries = groupedEntries[category] {
+                        // Date category section
+                        dateCategorySection(category: category, entries: entries)
+                    }
+                }
+            }
+            .padding(Spacing.xl)
+        }
+        .animation(WispflowAnimation.smooth, value: filteredEntries.count)
+    }
+    
+    // MARK: - Date Category Section
+    
+    private func dateCategorySection(category: DateCategory, entries: [TranscriptionEntry]) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // Category header
+            HStack {
+                Text(category.displayName)
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Spacer()
+                
+                Text("\(entries.count)")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textTertiary)
+            }
+            
+            // Entries
+            ForEach(entries) { entry in
+                HistoryEntryCard(
+                    entry: entry,
+                    searchQuery: searchQuery,
+                    onCopy: {
+                        copyToClipboard(entry.fullText)
+                    },
+                    onDelete: {
+                        entryToDelete = entry
+                        showDeleteConfirmation = true
+                    }
+                )
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                    removal: .opacity.combined(with: .scale(scale: 0.95))
+                ))
+            }
+        }
+    }
+    
+    // MARK: - Helpers
+    
+    /// Copy text to clipboard and show toast
+    private func copyToClipboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        ToastManager.shared.showCopiedToClipboard()
     }
 }
+
+// MARK: - History Entry Card Component
+
+/// Individual history entry card with expand/collapse, copy, and delete
+struct HistoryEntryCard: View {
+    let entry: TranscriptionEntry
+    let searchQuery: String
+    let onCopy: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var isExpanded = false
+    @State private var isHovered = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // Header row with time and actions
+            HStack(alignment: .top) {
+                // Time and metadata
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text(entry.timeString)
+                        .font(Font.Wispflow.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    HStack(spacing: Spacing.sm) {
+                        // Word count badge
+                        Label("\(entry.wordCount) words", systemImage: "text.word.spacing")
+                            .font(Font.Wispflow.small)
+                            .foregroundColor(Color.Wispflow.textTertiary)
+                        
+                        // Duration badge
+                        Label(String(format: "%.1fs", entry.durationSeconds), systemImage: "clock")
+                            .font(Font.Wispflow.small)
+                            .foregroundColor(Color.Wispflow.textTertiary)
+                        
+                        // WPM badge
+                        Label(String(format: "%.0f WPM", entry.wordsPerMinute), systemImage: "speedometer")
+                            .font(Font.Wispflow.small)
+                            .foregroundColor(Color.Wispflow.textTertiary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Action buttons (visible on hover or when expanded)
+                HStack(spacing: Spacing.sm) {
+                    // Copy button
+                    Button(action: onCopy) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color.Wispflow.textSecondary)
+                            .frame(width: 28, height: 28)
+                            .background(Color.Wispflow.surfaceSecondary)
+                            .cornerRadius(CornerRadius.small)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help("Copy to clipboard")
+                    
+                    // Delete button
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color.Wispflow.error)
+                            .frame(width: 28, height: 28)
+                            .background(Color.Wispflow.errorLight)
+                            .cornerRadius(CornerRadius.small)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help("Delete transcription")
+                    
+                    // Expand/collapse button
+                    Button(action: {
+                        withAnimation(WispflowAnimation.quick) {
+                            isExpanded.toggle()
+                        }
+                    }) {
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Color.Wispflow.textTertiary)
+                            .frame(width: 28, height: 28)
+                            .background(Color.Wispflow.surfaceSecondary)
+                            .cornerRadius(CornerRadius.small)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help(isExpanded ? "Collapse" : "Expand")
+                }
+                .opacity(isHovered || isExpanded ? 1 : 0.5)
+            }
+            
+            // Text content
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                if isExpanded {
+                    // Full text when expanded
+                    Text(highlightedText(entry.fullText))
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    // Preview text when collapsed
+                    Text(highlightedText(entry.textPreview))
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                        .lineLimit(2)
+                    
+                    // Show "more" indicator if text is longer than preview
+                    if entry.fullText.count > entry.textPreview.count {
+                        Text("Click to see full text...")
+                            .font(Font.Wispflow.small)
+                            .foregroundColor(Color.Wispflow.accent)
+                    }
+                }
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .wispflowShadow(isHovered ? .card : .subtle)
+        .scaleEffect(isHovered ? 1.005 : 1.0)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(WispflowAnimation.quick) {
+                isExpanded.toggle()
+            }
+        }
+        .onHover { hovering in
+            withAnimation(WispflowAnimation.quick) {
+                isHovered = hovering
+            }
+        }
+    }
+    
+    /// Highlight search query matches in text
+    /// Returns an AttributedString with highlighted matches
+    private func highlightedText(_ text: String) -> AttributedString {
+        guard !searchQuery.isEmpty else {
+            return AttributedString(text)
+        }
+        
+        var attributedString = AttributedString(text)
+        let lowercasedText = text.lowercased()
+        let lowercasedQuery = searchQuery.lowercased()
+        
+        // Find and highlight all occurrences
+        var searchStartIndex = lowercasedText.startIndex
+        while let range = lowercasedText.range(of: lowercasedQuery, range: searchStartIndex..<lowercasedText.endIndex) {
+            // Convert String range to AttributedString range
+            let lowerBound = text.distance(from: text.startIndex, to: range.lowerBound)
+            let upperBound = text.distance(from: text.startIndex, to: range.upperBound)
+            
+            if let attrRange = Range(NSRange(location: lowerBound, length: upperBound - lowerBound), in: attributedString) {
+                attributedString[attrRange].backgroundColor = Color.Wispflow.warningLight
+                attributedString[attrRange].foregroundColor = Color.Wispflow.textPrimary
+            }
+            
+            searchStartIndex = range.upperBound
+        }
+        
+        return attributedString
+    }
+}
+
+// MARK: - Placeholder Content Views
 
 /// Snippets view placeholder (to be implemented in US-635)
 struct SnippetsContentView: View {

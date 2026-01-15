@@ -12,19 +12,38 @@ import Foundation
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 /// Data model for a transcription entry in activity history
+/// US-634: Extended to store full text for history view
 struct TranscriptionEntry: Codable, Identifiable {
     let id: UUID
     let timestamp: Date
     let textPreview: String
+    let fullText: String // US-634: Store full text for history view expansion and copy
     let wordCount: Int
     let durationSeconds: Double // Recording duration
     
     init(text: String, durationSeconds: Double) {
         self.id = UUID()
         self.timestamp = Date()
-        self.textPreview = String(text.prefix(200)) // Limit preview length
+        self.textPreview = String(text.prefix(200)) // Limit preview length for list display
+        self.fullText = text // US-634: Store complete text
         self.wordCount = Self.countWords(in: text)
         self.durationSeconds = durationSeconds
+    }
+    
+    // US-634: Migration initializer for entries without fullText
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        textPreview = try container.decode(String.self, forKey: .textPreview)
+        // US-634: Handle migration - use textPreview as fallback if fullText is missing
+        fullText = try container.decodeIfPresent(String.self, forKey: .fullText) ?? textPreview
+        wordCount = try container.decode(Int.self, forKey: .wordCount)
+        durationSeconds = try container.decode(Double.self, forKey: .durationSeconds)
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case id, timestamp, textPreview, fullText, wordCount, durationSeconds
     }
     
     /// Calculate words per minute for this transcription
@@ -131,9 +150,75 @@ final class UsageStatsManager: ObservableObject {
     }
     
     /// Clear a specific entry from history
+    /// US-634: Enhanced to also update totals when entry is deleted
     func removeEntry(_ entry: TranscriptionEntry) {
+        guard recentEntries.contains(where: { $0.id == entry.id }) else { return }
+        
+        // Update totals
+        totalWordsTranscribed = max(0, totalWordsTranscribed - entry.wordCount)
+        totalTranscriptions = max(0, totalTranscriptions - 1)
+        totalRecordingDuration = max(0, totalRecordingDuration - entry.durationSeconds)
+        
+        // Remove entry
         recentEntries.removeAll { $0.id == entry.id }
+        
+        // Persist changes
+        saveStats()
         saveHistory()
+        
+        print("UsageStatsManager: [US-634] Removed entry - Words: \(entry.wordCount), remaining entries: \(recentEntries.count)")
+    }
+    
+    // MARK: - US-634: Search and Filter Support
+    
+    /// Search entries by text content
+    /// - Parameter query: Search query string
+    /// - Returns: Filtered entries matching the query
+    func searchEntries(query: String) -> [TranscriptionEntry] {
+        guard !query.isEmpty else { return recentEntries }
+        let lowercasedQuery = query.lowercased()
+        return recentEntries.filter { entry in
+            entry.fullText.lowercased().contains(lowercasedQuery) ||
+            entry.textPreview.lowercased().contains(lowercasedQuery)
+        }
+    }
+    
+    /// Group entries by date category (Today, Yesterday, This Week, etc.)
+    /// - Parameter entries: Entries to group
+    /// - Returns: Dictionary with date categories as keys
+    func groupEntriesByDate(_ entries: [TranscriptionEntry]) -> [DateCategory: [TranscriptionEntry]] {
+        let calendar = Calendar.current
+        let now = Date()
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: today)!
+        let monthAgo = calendar.date(byAdding: .month, value: -1, to: today)!
+        
+        var groups: [DateCategory: [TranscriptionEntry]] = [:]
+        
+        for entry in entries {
+            let entryDate = calendar.startOfDay(for: entry.timestamp)
+            let category: DateCategory
+            
+            if calendar.isDate(entryDate, inSameDayAs: today) {
+                category = .today
+            } else if calendar.isDate(entryDate, inSameDayAs: yesterday) {
+                category = .yesterday
+            } else if entryDate >= weekAgo {
+                category = .thisWeek
+            } else if entryDate >= monthAgo {
+                category = .thisMonth
+            } else {
+                category = .older
+            }
+            
+            if groups[category] == nil {
+                groups[category] = []
+            }
+            groups[category]?.append(entry)
+        }
+        
+        return groups
     }
     
     /// Clear all history and stats (for testing/reset)
@@ -306,5 +391,36 @@ extension TranscriptionEntry {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: timestamp)
+    }
+}
+
+// MARK: - US-634: Date Category Enum
+
+/// Date categories for grouping transcription history entries
+enum DateCategory: String, CaseIterable, Comparable {
+    case today = "Today"
+    case yesterday = "Yesterday"
+    case thisWeek = "This Week"
+    case thisMonth = "This Month"
+    case older = "Older"
+    
+    /// Display name for the category
+    var displayName: String {
+        return rawValue
+    }
+    
+    /// Sort order - earlier categories appear first
+    var sortOrder: Int {
+        switch self {
+        case .today: return 0
+        case .yesterday: return 1
+        case .thisWeek: return 2
+        case .thisMonth: return 3
+        case .older: return 4
+        }
+    }
+    
+    static func < (lhs: DateCategory, rhs: DateCategory) -> Bool {
+        return lhs.sortOrder < rhs.sortOrder
     }
 }

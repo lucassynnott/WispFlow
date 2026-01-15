@@ -1436,8 +1436,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-634: Transcription History View
-**Status:** open
+### [x] US-634: Transcription History View
+**Status:** complete
 **Priority:** medium
 **Estimated effort:** medium
 **Depends on:** US-632
@@ -1445,21 +1445,54 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Browse and search transcription history.
 
 **Tasks:**
-- [ ] Create data model for storing transcription history
-- [ ] List all past transcriptions with date, time, preview
-- [ ] Add search bar to filter transcriptions
-- [ ] Implement click-to-expand for full text
-- [ ] Add copy button on each entry
-- [ ] Add delete option with confirmation dialog
-- [ ] Group entries by date (Today, Yesterday, This Week, etc.)
-- [ ] Implement smooth list animations when filtering
+- [x] Create data model for storing transcription history
+- [x] List all past transcriptions with date, time, preview
+- [x] Add search bar to filter transcriptions
+- [x] Implement click-to-expand for full text
+- [x] Add copy button on each entry
+- [x] Add delete option with confirmation dialog
+- [x] Group entries by date (Today, Yesterday, This Week, etc.)
+- [x] Implement smooth list animations when filtering
 
 **Acceptance Criteria:**
-- [ ] Past transcriptions listed with date/time/preview
-- [ ] Search filters results in real-time
-- [ ] Copy and delete work correctly
-- [ ] Entries grouped by date
-- [ ] Empty state message when no history
+- [x] Past transcriptions listed with date/time/preview
+- [x] Search filters results in real-time
+- [x] Copy and delete work correctly
+- [x] Entries grouped by date
+- [x] Empty state message when no history
+
+**Implementation Notes:**
+- Extended `TranscriptionEntry` data model in `UsageStatsManager.swift`:
+  - Added `fullText` field to store complete transcription text (not just preview)
+  - Added migration decoder to handle entries without fullText field (uses textPreview as fallback)
+  - Enhanced `removeEntry()` to update totals when entries are deleted
+  - Added `searchEntries(query:)` method for real-time search filtering
+  - Added `groupEntriesByDate(_:)` method for date category grouping
+- Created `DateCategory` enum with five categories: Today, Yesterday, This Week, This Month, Older
+  - Implements `Comparable` for sorting (most recent first)
+  - Has `displayName` property for UI labels
+- Created comprehensive `HistoryContentView` in `MainWindow.swift`:
+  - **Header Section:** Title "Transcription History" with entry count badge and search bar
+  - **Search Bar:** TextField with magnifying glass icon, clear button, real-time filtering
+  - **Empty State:** Shows when no transcription history exists with helpful message
+  - **No Results State:** Shows when search query returns no matches with "Clear Search" button
+  - **History List:** LazyVStack grouped by date categories
+- Created `HistoryEntryCard` component for individual entries:
+  - Displays time, word count, duration, and WPM metadata
+  - Shows text preview (2-line limit) when collapsed
+  - Shows full text with text selection enabled when expanded
+  - "Click to see full text..." indicator when text is truncated
+  - **Copy button:** Copies full text to clipboard, shows toast notification
+  - **Delete button:** Shows confirmation dialog before removing entry
+  - **Expand/collapse button:** Toggles between preview and full text
+  - Hover effects with subtle shadow and scale changes
+  - Search query highlighting using AttributedString with warning-light background
+- **Animations:**
+  - Smooth list animations when filtering via `animation(WispflowAnimation.smooth, value:)`
+  - Entry removal/insertion transitions using `transition(.asymmetric(...))`
+  - Hover and expand animations using `WispflowAnimation.quick`
+- Uses design system: `Color.Wispflow`, `Font.Wispflow`, `Spacing`, `CornerRadius`, `wispflowShadow()`
+- Verified via `swift build` - typecheck passes
 
 ---
 
