@@ -5975,3 +5975,37 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142043-88159-it
   - Always check for existing implementations before creating new ones
   - Use `grep -n "struct ComponentName"` to find all declarations before adding new ones
 ---
+
+## [2026-01-15 14:45] - US-803: Recent Transcriptions List (Final Verification)
+Thread: codex exec session
+Run: 20260115-142045-88235 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142045-88235-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142045-88235-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: d472e51 feat(US-803): Fix Recent Transcriptions List - remove duplicate RecentTranscriptionItem
+- Post-commit status: clean (only progress.md update pending)
+- Verification:
+  - Command: `swift build` -> PASS (Build complete!)
+- Files verified:
+  - Sources/Voxa/MainWindow.swift:
+    - `recentTranscriptionsSection` property renders Recent Transcriptions on dashboard
+    - `Font.Voxa.sectionHeaderItalic` used for serif italic header
+    - "View All" button posts `.navigateToHistory` notification
+    - `RecentTranscriptionItem` component with icon, title, subtitle, timestamp
+    - Hover states: `isHovered` tracks hover, title color changes to accent
+    - Empty state with waveform icon and hotkey hint
+- Acceptance criteria verified:
+  - [x] Shows last 3-5 transcriptions (prefix(5) from recentEntries)
+  - [x] Each item has icon, title, metadata, timestamp
+  - [x] Hover highlights and changes title color
+  - [x] Empty state when no transcriptions
+- What was verified:
+  - US-803 fully implemented in commit d472e51 and prior commits
+  - All acceptance criteria met
+  - Build passes successfully
+- **Learnings for future iterations:**
+  - US-803 was completed across multiple parallel runs
+  - Duplicate code removal (iteration 3) fixed final compilation issues
+  - Story marked complete in IMPLEMENTATION_PLAN.md with detailed notes
+---
