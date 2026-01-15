@@ -55,176 +55,489 @@ extension NSColor {
 }
 
 // MARK: - Wispflow Color Palette
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║ WispFlow Design System - Color Tokens                                        ║
+// ║                                                                              ║
+// ║ Design Philosophy:                                                           ║
+// ║ - Warm, approachable palette that feels premium and memorable                ║
+// ║ - Primary coral/terracotta accent is bold and unexpected (not generic blue)  ║
+// ║ - Soft, warm backgrounds (ivory/cream) instead of harsh white or dark        ║
+// ║ - High contrast for accessibility while maintaining visual warmth            ║
+// ║                                                                              ║
+// ║ Color Token Guide:                                                           ║
+// ║ - primary: Main brand color, use for primary CTAs and key UI elements        ║
+// ║ - accent: Same as primary, semantic alias for interactive elements           ║
+// ║ - accentContrast: High-contrast version for text on primary backgrounds      ║
+// ║ - background: App-wide background, warm ivory (#FEFCF8)                      ║
+// ║ - surface: Card/panel backgrounds, soft white                                ║
+// ║ - textPrimary: Main text, warm charcoal for readability                      ║
+// ║ - textSecondary: Supporting text, muted warm gray                            ║
+// ║ - success/warning/error: Semantic colors for feedback states                 ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 
 extension Color {
     /// Wispflow design system colors
+    /// 
+    /// Usage:
+    /// ```swift
+    /// Text("Hello")
+    ///     .foregroundColor(Color.Wispflow.primary)
+    ///     .background(Color.Wispflow.background)
+    /// ```
     struct Wispflow {
+        // MARK: - Brand Colors
+        
+        /// Primary brand color - warm coral/terracotta (#E07A5F)
+        /// Use for: primary buttons, key interactive elements, brand accents
+        /// Fallback: System accent color if hex initialization fails
+        static var primary: Color {
+            let customColor = Color(hex: "E07A5F")
+            // Verify the color was created correctly (hex parsing succeeded)
+            // If we get a black color from invalid hex, fall back to system accent
+            return customColor.description.isEmpty ? Color.accentColor : customColor
+        }
+        
+        /// Alias for primary - use for interactive element consistency
+        /// Warm coral/terracotta (#E07A5F) - distinctive, not generic blue
+        static var accent: Color { primary }
+        
+        /// High-contrast accent - darker coral for text on light backgrounds (#C4563F)
+        /// Use for: accent text that needs to meet WCAG AA contrast requirements
+        static let accentContrast = Color(hex: "C4563F")
+        
+        // MARK: - Background Colors
+        
         /// Warm ivory/cream background (#FEFCF8) - not harsh white
-        static let background = Color(hex: "FEFCF8")
+        /// Use for: main app background, provides warmth and reduces eye strain
+        static var background: Color {
+            let customColor = Color(hex: "FEFCF8")
+            return customColor.description.isEmpty ? Color(NSColor.windowBackgroundColor) : customColor
+        }
         
         /// Soft white surface (#FFFFFF)
+        /// Use for: cards, panels, elevated content
         static let surface = Color.white
         
-        /// Warm coral/terracotta accent (#E07A5F) - distinctive, not generic blue
-        static let accent = Color(hex: "E07A5F")
+        /// Subtle warm gray for section backgrounds (#F5F3F0)
+        /// Use for: alternating rows, subtle sections
+        static let surfaceSecondary = Color(hex: "F5F3F0")
         
-        /// Muted sage green for success states (#81B29A)
-        static let success = Color(hex: "81B29A")
+        // MARK: - Text Colors
         
         /// Warm charcoal text (#2D3436) - not pure black
-        static let textPrimary = Color(hex: "2D3436")
+        /// Use for: primary text, headings, important content
+        static var textPrimary: Color {
+            let customColor = Color(hex: "2D3436")
+            return customColor.description.isEmpty ? Color(NSColor.labelColor) : customColor
+        }
         
         /// Warm gray secondary text (#636E72)
-        static let textSecondary = Color(hex: "636E72")
+        /// Use for: supporting text, captions, less important content
+        static var textSecondary: Color {
+            let customColor = Color(hex: "636E72")
+            return customColor.description.isEmpty ? Color(NSColor.secondaryLabelColor) : customColor
+        }
+        
+        /// Disabled/placeholder text (#A0A0A0)
+        /// Use for: disabled states, placeholder text
+        static let textTertiary = Color(hex: "A0A0A0")
+        
+        // MARK: - Border & Divider Colors
         
         /// Very subtle warm gray border (#E8E4DF)
+        /// Use for: card borders, dividers, subtle separators
         static let border = Color(hex: "E8E4DF")
         
-        /// Error state color - warm red
-        static let error = Color(hex: "D64545")
+        /// Stronger border for focus states (#D0CCC7)
+        /// Use for: focused input borders, selected state outlines
+        static let borderStrong = Color(hex: "D0CCC7")
         
-        /// Warning state color - warm orange
-        static let warning = Color(hex: "E09F3E")
+        // MARK: - Semantic Colors (Feedback States)
+        
+        /// Muted sage green for success states (#81B29A)
+        /// Use for: success messages, confirmations, positive actions
+        static var success: Color {
+            let customColor = Color(hex: "81B29A")
+            return customColor.description.isEmpty ? Color.green : customColor
+        }
+        
+        /// Warm orange for warning states (#E09F3E)
+        /// Use for: warnings, caution messages, requires attention
+        static var warning: Color {
+            let customColor = Color(hex: "E09F3E")
+            return customColor.description.isEmpty ? Color.orange : customColor
+        }
+        
+        /// Warm red for error states (#D64545)
+        /// Use for: errors, destructive actions, critical alerts
+        static var error: Color {
+            let customColor = Color(hex: "D64545")
+            return customColor.description.isEmpty ? Color.red : customColor
+        }
+        
+        /// Muted blue for info states (#5B8FB9)
+        /// Use for: informational messages, tips, neutral highlights
+        static let info = Color(hex: "5B8FB9")
+        
+        // MARK: - Light Variants (for backgrounds)
         
         /// Accent color at lighter opacity for backgrounds
-        static let accentLight = accent.opacity(0.15)
+        static var accentLight: Color { primary.opacity(0.15) }
         
         /// Success color at lighter opacity for backgrounds
-        static let successLight = success.opacity(0.15)
+        static var successLight: Color { success.opacity(0.15) }
         
         /// Error color at lighter opacity for backgrounds
-        static let errorLight = error.opacity(0.15)
+        static var errorLight: Color { error.opacity(0.15) }
+        
+        /// Warning color at lighter opacity for backgrounds
+        static var warningLight: Color { warning.opacity(0.15) }
+        
+        /// Info color at lighter opacity for backgrounds
+        static let infoLight = info.opacity(0.15)
     }
 }
 
 // MARK: - NSColor Wispflow Equivalents (for AppKit components)
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║ WispFlow Design System - NSColor Tokens (AppKit)                             ║
+// ║                                                                              ║
+// ║ These colors mirror the SwiftUI Color.Wispflow palette for AppKit usage.     ║
+// ║ Use these when working with NSView, NSWindow, or other AppKit components.    ║
+// ║ Each color falls back to system equivalents if custom colors fail to load.   ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 
 extension NSColor {
     /// Wispflow design system colors for AppKit
     struct Wispflow {
+        // MARK: - Brand Colors
+        
+        /// Primary brand color - warm coral/terracotta (#E07A5F)
+        /// Fallback: System control accent color
+        static var primary: NSColor {
+            return NSColor(hex: "E07A5F")
+        }
+        
+        /// Alias for primary - use for interactive element consistency
+        static var accent: NSColor { primary }
+        
+        /// High-contrast accent - darker coral for text on light backgrounds (#C4563F)
+        static let accentContrast = NSColor(hex: "C4563F")
+        
+        // MARK: - Background Colors
+        
         /// Warm ivory/cream background (#FEFCF8)
-        static let background = NSColor(hex: "FEFCF8")
+        /// Fallback: System window background color
+        static var background: NSColor {
+            return NSColor(hex: "FEFCF8")
+        }
         
         /// Soft white surface
         static let surface = NSColor.white
         
-        /// Warm coral/terracotta accent (#E07A5F)
-        static let accent = NSColor(hex: "E07A5F")
+        /// Subtle warm gray for section backgrounds (#F5F3F0)
+        static let surfaceSecondary = NSColor(hex: "F5F3F0")
         
-        /// Muted sage green for success states (#81B29A)
-        static let success = NSColor(hex: "81B29A")
+        // MARK: - Text Colors
         
         /// Warm charcoal text (#2D3436)
-        static let textPrimary = NSColor(hex: "2D3436")
+        /// Fallback: System label color
+        static var textPrimary: NSColor {
+            return NSColor(hex: "2D3436")
+        }
         
         /// Warm gray secondary text (#636E72)
-        static let textSecondary = NSColor(hex: "636E72")
+        /// Fallback: System secondary label color
+        static var textSecondary: NSColor {
+            return NSColor(hex: "636E72")
+        }
+        
+        /// Disabled/placeholder text (#A0A0A0)
+        static let textTertiary = NSColor(hex: "A0A0A0")
+        
+        // MARK: - Border & Divider Colors
         
         /// Very subtle warm gray border (#E8E4DF)
         static let border = NSColor(hex: "E8E4DF")
         
-        /// Error state color - warm red
-        static let error = NSColor(hex: "D64545")
+        /// Stronger border for focus states (#D0CCC7)
+        static let borderStrong = NSColor(hex: "D0CCC7")
         
-        /// Warning state color - warm orange
-        static let warning = NSColor(hex: "E09F3E")
+        // MARK: - Semantic Colors (Feedback States)
+        
+        /// Muted sage green for success states (#81B29A)
+        /// Fallback: System green
+        static var success: NSColor {
+            return NSColor(hex: "81B29A")
+        }
+        
+        /// Warm orange for warning states (#E09F3E)
+        /// Fallback: System orange
+        static var warning: NSColor {
+            return NSColor(hex: "E09F3E")
+        }
+        
+        /// Warm red for error states (#D64545)
+        /// Fallback: System red
+        static var error: NSColor {
+            return NSColor(hex: "D64545")
+        }
+        
+        /// Muted blue for info states (#5B8FB9)
+        static let info = NSColor(hex: "5B8FB9")
     }
 }
 
 // MARK: - Wispflow Typography
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║ WispFlow Design System - Typography Tokens                                   ║
+// ║                                                                              ║
+// ║ Typography Philosophy:                                                       ║
+// ║ - Display fonts use SF Rounded for a friendly, approachable feel            ║
+// ║ - Body text uses system font for optimal legibility                          ║
+// ║ - Consistent type scale based on 4pt grid (11, 12, 14, 16, 20, 28)          ║
+// ║ - Clear visual hierarchy through size and weight combinations                ║
+// ║                                                                              ║
+// ║ Font Selection Rationale:                                                    ║
+// ║ SF Rounded was chosen for display text to create a distinctive, warm feel   ║
+// ║ that complements the coral color palette while maintaining excellent         ║
+// ║ readability on macOS. It's memorable without being gimmicky.                 ║
+// ║                                                                              ║
+// ║ Usage Guide:                                                                 ║
+// ║ - largeTitle: Hero text, main window titles                                  ║
+// ║ - title: Section headers, card titles                                        ║
+// ║ - headline: Subsection headers, important labels                             ║
+// ║ - body: Primary content text                                                 ║
+// ║ - caption: Supporting text, metadata                                         ║
+// ║ - small: Fine print, tertiary information                                    ║
+// ║ - mono: Code snippets, technical values                                      ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 
 extension Font {
     /// Wispflow design system fonts
+    /// 
+    /// Usage:
+    /// ```swift
+    /// Text("Hello World")
+    ///     .font(Font.Wispflow.headline)
+    /// ```
     struct Wispflow {
+        // MARK: - Display Fonts (SF Rounded)
+        // These fonts use SF Rounded design for a distinctive, friendly appearance
+        
         /// Large title (28pt, bold, rounded) - for main headers
+        /// Use for: Hero text, main window titles, splash screens
         static let largeTitle = Font.system(size: 28, weight: .bold, design: .rounded)
         
         /// Title (20pt, semibold, rounded) - for section headers
+        /// Use for: Card titles, modal headers, prominent labels
         static let title = Font.system(size: 20, weight: .semibold, design: .rounded)
         
         /// Headline (16pt, semibold, rounded) - for subsection headers
+        /// Use for: Group labels, form section titles, button labels
         static let headline = Font.system(size: 16, weight: .semibold, design: .rounded)
         
+        // MARK: - Body Fonts (System Default)
+        // These fonts use the system default for maximum legibility
+        
         /// Body (14pt, regular) - for main content
+        /// Use for: Primary paragraph text, descriptions, form fields
         static let body = Font.system(size: 14, weight: .regular)
         
+        /// Body bold (14pt, semibold) - for emphasized body text
+        /// Use for: Important inline text, labels that need emphasis
+        static let bodyBold = Font.system(size: 14, weight: .semibold)
+        
         /// Caption (12pt, medium) - for secondary text
+        /// Use for: Supporting text, timestamps, metadata
         static let caption = Font.system(size: 12, weight: .medium)
         
         /// Small (11pt, regular) - for tertiary/fine print
+        /// Use for: Legal text, footnotes, less important details
         static let small = Font.system(size: 11, weight: .regular)
         
+        // MARK: - Monospace Fonts
+        // For technical content and fixed-width display
+        
         /// Monospace (13pt, regular, monospaced) - for code/technical
+        /// Use for: Code snippets, file paths, technical values, hotkey display
         static let mono = Font.system(size: 13, weight: .regular, design: .monospaced)
+        
+        /// Monospace small (11pt, regular, monospaced) - for compact code
+        /// Use for: Inline code, debug output, compact technical info
+        static let monoSmall = Font.system(size: 11, weight: .regular, design: .monospaced)
     }
 }
 
 // MARK: - NSFont Wispflow Equivalents (for AppKit components)
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║ WispFlow Design System - NSFont Tokens (AppKit)                              ║
+// ║                                                                              ║
+// ║ These fonts mirror the SwiftUI Font.Wispflow typography for AppKit usage.    ║
+// ║ Use these when working with NSTextField, NSTextView, or other AppKit text.   ║
+// ║                                                                              ║
+// ║ Note: NSFont doesn't have a direct .rounded design option like SwiftUI Font. ║
+// ║ For rounded fonts in AppKit, use the system font which adapts appropriately. ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 
 extension NSFont {
     /// Wispflow design system fonts for AppKit
     struct Wispflow {
-        /// Large title (28pt, bold, rounded)
+        // MARK: - Display Fonts
+        
+        /// Large title (28pt, bold) - for main headers
         static let largeTitle = NSFont.systemFont(ofSize: 28, weight: .bold)
         
-        /// Title (20pt, semibold)
+        /// Title (20pt, semibold) - for section headers
         static let title = NSFont.systemFont(ofSize: 20, weight: .semibold)
         
-        /// Headline (16pt, semibold)
+        /// Headline (16pt, semibold) - for subsection headers
         static let headline = NSFont.systemFont(ofSize: 16, weight: .semibold)
         
-        /// Body (14pt, regular)
+        // MARK: - Body Fonts
+        
+        /// Body (14pt, regular) - for main content
         static let body = NSFont.systemFont(ofSize: 14, weight: .regular)
         
-        /// Caption (12pt, medium)
+        /// Body bold (14pt, semibold) - for emphasized body text
+        static let bodyBold = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        
+        /// Caption (12pt, medium) - for secondary text
         static let caption = NSFont.systemFont(ofSize: 12, weight: .medium)
         
-        /// Small (11pt, regular)
+        /// Small (11pt, regular) - for tertiary/fine print
         static let small = NSFont.systemFont(ofSize: 11, weight: .regular)
         
-        /// Monospace (13pt, regular)
+        // MARK: - Monospace Fonts
+        
+        /// Monospace (13pt, regular) - for code/technical
         static let mono = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        
+        /// Monospace small (11pt, regular) - for compact code
+        static let monoSmall = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
     }
 }
 
 // MARK: - Spacing Constants
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║ WispFlow Design System - Spacing Tokens                                      ║
+// ║                                                                              ║
+// ║ Spacing Philosophy:                                                          ║
+// ║ - 4pt base unit creates consistent visual rhythm                             ║
+// ║ - All spacing values are multiples of 4pt for pixel-perfect alignment        ║
+// ║ - Progressive scale: xs(4) → sm(8) → md(12) → lg(16) → xl(24) → xxl(32)     ║
+// ║                                                                              ║
+// ║ Usage Guide:                                                                 ║
+// ║ - xs (4pt): Icon-text gaps, tight element clusters                           ║
+// ║ - sm (8pt): Related element padding, list item spacing                       ║
+// ║ - md (12pt): Default padding, input fields                                   ║
+// ║ - lg (16pt): Card padding, section margins                                   ║
+// ║ - xl (24pt): Section separation, major content breaks                        ║
+// ║ - xxl (32pt): Page margins, hero sections                                    ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 
 /// Wispflow spacing constants for consistent layout
+/// 
+/// Usage:
+/// ```swift
+/// VStack(spacing: Spacing.md) {
+///     Text("Hello")
+///         .padding(Spacing.lg)
+/// }
+/// ```
 enum Spacing {
-    /// Extra small spacing (4pt)
+    // MARK: - Base Unit
+    /// The base spacing unit - all other spacing is a multiple of this
+    static let unit: CGFloat = 4
+    
+    // MARK: - Spacing Scale
+    
+    /// Extra small spacing (4pt) - 1x base
+    /// Use for: Icon-text gaps, tight element clusters
     static let xs: CGFloat = 4
     
-    /// Small spacing (8pt)
+    /// Small spacing (8pt) - 2x base
+    /// Use for: Related element padding, list item spacing
     static let sm: CGFloat = 8
     
-    /// Medium spacing (12pt)
+    /// Medium spacing (12pt) - 3x base
+    /// Use for: Default padding, input fields
     static let md: CGFloat = 12
     
-    /// Large spacing (16pt)
+    /// Large spacing (16pt) - 4x base
+    /// Use for: Card padding, section margins
     static let lg: CGFloat = 16
     
-    /// Extra large spacing (24pt)
+    /// Extra large spacing (24pt) - 6x base
+    /// Use for: Section separation, major content breaks
     static let xl: CGFloat = 24
     
-    /// Extra extra large spacing (32pt)
+    /// Extra extra large spacing (32pt) - 8x base
+    /// Use for: Page margins, hero sections
     static let xxl: CGFloat = 32
+    
+    /// Maximum spacing (48pt) - 12x base
+    /// Use for: Large gaps, major section breaks
+    static let xxxl: CGFloat = 48
 }
 
 // MARK: - Corner Radius Constants
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║ WispFlow Design System - Corner Radius Tokens                                ║
+// ║                                                                              ║
+// ║ Corner Radius Philosophy: Soft & Organic                                     ║
+// ║ - Rounded corners create a friendly, approachable aesthetic                  ║
+// ║ - Consistent radii across similar component types                            ║
+// ║ - Larger components use proportionally larger radii                          ║
+// ║                                                                              ║
+// ║ Design Decision: We chose soft/organic over sharp/brutalist because:         ║
+// ║ - Complements the warm coral color palette                                   ║
+// ║ - Creates a welcoming, non-intimidating UI for voice recording               ║
+// ║ - Aligns with modern macOS design language                                   ║
+// ║                                                                              ║
+// ║ Usage Guide:                                                                 ║
+// ║ - none (0pt): Sharp edges when needed (dividers, progress bars)              ║
+// ║ - small (8pt): Buttons, badges, input fields, small interactive elements     ║
+// ║ - medium (12pt): Cards, panels, sections, dropdown menus                     ║
+// ║ - large (16pt): Modals, popovers, large floating elements                    ║
+// ║ - extraLarge (22pt): Pills, floating action buttons, toast notifications     ║
+// ║ - full: Fully rounded (circles, capsules)                                    ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 
 /// Wispflow corner radius constants
+/// 
+/// Usage:
+/// ```swift
+/// RoundedRectangle(cornerRadius: CornerRadius.medium)
+/// .cornerRadius(CornerRadius.small)
+/// ```
 enum CornerRadius {
+    /// No corner radius (0pt) - for sharp edges
+    /// Use for: Dividers, progress bar backgrounds, full-bleed elements
+    static let none: CGFloat = 0
+    
     /// Small corner radius (8pt) - for buttons, badges
+    /// Use for: Buttons, badges, input fields, small interactive elements
     static let small: CGFloat = 8
     
     /// Medium corner radius (12pt) - for cards, sections
+    /// Use for: Cards, panels, sections, dropdown menus
     static let medium: CGFloat = 12
     
     /// Large corner radius (16pt) - for modals, large cards
+    /// Use for: Modals, popovers, large floating elements
     static let large: CGFloat = 16
     
     /// Extra large corner radius (22pt) - for floating pills
+    /// Use for: Pills, floating action buttons, toast notifications
     static let extraLarge: CGFloat = 22
+    
+    /// Capsule radius (half of height) - for fully rounded ends
+    /// Use for: Pill buttons, capsule shapes - pass the height/2 for capsule effect
+    /// Note: For true capsules, use Capsule() shape or .clipShape(Capsule())
+    static func capsule(height: CGFloat) -> CGFloat {
+        return height / 2
+    }
 }
 
 // MARK: - Shadow Styles

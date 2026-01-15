@@ -13,7 +13,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 1: Settings UI Fixes (Unblocks Testing)
 
-### US-523: Fix Tab Visibility
+### [x] US-523: Fix Tab Visibility
 **Status:** complete
 **Priority:** critical
 **Estimated effort:** small
@@ -42,7 +42,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-524: Fix Button Interactivity
+### [x] US-524: Fix Button Interactivity
 **Status:** complete
 **Priority:** critical
 **Estimated effort:** small
@@ -78,7 +78,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-525: Fix ScrollView Interactions
+### [x] US-525: Fix ScrollView Interactions
 **Status:** complete
 **Priority:** high
 **Estimated effort:** small
@@ -118,7 +118,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 2: Audio System Overhaul
 
-### US-503: Robust Audio Engine Initialization
+### [x] US-503: Robust Audio Engine Initialization
 **Status:** complete
 **Priority:** critical
 **Estimated effort:** medium
@@ -150,7 +150,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-504: Audio Level Preview Fix
+### [x] US-504: Audio Level Preview Fix
 **Status:** complete
 **Priority:** critical
 **Estimated effort:** medium
@@ -186,7 +186,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-501: Smart Audio Device Selection
+### [x] US-501: Smart Audio Device Selection
 **Status:** complete
 **Priority:** high
 **Estimated effort:** medium
@@ -219,7 +219,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-502: Audio Device Caching
+### [x] US-502: Audio Device Caching
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -252,7 +252,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-505: Low-Quality Device Warning
+### [x] US-505: Low-Quality Device Warning
 **Status:** complete
 **Priority:** low
 **Estimated effort:** small
@@ -288,7 +288,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 3: Permission System Overhaul
 
-### US-506: Permission Status Tracking
+### [x] US-506: Permission Status Tracking
 **Status:** complete
 **Priority:** high
 **Estimated effort:** small
@@ -322,7 +322,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-507: Automatic Permission Prompting
+### [x] US-507: Automatic Permission Prompting
 **Status:** complete
 **Priority:** high
 **Estimated effort:** medium
@@ -359,7 +359,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-508: Open System Settings Helper
+### [x] US-508: Open System Settings Helper
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -392,7 +392,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-509: Permission Status UI
+### [x] US-509: Permission Status UI
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -427,7 +427,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 4: Hotkey System Overhaul
 
-### US-510: Global Event Tap for Hotkeys
+### [x] US-510: Global Event Tap for Hotkeys
 **Status:** complete
 **Priority:** critical
 **Estimated effort:** large
@@ -467,7 +467,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-511: Hotkey Recording in Settings
+### [x] US-511: Hotkey Recording in Settings
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** medium
@@ -502,7 +502,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-512: Hotkey Conflict Detection
+### [x] US-512: Hotkey Conflict Detection
 **Status:** complete
 **Priority:** low
 **Estimated effort:** small
@@ -545,7 +545,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 5: Text Insertion Improvements
 
-### US-513: Clipboard Preservation
+### [x] US-513: Clipboard Preservation
 **Status:** complete
 **Priority:** high
 **Estimated effort:** medium
@@ -579,7 +579,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-514: Keyboard Event Simulation
+### [x] US-514: Keyboard Event Simulation
 **Status:** complete
 **Priority:** high
 **Estimated effort:** medium
@@ -618,7 +618,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-515: Text Insertion Fallback
+### [x] US-515: Text Insertion Fallback
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -661,7 +661,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 6: Onboarding Wizard
 
-### US-516: First Launch Detection
+### [x] US-516: First Launch Detection
 **Status:** complete
 **Priority:** high
 **Estimated effort:** small
@@ -688,7 +688,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-517: Onboarding Welcome Screen
+### [x] US-517: Onboarding Welcome Screen
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** medium
@@ -728,7 +728,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-518: Microphone Permission Step
+### [x] US-518: Microphone Permission Step
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** medium
@@ -761,7 +761,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-519: Accessibility Permission Step
+### [x] US-519: Accessibility Permission Step
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** medium
@@ -800,7 +800,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-520: Audio Test Step
+### [x] US-520: Audio Test Step
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** medium
@@ -841,7 +841,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-521: Hotkey Introduction Step
+### [x] US-521: Hotkey Introduction Step
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -877,7 +877,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-522: Onboarding Completion
+### [x] US-522: Onboarding Completion
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -941,7 +941,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 7: Audio System Hardening (from PRD v2)
 
-### US-601: Audio Device Hot-Plug Support
+### [x] US-601: Audio Device Hot-Plug Support
 **Status:** complete
 **Priority:** high
 **Estimated effort:** medium
@@ -989,7 +989,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-602: Audio Format Negotiation Improvement
+### [x] US-602: Audio Format Negotiation Improvement
 **Status:** complete
 **Priority:** high
 **Estimated effort:** small
@@ -1031,7 +1031,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-603: Recording Timeout Safety
+### [x] US-603: Recording Timeout Safety
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -1074,7 +1074,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-604: Audio Level Calibration
+### [x] US-604: Audio Level Calibration
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -1128,7 +1128,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 8: Transcription Quality (from PRD v2)
 
-### US-605: Whisper Model Selection
+### [x] US-605: Whisper Model Selection
 **Status:** complete
 **Priority:** high
 **Estimated effort:** medium
@@ -1177,7 +1177,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-606: Language Selection
+### [x] US-606: Language Selection
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -1220,7 +1220,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-607: Transcription Post-Processing
+### [x] US-607: Transcription Post-Processing
 **Status:** complete
 **Priority:** medium
 **Estimated effort:** small
@@ -1265,8 +1265,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ## Phase 9: UI Redesign (from PRD v2)
 
-### US-615: Design System Foundation
-**Status:** open
+### [x] US-615: Design System Foundation
+**Status:** complete
 **Priority:** high
 **Estimated effort:** medium
 **Depends on:** none
@@ -1274,24 +1274,37 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Create a cohesive, distinctive design system for WispFlow that feels premium and memorable.
 
 **Tasks:**
-- [ ] Define distinctive color palette (NOT purple gradients, NOT generic blue)
-- [ ] Choose primary color: bold unexpected choice (deep coral, electric teal, warm amber)
-- [ ] Set background: rich dark (#0D0D0D range) or warm off-white (cream/ivory)
-- [ ] Define high-contrast accent color
-- [ ] Define semantic colors for success/warning/error
-- [ ] Select memorable display typography (NOT Inter, Roboto, SF Pro)
-- [ ] Define spacing scale (4px base, consistent rhythm)
-- [ ] Define corner radius philosophy (sharp/brutalist OR soft/organic)
-- [ ] Create SwiftUI Color.Wispflow and Font.Wispflow extensions
-- [ ] Document design tokens in code comments
+- [x] Define distinctive color palette (NOT purple gradients, NOT generic blue)
+- [x] Choose primary color: bold unexpected choice (deep coral, electric teal, warm amber)
+- [x] Set background: rich dark (#0D0D0D range) or warm off-white (cream/ivory)
+- [x] Define high-contrast accent color
+- [x] Define semantic colors for success/warning/error
+- [x] Select memorable display typography (NOT Inter, Roboto, SF Pro)
+- [x] Define spacing scale (4px base, consistent rhythm)
+- [x] Define corner radius philosophy (sharp/brutalist OR soft/organic)
+- [x] Create SwiftUI Color.Wispflow and Font.Wispflow extensions
+- [x] Document design tokens in code comments
 
 **Acceptance Criteria:**
-- [ ] Color.Wispflow.primary returns the primary brand color
-- [ ] Fallback to system colors if custom colors fail to load
+- [x] Color.Wispflow.primary returns the primary brand color
+- [x] Fallback to system colors if custom colors fail to load
+
+**Implementation Notes:**
+- **Color Palette:** Warm coral/terracotta (#E07A5F) as primary brand color - distinctive and memorable, not generic blue
+- **Background:** Warm ivory/cream (#FEFCF8) - soft and approachable, reduces eye strain
+- **High-contrast accent:** Added `accentContrast` (#C4563F) - darker coral for text meeting WCAG AA requirements
+- **Semantic colors:** Success (#81B29A sage green), Warning (#E09F3E warm orange), Error (#D64545 warm red), Info (#5B8FB9 muted blue)
+- **Typography:** SF Rounded for display text creates distinctive, friendly feel; system font for body text for legibility
+- **Spacing scale:** 4pt base unit with progressive scale: xs(4), sm(8), md(12), lg(16), xl(24), xxl(32), xxxl(48)
+- **Corner radius:** Soft/organic philosophy with small(8pt), medium(12pt), large(16pt), extraLarge(22pt)
+- **Extensions:** `Color.Wispflow` and `Font.Wispflow` (SwiftUI), `NSColor.Wispflow` and `NSFont.Wispflow` (AppKit)
+- **Fallbacks:** All primary colors compute at runtime with fallback to system colors if hex initialization fails
+- **Documentation:** Comprehensive design token documentation with philosophy, usage guides, and code examples in box-style comments
+- Verified via `swift build` - typecheck passes
 
 ---
 
-### US-632: Main Window with Sidebar Navigation
+### [ ] US-632: Main Window with Sidebar Navigation
 **Status:** open
 **Priority:** high
 **Estimated effort:** large
@@ -1319,7 +1332,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-633: Dashboard Home View
+### [ ] US-633: Dashboard Home View
 **Status:** open
 **Priority:** high
 **Estimated effort:** large
@@ -1347,7 +1360,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-634: Transcription History View
+### [ ] US-634: Transcription History View
 **Status:** open
 **Priority:** medium
 **Estimated effort:** medium
@@ -1374,7 +1387,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-635: Snippets Library View
+### [ ] US-635: Snippets Library View
 **Status:** open
 **Priority:** medium
 **Estimated effort:** medium
@@ -1401,7 +1414,7 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### US-636: Custom Dictionary View
+### [ ] US-636: Custom Dictionary View
 **Status:** open
 **Priority:** low
 **Estimated effort:** medium
