@@ -187,15 +187,18 @@ struct MainWindowView: View {
     // MARK: - Sidebar View
     
     /// Fixed left sidebar with navigation items
+    /// US-806: Updated sidebar background for light/dark mode with semi-transparent surface
     private var sidebarView: some View {
         VStack(alignment: .leading, spacing: 0) {
             // App branding area
             sidebarHeader
             
+            // US-806: Increased spacing between header and nav items
             Spacer()
-                .frame(height: Spacing.lg)
+                .frame(height: Spacing.xl)
             
             // Navigation items
+            // US-806: Updated spacing between nav items for cleaner look
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 ForEach(NavigationItem.allCases) { item in
                     NavigationItemRow(
@@ -211,7 +214,7 @@ struct MainWindowView: View {
                     )
                 }
             }
-            .padding(.horizontal, Spacing.md)
+            .padding(.horizontal, Spacing.sm)
             
             Spacer()
             
@@ -222,13 +225,24 @@ struct MainWindowView: View {
                     .padding(.bottom, Spacing.lg)
             }
             
+            // US-806: Border separator above collapse button
+            Rectangle()
+                .fill(Color.Voxa.border)
+                .frame(height: 1)
+            
             // Collapse toggle button
+            // US-806: Updated collapse button styling
             collapseToggleButton
-                .padding(.horizontal, Spacing.md)
-                .padding(.bottom, Spacing.lg)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.lg)
         }
         .frame(maxHeight: .infinity)
-        .background(Color.Voxa.surface)
+        // US-806: Updated sidebar background - semi-transparent surface with blur effect
+        .background(
+            Color.Voxa.sidebarBackground
+                .opacity(0.5)
+        )
+        .background(.ultraThinMaterial)
     }
     
     // MARK: - Sidebar Header
