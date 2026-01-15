@@ -6153,68 +6153,460 @@ struct TranscriptionTradeoffRow: View {
     }
 }
 
-// MARK: - Text Cleanup Settings Summary (US-701)
+// MARK: - Text Cleanup Settings Summary (US-701, US-705)
 
-/// Summary view for Text Cleanup settings section
+/// Full Text Cleanup settings section migrated from SettingsWindow
+/// US-705: Migrate Text Cleanup Settings Section to integrated settings view
 struct TextCleanupSettingsSummary: View {
     @StateObject private var textCleanupManager = TextCleanupManager.shared
+    @StateObject private var llmManager = LLMManager.shared
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            // Cleanup enabled status
-            HStack(spacing: Spacing.md) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.Wispflow.textSecondary)
-                    .frame(width: 20)
-                
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            // MARK: - Enable/Disable Toggle Section (US-705 Task 1)
+            cleanupToggleSection
+            
+            // MARK: - Filler Word Removal Section (US-705 Task 2)
+            fillerWordRemovalSection
+            
+            // MARK: - Post-Processing Toggles Section (US-705 Task 3)
+            postProcessingSection
+            
+            // MARK: - Preview Section
+            cleanupPreviewSection
+        }
+    }
+    
+    // MARK: - Cleanup Toggle Section
+    
+    /// Text cleanup enable/disable toggle with description
+    /// US-705 Task 1: Show text cleanup enable/disable toggle
+    private var cleanupToggleSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "wand.and.stars")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
                 Text("Text Cleanup")
-                    .font(Font.Wispflow.body)
-                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
                 
                 Spacer()
                 
+                // Status badge
                 StatusPill(
                     text: textCleanupManager.isCleanupEnabled ? "Enabled" : "Disabled",
                     color: textCleanupManager.isCleanupEnabled ? Color.Wispflow.success : Color.Wispflow.textTertiary
                 )
             }
             
-            // Cleanup mode
-            SettingsInfoRow(
-                icon: "slider.horizontal.3",
-                title: "Cleanup Mode",
-                value: textCleanupManager.selectedMode.displayName
-            )
+            Toggle("Enable Text Cleanup", isOn: $textCleanupManager.isCleanupEnabled)
+                .toggleStyle(WispflowToggleStyle())
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textPrimary)
             
-            // Post-processing
-            HStack(spacing: Spacing.md) {
+            Text("When enabled, transcribed text will be cleaned up to remove filler words, fix grammar, and improve formatting.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+        }
+    }
+    
+    // MARK: - Filler Word Removal Section
+    
+    /// Cleanup mode selection for filler word removal options
+    /// US-705 Task 2: Display filler word removal options
+    private var fillerWordRemovalSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "minus.circle")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Cleanup Mode")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("Select a cleanup intensity level. Higher levels remove more filler words and apply more formatting.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Mode selection cards
+            VStack(spacing: Spacing.sm) {
+                ForEach(TextCleanupManager.CleanupMode.allCases, id: \.id) { mode in
+                    TextCleanupModeCard(
+                        mode: mode,
+                        isSelected: textCleanupManager.selectedMode == mode,
+                        isEnabled: textCleanupManager.isCleanupEnabled,
+                        llmReady: llmManager.modelStatus == .ready,
+                        onSelect: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                textCleanupManager.selectedMode = mode
+                            }
+                            print("[US-705] Cleanup mode selected: \(mode.rawValue)")
+                        }
+                    )
+                }
+            }
+            .opacity(textCleanupManager.isCleanupEnabled ? 1.0 : 0.5)
+            
+            // Mode description
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: modeDescriptionIcon)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .font(.system(size: 12))
+                Text(textCleanupManager.selectedMode.description)
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            .padding(Spacing.sm)
+            .background(Color.Wispflow.border.opacity(0.3))
+            .cornerRadius(CornerRadius.small)
+        }
+    }
+    
+    // MARK: - Post-Processing Section
+    
+    /// Post-processing toggles for additional text cleanup options
+    /// US-705 Task 3: Include post-processing toggles
+    private var postProcessingSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: "text.badge.plus")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.Wispflow.textSecondary)
-                    .frame(width: 20)
-                
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
                 Text("Post-Processing")
-                    .font(Font.Wispflow.body)
-                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("These options apply to all transcriptions, even when full text cleanup is disabled.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                // Auto-capitalize first letter toggle
+                TextCleanupToggleRow(
+                    icon: "textformat.abc",
+                    title: "Auto-Capitalize First Letter",
+                    description: "Automatically capitalize the first letter of transcription",
+                    isOn: $textCleanupManager.autoCapitalizeFirstLetter
+                )
+                
+                Divider()
+                    .background(Color.Wispflow.border)
+                
+                // Add period at end toggle
+                TextCleanupToggleRow(
+                    icon: "text.append",
+                    title: "Add Period at End",
+                    description: "Add a period at the end if no ending punctuation exists",
+                    isOn: $textCleanupManager.addPeriodAtEnd
+                )
+                
+                Divider()
+                    .background(Color.Wispflow.border)
+                
+                // Trim whitespace toggle
+                TextCleanupToggleRow(
+                    icon: "scissors",
+                    title: "Trim Whitespace",
+                    description: "Remove leading and trailing whitespace from transcription",
+                    isOn: $textCleanupManager.trimWhitespace
+                )
+            }
+            .padding(Spacing.md)
+            .background(Color.Wispflow.surface)
+            .cornerRadius(CornerRadius.medium)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(Color.Wispflow.border, lineWidth: 1)
+            )
+        }
+    }
+    
+    // MARK: - Preview Section
+    
+    /// Shows before/after preview of text cleanup
+    private var cleanupPreviewSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "eye")
+                    .foregroundColor(Color.Wispflow.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Preview")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+            }
+            
+            Text("See how your transcriptions will be cleaned up with the selected mode.")
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+            
+            // Preview cards
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                // Before text
+                TextCleanupPreviewText(
+                    label: "Before",
+                    text: sampleBefore,
+                    color: Color.Wispflow.error
+                )
+                
+                // Arrow indicator
+                HStack {
+                    Spacer()
+                    Image(systemName: "arrow.down")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.Wispflow.accent)
+                    Spacer()
+                }
+                .padding(.vertical, Spacing.xs)
+                
+                // After text
+                TextCleanupPreviewText(
+                    label: "After (\(textCleanupManager.selectedMode.displayName.components(separatedBy: " ").first ?? ""))",
+                    text: sampleAfter,
+                    color: Color.Wispflow.success
+                )
+            }
+        }
+        .opacity(textCleanupManager.isCleanupEnabled ? 1.0 : 0.5)
+    }
+    
+    // MARK: - Helper Properties
+    
+    private var modeDescriptionIcon: String {
+        switch textCleanupManager.selectedMode {
+        case .basic:
+            return "hare"
+        case .standard:
+            return "dial.medium"
+        case .thorough:
+            return "sparkles"
+        case .aiPowered:
+            return "brain"
+        }
+    }
+    
+    private var sampleBefore: String {
+        "Um, so like, I was thinking, you know, that we should, uh, basically just go ahead and, like, finish the project by friday."
+    }
+    
+    private var sampleAfter: String {
+        switch textCleanupManager.selectedMode {
+        case .basic:
+            return "So like, I was thinking, you know, that we should basically just go ahead and, like, finish the project by friday."
+        case .standard:
+            return "I was thinking that we should just go ahead and finish the project by Friday."
+        case .thorough:
+            return "I was thinking that we should finish the project by Friday."
+        case .aiPowered:
+            return "I think we should finish the project by Friday."
+        }
+    }
+}
+
+// MARK: - Text Cleanup Mode Card (US-705)
+
+/// Card-based mode selection item for cleanup intensity
+/// US-705: Filler word removal options component
+struct TextCleanupModeCard: View {
+    let mode: TextCleanupManager.CleanupMode
+    let isSelected: Bool
+    let isEnabled: Bool
+    let llmReady: Bool
+    let onSelect: () -> Void
+    
+    @State private var isHovering = false
+    
+    // Mode metadata for display
+    private var modeInfo: (icon: String, shortName: String, fillerWords: String) {
+        switch mode {
+        case .basic:
+            return ("hare", "Basic", "um, uh, er, ah")
+        case .standard:
+            return ("dial.medium", "Standard", "Basic + like, you know, I mean")
+        case .thorough:
+            return ("sparkles", "Thorough", "All fillers + basically, literally, obviously")
+        case .aiPowered:
+            return ("brain", "AI-Powered", "Intelligent cleanup with context awareness")
+        }
+    }
+    
+    var body: some View {
+        Button(action: {
+            if isEnabled {
+                onSelect()
+            }
+        }) {
+            HStack(spacing: Spacing.md) {
+                // Mode icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.small)
+                        .fill(isSelected ? Color.Wispflow.accentLight : Color.Wispflow.border.opacity(0.3))
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: modeInfo.icon)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(isSelected ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
+                    
+                    // LLM ready indicator for AI mode
+                    if mode == .aiPowered && llmReady {
+                        Circle()
+                            .fill(Color.Wispflow.success)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 14, y: -14)
+                    }
+                }
+                
+                // Mode info
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    HStack(spacing: Spacing.sm) {
+                        Text(modeInfo.shortName)
+                            .font(Font.Wispflow.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color.Wispflow.textPrimary)
+                        
+                        // LLM status for AI mode
+                        if mode == .aiPowered {
+                            TextCleanupModeBadge(
+                                text: llmReady ? "LLM Ready" : "LLM Required",
+                                color: llmReady ? Color.Wispflow.success : Color.Wispflow.warning
+                            )
+                        }
+                    }
+                    
+                    // Filler words removed description
+                    Text("Removes: \(modeInfo.fillerWords)")
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                        .lineLimit(1)
+                }
                 
                 Spacer()
                 
-                HStack(spacing: Spacing.xs) {
-                    if textCleanupManager.autoCapitalizeFirstLetter {
-                        MiniFeatureBadge(icon: "textformat.abc")
-                    }
-                    if textCleanupManager.addPeriodAtEnd {
-                        MiniFeatureBadge(icon: "period")
-                    }
-                    if textCleanupManager.trimWhitespace {
-                        MiniFeatureBadge(icon: "text.alignleft")
+                // Selection indicator
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.Wispflow.accent : Color.Wispflow.border, lineWidth: 2)
+                        .frame(width: 22, height: 22)
+                    
+                    if isSelected {
+                        Circle()
+                            .fill(Color.Wispflow.accent)
+                            .frame(width: 14, height: 14)
                     }
                 }
             }
+            .padding(Spacing.md)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .fill(isHovering ? Color.Wispflow.border.opacity(0.2) : Color.Wispflow.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(isSelected ? Color.Wispflow.accent : Color.Wispflow.border.opacity(0.5), lineWidth: isSelected ? 2 : 1)
+            )
+            .shadow(
+                color: isSelected ? Color.Wispflow.accent.opacity(0.15) : Color.clear,
+                radius: 8,
+                x: 0,
+                y: 2
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
+// MARK: - Text Cleanup Mode Badge (US-705)
+
+/// Small badge for cleanup mode status indicators
+struct TextCleanupModeBadge: View {
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        Text(text)
+            .font(Font.Wispflow.small)
+            .fontWeight(.medium)
+            .foregroundColor(color)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15))
+            .cornerRadius(CornerRadius.small / 2)
+    }
+}
+
+// MARK: - Text Cleanup Toggle Row (US-705)
+
+/// Toggle row for post-processing options
+/// US-705: Post-processing toggles component
+struct TextCleanupToggleRow: View {
+    let icon: String
+    let title: String
+    let description: String
+    @Binding var isOn: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Toggle(isOn: $isOn) {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(isOn ? Color.Wispflow.accent : Color.Wispflow.textSecondary)
+                        .frame(width: 20)
+                    
+                    Text(title)
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                }
+            }
+            .toggleStyle(WispflowToggleStyle())
+            .onChange(of: isOn) { _, newValue in
+                print("[US-705] Post-processing toggle '\(title)' changed to: \(newValue)")
+            }
             
-            // Open full settings button
-            SettingsOpenFullButton()
+            Text(description)
+                .font(Font.Wispflow.small)
+                .foregroundColor(Color.Wispflow.textSecondary)
+                .padding(.leading, Spacing.xxl + Spacing.md)
+        }
+    }
+}
+
+// MARK: - Text Cleanup Preview Text (US-705)
+
+/// Preview text display for before/after comparison
+struct TextCleanupPreviewText: View {
+    let label: String
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: Spacing.xs) {
+                Circle()
+                    .fill(color.opacity(0.5))
+                    .frame(width: 8, height: 8)
+                Text(label)
+                    .font(Font.Wispflow.small)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Text(text)
+                .font(Font.Wispflow.body)
+                .foregroundColor(label.contains("Before") ? Color.Wispflow.textSecondary : Color.Wispflow.textPrimary)
+                .padding(Spacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(color.opacity(0.08))
+                .cornerRadius(CornerRadius.small)
         }
     }
 }

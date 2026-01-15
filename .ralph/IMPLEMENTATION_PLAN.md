@@ -1847,8 +1847,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-705: Migrate Text Cleanup Settings Section
-**Status:** open
+### [x] US-705: Migrate Text Cleanup Settings Section
+**Status:** complete
 **Priority:** medium
 **Estimated effort:** small
 **Depends on:** US-701
@@ -1856,14 +1856,49 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Move Text Cleanup settings to integrated settings view.
 
 **Tasks:**
-- [ ] Show text cleanup enable/disable toggle
-- [ ] Display filler word removal options
-- [ ] Include post-processing toggles
+- [x] Show text cleanup enable/disable toggle
+- [x] Display filler word removal options
+- [x] Include post-processing toggles
 
 **Acceptance Criteria:**
-- [ ] Cleanup toggle works
-- [ ] Filler word options functional
-- [ ] Post-processing toggles persist
+- [x] Cleanup toggle works
+- [x] Filler word options functional
+- [x] Post-processing toggles persist
+
+**Implementation Notes:**
+- Expanded `TextCleanupSettingsSummary` in `MainWindow.swift` from a summary view to a full settings section (same pattern as US-702, US-703, US-704)
+- Created four main sections within the Text Cleanup settings:
+  1. **Cleanup Toggle Section** (US-705 Task 1) with:
+     - Enable/disable toggle for text cleanup with status badge
+     - Description explaining cleanup functionality
+  2. **Filler Word Removal Section** (US-705 Task 2) with:
+     - Card-based mode picker using `TextCleanupModeCard` components for Basic, Standard, Thorough, and AI-Powered modes
+     - Each card shows mode icon, name, and filler words removed
+     - Visual selection indicator (radio-style circles)
+     - LLM status badge for AI-Powered mode showing "LLM Ready" or "LLM Required"
+     - Mode description box with icon at bottom
+     - Disabled state when cleanup is disabled (opacity 0.5)
+  3. **Post-Processing Section** (US-705 Task 3) with:
+     - Three `TextCleanupToggleRow` components for post-processing options:
+       - Auto-Capitalize First Letter
+       - Add Period at End
+       - Trim Whitespace
+     - Each toggle has icon, title, description, and persists to UserDefaults
+     - Note that options apply even when full cleanup is disabled
+  4. **Preview Section** with:
+     - Before/after text comparison using `TextCleanupPreviewText` components
+     - Sample text showing filler words and how they are cleaned
+     - Dynamic "After" preview changes based on selected cleanup mode
+     - Disabled state when cleanup is disabled (opacity 0.5)
+- Created supporting components (prefixed with `TextCleanup` to avoid naming conflicts):
+  - `TextCleanupModeCard` - card-based mode selection with hover effects and LLM status
+  - `TextCleanupModeBadge` - status badges for LLM Ready/Required
+  - `TextCleanupToggleRow` - toggle row for post-processing options with icon, title, description
+  - `TextCleanupPreviewText` - preview text display with color-coded label
+- All components use existing design system: `Color.Wispflow`, `Font.Wispflow`, `Spacing`, `CornerRadius`, `WispflowAnimation`
+- Uses `@StateObject` with `TextCleanupManager.shared` and `LLMManager.shared` singletons
+- All toggle changes logged with `[US-705]` prefix for debugging
+- Verified via `swift build` - typecheck passes
 
 ---
 
