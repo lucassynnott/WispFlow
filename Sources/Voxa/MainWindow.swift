@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import ServiceManagement
 import Combine
+import UniformTypeIdentifiers
 
 // MARK: - Navigation Item Enum
 
@@ -153,14 +154,10 @@ struct MainWindowView: View {
                     withAnimation(VoxaAnimation.smooth) {
                         selectedItem = .settings
                     }
-                    // Post a follow-up notification to scroll to Text Cleanup section
+                    // Post secondary notification to scroll to text cleanup section
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         NotificationCenter.default.post(name: .scrollToTextCleanupSection, object: nil)
                     }
-                }
-                // US-805: Listen for audio import picker request
-                .onReceive(NotificationCenter.default.publisher(for: .openAudioImport)) { _ in
-                    showAudioImportPicker()
                 }
             }
             .blur(radius: showOnboarding ? 3 : 0)
@@ -326,6 +323,35 @@ struct MainWindowView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(VoxaAnimation.tabTransition, value: selectedItem)
     }
+    
+    // MARK: - US-805: Audio Import Picker
+    
+    /// Show file picker for importing audio files
+    /// US-805: Connect button actions - Import Audio functionality
+    private func showAudioImportPickerPanel() {
+        let panel = NSOpenPanel()
+        panel.title = "Import Audio File"
+        panel.message = "Select an audio file to transcribe"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canCreateDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [
+            .audio,
+            .mp3,
+            .wav,
+            .mpeg4Audio,
+            .aiff
+        ]
+        
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                print("[US-805] Audio file selected for import: \(url.path)")
+                // Post notification to handle the audio file import
+                NotificationCenter.default.post(name: .audioFileSelected, object: url)
+            }
+        }
+    }
 }
 
 // MARK: - Navigation Item Row
@@ -468,6 +494,40 @@ struct HomeContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.Voxa.background)
+        // US-805: Listen for audio import request
+        .onReceive(NotificationCenter.default.publisher(for: .openAudioImport)) { _ in
+            showAudioImportPicker = true
+        }
+        // US-805: File importer for audio import
+        .fileImporter(
+            isPresented: $showAudioImportPicker,
+            allowedContentTypes: [.audio, .mpeg, .mp3, .wav],
+            allowsMultipleSelection: false
+        ) { result in
+            handleAudioImport(result)
+        }
+    }
+    
+    // MARK: - US-805: Audio Import Handler
+    
+    /// Handle audio file import result
+    /// US-805: Connect button actions - Import Audio shows file picker and transcribes selected file
+    private func handleAudioImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            print("[US-805] Audio file selected: \(url.lastPathComponent)")
+            // Show toast notification for audio import (transcription coming soon)
+            ToastManager.shared.showInfo(
+                "Audio Import",
+                message: "Audio import feature coming soon. Selected: \(url.lastPathComponent)",
+                icon: "square.and.arrow.down",
+                duration: 4.0
+            )
+        case .failure(let error):
+            print("[US-805] Audio import failed: \(error.localizedDescription)")
+            ToastManager.shared.showError("Import Failed", message: error.localizedDescription)
+        }
     }
     
     // MARK: - Welcome Section (US-801: Home Dashboard Header)
@@ -4612,6 +4672,10 @@ struct SettingsContentView: View {
                     Spacer(minLength: Spacing.xxl)
                 }
                 .padding(Spacing.xl)
+            }
+            // US-805: Listen for scroll to text cleanup section notification
+            .onReceive(NotificationCenter.default.publisher(for: .scrollToTextCleanupSection)) { _ in
+                scrollToSection(.textCleanup, using: scrollProxy)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

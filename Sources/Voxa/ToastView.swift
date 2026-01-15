@@ -713,4 +713,8 @@ extension Notification.Name {
     static let navigateToTextCleanup = Notification.Name("Voxa.navigateToTextCleanup")
     /// US-805: Notification to open audio import picker
     static let openAudioImport = Notification.Name("Voxa.openAudioImport")
+    /// US-805: Notification to scroll to text cleanup section in settings
+    static let scrollToTextCleanupSection = Notification.Name("Voxa.scrollToTextCleanupSection")
+    /// US-805: Notification when audio file is selected for import (object: URL)
+    static let audioFileSelected = Notification.Name("Voxa.audioFileSelected")
 }

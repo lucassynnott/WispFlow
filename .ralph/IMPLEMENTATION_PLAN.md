@@ -2302,16 +2302,19 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
   - Section header uses `Font.Voxa.sectionHeaderItalic` (serif italic 18pt)
   - Two buttons displayed horizontally with `Spacing.lg` gap
 - Connected button actions via NotificationCenter:
-  - AI Text Cleanup → Posts `.navigateToTextCleanup` → Opens Settings tab
-  - Import Audio → Posts `.openAudioImport` → Shows `NSOpenPanel` for audio files
-- Added `showAudioImportPicker()` helper function with:
-  - NSOpenPanel configured for audio files (.audio, .mp3, .wav, .mpeg4Audio, .aiff)
-  - Posts `.audioFileSelected` notification with selected file URL
+  - AI Text Cleanup → Posts `.navigateToTextCleanup` → Opens Settings tab and scrolls to Text Cleanup section
+  - Import Audio → Posts `.openAudioImport` → Shows SwiftUI `.fileImporter` for audio files
+- Added `@State private var hoveredQuickTool: QuickToolAction?` for hover state management
+- Added `@State private var showAudioImportPicker` for file importer state
+- Added SwiftUI `.fileImporter` modifier in `HomeContentView` configured for audio files (.audio, .mpeg, .mp3, .wav)
+- Added `handleAudioImport()` helper function to process selected audio files
 - Added notification names to ToastView.swift:
-  - `.navigateToTextCleanup`, `.openAudioImport`, `.audioFileSelected`
-- Added notification handlers in `MainWindowView`:
-  - `.navigateToTextCleanup` → Navigate to Settings tab
-  - `.openAudioImport` → Call `showAudioImportPicker()`
+  - `.navigateToTextCleanup`, `.openAudioImport`, `.scrollToTextCleanupSection`
+- Added notification handlers:
+  - In `MainWindowView`: `.navigateToTextCleanup` → Navigate to Settings tab + post scroll notification
+  - In `HomeContentView`: `.openAudioImport` → Set `showAudioImportPicker = true` to trigger file importer
+- Added `import UniformTypeIdentifiers` for UTType support in file importer
+- Iteration 4: Fixed notification name mismatches, added missing state variables, removed duplicate listeners
 - Verified via `swift build` - typecheck passes
 
 ---

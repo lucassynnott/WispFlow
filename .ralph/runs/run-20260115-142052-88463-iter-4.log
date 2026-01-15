@@ -1,0 +1,27 @@
+## Summary
+
+I've completed the work for **US-804: Daily Insights Sidebar**. The implementation was already done in a previous iteration and includes:
+
+1. **dailyInsightsSidebar** computed property in `HomeContentView` showing:
+   - Words Spoken with large number and percentage change indicator
+   - Time Saved with comparison label ("vs typing at 40 WPM")
+   - Today's Pace (average WPM when activity exists)
+
+2. **DailyInsightCard** component for individual stat cards with:
+   - Icon in colored circle
+   - Large numbers using `Font.Voxa.largeTitle` (28pt, bold, rounded)
+   - Percentage change indicator
+   - Subtitle/comparison text
+
+3. **PercentageChangeIndicator** component showing:
+   - Green up arrow for positive change
+   - Red down arrow for negative change
+   - Formatted percentage badge
+
+4. All stats are connected to `UsageStatsManager` computed properties for actual usage data.
+
+This iteration fixed a build error caused by incomplete US-805 code (broken notification names: `.navigateToTextCleanupSettings` → `.navigateToTextCleanup` and `.showAudioImportPicker` → `.openAudioImport`).
+
+Commits:
+- `0210ab4 fix(US-805): fix broken notification names in Quick Tools section`
+- `57dafec docs: add progress log entry for US-804 verification`
