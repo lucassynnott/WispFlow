@@ -21,6 +21,9 @@ final class StatusBarController: NSObject {
     // Callback for opening settings
     var onOpenSettings: (() -> Void)?
     
+    // Callback for opening main window (US-632)
+    var onOpenMainWindow: (() -> Void)?
+    
     // Reference to audio manager for device selection
     weak var audioManager: AudioManager?
     
@@ -74,6 +77,14 @@ final class StatusBarController: NSObject {
         modelStatusItem.tag = 100 // Tag to identify for updates
         modelStatusItem.isEnabled = false
         menu.addItem(modelStatusItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // US-632: Open Main Window item with app icon
+        let mainWindowItem = NSMenuItem(title: "Open WispFlow", action: #selector(openMainWindow), keyEquivalent: "o")
+        mainWindowItem.target = self
+        mainWindowItem.image = createMenuIcon(systemName: "rectangle.grid.1x2", tint: NSColor.Wispflow.accent)
+        menu.addItem(mainWindowItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -455,6 +466,12 @@ final class StatusBarController: NSObject {
     @objc private func openSettings() {
         print("Settings clicked - opening settings window")
         onOpenSettings?()
+    }
+    
+    /// US-632: Open the main application window
+    @objc private func openMainWindow() {
+        print("Open WispFlow clicked - opening main window")
+        onOpenMainWindow?()
     }
     
     @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {

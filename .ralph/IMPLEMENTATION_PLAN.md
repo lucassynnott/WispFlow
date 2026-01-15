@@ -1304,8 +1304,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-632: Main Window with Sidebar Navigation
-**Status:** open
+### [x] US-632: Main Window with Sidebar Navigation
+**Status:** complete
 **Priority:** high
 **Estimated effort:** large
 **Depends on:** US-615
@@ -1313,22 +1313,57 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Create a modern main application window with sidebar navigation for easy access to all features.
 
 **Tasks:**
-- [ ] Create main window with fixed left sidebar (200-250px width)
-- [ ] Add navigation items: Home, History, Snippets, Dictionary, Settings
-- [ ] Design distinctive icon for each nav item
-- [ ] Implement active nav item highlight (background color or accent indicator)
-- [ ] Add subtle separator or shadow between sidebar and content
-- [ ] Implement hover states with smooth transitions
-- [ ] Save/restore window size and position across sessions
-- [ ] Set minimum window size: 800x600px
-- [ ] Implement sidebar collapse to icons when window too small
+- [x] Create main window with fixed left sidebar (200-250px width)
+- [x] Add navigation items: Home, History, Snippets, Dictionary, Settings
+- [x] Design distinctive icon for each nav item
+- [x] Implement active nav item highlight (background color or accent indicator)
+- [x] Add subtle separator or shadow between sidebar and content
+- [x] Implement hover states with smooth transitions
+- [x] Save/restore window size and position across sessions
+- [x] Set minimum window size: 800x600px
+- [x] Implement sidebar collapse to icons when window too small
 
 **Acceptance Criteria:**
-- [ ] Sidebar contains 5 navigation items with icons and labels
-- [ ] Active nav item visually highlighted
-- [ ] Smooth transitions when switching views
-- [ ] Window state persists across sessions
-- [ ] Sidebar collapses gracefully on small windows
+- [x] Sidebar contains 5 navigation items with icons and labels
+- [x] Active nav item visually highlighted
+- [x] Smooth transitions when switching views
+- [x] Window state persists across sessions
+- [x] Sidebar collapses gracefully on small windows
+
+**Implementation Notes:**
+- Created `MainWindow.swift` with `MainWindowView` (SwiftUI) and `MainWindowController` (AppKit window management)
+- **Sidebar Implementation:**
+  - Fixed width: 220px expanded, 70px collapsed
+  - App branding header with WispFlow logo and "Voice to Text" tagline
+  - Five navigation items using `NavigationItem` enum with distinctive SF Symbols:
+    - Home (house.fill), History (clock.fill), Snippets (doc.on.clipboard.fill), Dictionary (character.book.closed.fill), Settings (gearshape.fill)
+  - Collapse toggle button at bottom of sidebar
+- **Active Item Highlighting:**
+  - Left accent bar indicator (3px wide coral bar)
+  - Background highlight using `accentLight` color
+  - `matchedGeometryEffect` for smooth animated transitions
+  - Icon changes from outline to filled when selected
+- **Hover States:**
+  - Smooth 0.1s transition on hover via `WispflowAnimation.quick`
+  - Border opacity change on hover (0.4 opacity)
+  - Hover tooltip displays navigation item name
+- **Window State Persistence:**
+  - `NSWindow.setFrameAutosaveName("MainWindow")` for automatic frame saving
+  - Manual frame saving via `saveWindowFrame()` on resize/move
+  - Manual frame restoration from UserDefaults on window creation
+  - Keys: `MainWindowFrame` for frame, `MainWindowWasOpen` for state
+- **Minimum Window Size:** 800x600px enforced via `window.minSize`
+- **Auto-Collapse Behavior:**
+  - Sidebar auto-collapses when window width < 700px
+  - Collapse threshold checked on `onChange(of: geometry.size.width)`
+  - Manual collapse/expand toggle button always available
+- **Separator:** 1px vertical divider with subtle shadow between sidebar and content
+- **Integration:**
+  - "Open WispFlow" menu item added to StatusBarController (Cmd+O)
+  - `MainWindowController` initialized in `setupToastSystem()`
+  - Callback flow: StatusBar → AppDelegate → MainWindowController
+- Placeholder content views for Home, History, Snippets, Dictionary, Settings (to be implemented in US-633-636)
+- Verified via `swift build` - typecheck passes
 
 ---
 

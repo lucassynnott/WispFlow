@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var debugManager: DebugManager?
     private var toastWindowController: ToastWindowController?
     private var onboardingWindowController: OnboardingWindowController?
+    private var mainWindowController: MainWindowController?
     
     // Store last audio data for retry functionality
     private var lastAudioData: Data?
@@ -43,6 +44,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         statusBarController?.onOpenSettings = { [weak self] in
             self?.openSettings()
+        }
+        
+        // US-632: Set up callback for opening main window
+        statusBarController?.onOpenMainWindow = { [weak self] in
+            self?.openMainWindow()
         }
         
         // Initialize and start the hotkey manager
@@ -469,6 +475,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             self?.openSettings()
         }
+        
+        // US-632: Initialize main window controller
+        mainWindowController = MainWindowController()
+    }
+    
+    /// US-632: Open the main application window
+    private func openMainWindow() {
+        mainWindowController?.showMainWindow()
     }
     
     /// US-517: Set up and show onboarding wizard on first launch
