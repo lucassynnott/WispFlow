@@ -4718,3 +4718,42 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115707-60521-it
   - US-705 followed the same pattern as US-702, US-703, US-704 for settings migration
   - Component naming with prefix (TextCleanup*) ensures no conflicts with SettingsWindow
 ---
+
+## [2026-01-15 12:41] - US-706: Migrate Text Insertion Settings Section
+Thread: 
+Run: 20260115-124118-68794 (iteration 1)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-124118-68794-iter-1.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-124118-68794-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 6c5fe63 feat(settings): migrate text insertion settings to integrated view (US-706)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/WispFlow/MainWindow.swift (modified - expanded TextInsertionSettingsSummary to full settings section)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated - US-706 tasks and acceptance criteria marked complete)
+- What was implemented:
+  - **TextInsertionSettingsSummary:** Expanded from summary view to full settings section with 5 subsections:
+    1. **Insertion Method Section** (US-706 Task 1): Card-based method picker showing Paste (⌘V) as active method
+    2. **Clipboard Preservation Section** (US-706 Task 2): Toggle for preserving clipboard contents after insertion
+    3. **Timing Options Section** (US-706 Task 3): Custom slider for clipboard restore delay (0.2s-2.0s)
+    4. **Accessibility Permission Section**: Permission status card with grant button and step-by-step instructions
+    5. **How It Works Section**: Numbered steps showing text insertion flow with dynamic content
+  - **New Components Created:**
+    - `TextInsertionMethodCard` - card-based method selection with "Active" badge and feature list
+    - `TextInsertionToggleRow` - toggle row for settings with icon, title, description
+    - `TextInsertionDelaySlider` - custom slider with gradient fill and drag gesture
+    - `TextInsertionInstructionRow` - numbered instruction steps for permission setup
+    - `TextInsertionFeatureRow` - feature row for how-it-works section
+  - **Acceptance Criteria Verified:**
+    - [x] Insertion method selection works - TextInsertionMethodCard shows Paste method as active
+    - [x] Clipboard preservation toggle functions - Toggle bound to textInserter.preserveClipboard (UserDefaults)
+- **Learnings for future iterations:**
+  - Followed US-705 pattern for settings migration (summary view → full section)
+  - Component naming with prefix (TextInsertion*) avoids conflicts with SettingsWindow components
+  - Uses `@StateObject` with `TextInserter.shared` and `PermissionManager.shared` singletons
+  - Permission grant callback shows animated success message for 3 seconds
+  - Timing options section conditionally displayed only when clipboard preservation is enabled
+  - All toggle changes logged with `[US-706]` prefix for debugging
+---
