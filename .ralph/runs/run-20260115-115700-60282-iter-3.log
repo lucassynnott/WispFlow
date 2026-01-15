@@ -1,0 +1,41 @@
+The implementation plan shows US-703 is marked as complete with `[x]`. The story is done!
+
+Let me provide a summary of what was accomplished:
+
+## Summary
+
+**US-703: Migrate Audio Settings Section** is complete.
+
+The story implementation involved migrating the full Audio settings functionality from the separate SettingsWindow to the integrated settings view in MainWindow.swift. The implementation includes:
+
+### Tasks Completed:
+1. ✅ **Audio input device picker dropdown** (`AudioSettingsDevicePicker`)
+   - Shows all available devices with appropriate icons
+   - Includes low-quality device warnings for Bluetooth/AirPods
+
+2. ✅ **Real-time audio level meter** (`AudioSettingsLevelMeter`)
+   - 30 segments at 20fps refresh rate
+   - Color-coded levels (green/good, red/clipping, coral/quiet)
+   - Start/Stop Preview button
+
+3. ✅ **Input sensitivity slider** (`AudioSettingsSlider`)
+   - Custom slider with 0.5x to 2.0x gain range
+   - Reset to Default button
+
+4. ✅ **Calibration controls** (`AudioSettingsCalibrationStatus`)
+   - Full state machine: idle, calibrating, completed, failed
+   - Progress bar during calibration
+   - Reset to Defaults with confirmation
+
+5. ✅ **Device refresh button**
+   - In the Input Device section header
+
+### Acceptance Criteria Met:
+- ✅ Device selection works
+- ✅ Audio preview shows levels  
+- ✅ Sensitivity slider adjusts threshold
+- ✅ Calibration functions correctly
+
+**Commit:** `b3f0422 feat(US-703): Migrate Audio Settings Section to integrated settings view`
+
+**Build Verification:** `swift build` → PASS
