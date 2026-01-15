@@ -709,4 +709,8 @@ extension Notification.Name {
     static let recordingStateChanged = Notification.Name("Voxa.recordingStateChanged")
     /// US-803: Notification to navigate to history view
     static let navigateToHistory = Notification.Name("Voxa.navigateToHistory")
+    /// US-805: Notification to navigate to text cleanup settings
+    static let navigateToTextCleanup = Notification.Name("Voxa.navigateToTextCleanup")
+    /// US-805: Notification to open audio import picker
+    static let openAudioImport = Notification.Name("Voxa.openAudioImport")
 }

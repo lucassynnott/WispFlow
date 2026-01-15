@@ -407,9 +407,6 @@ struct HomeContentView: View {
     /// US-802: Pulse animation state for microphone icon
     @State private var isPulsing = false
     
-    /// US-805: Hover state for Quick Tools buttons
-    @State private var hoveredQuickTool: QuickToolAction?
-    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -1445,6 +1442,114 @@ struct QuickActionCard: View {
             print("QuickAction: Open Snippets tapped")
         case .openSettings:
             NotificationCenter.default.post(name: .openSettings, object: nil)
+        }
+    }
+}
+
+// MARK: - US-805: Quick Tool Action Model
+
+/// Quick tool action types for the Quick Tools section
+/// US-805: Quick Tools Section - Quick access buttons for AI Text Cleanup and Import Audio
+enum QuickToolAction: String, CaseIterable, Identifiable {
+    case aiTextCleanup = "ai_text_cleanup"
+    case importAudio = "import_audio"
+    
+    var id: String { rawValue }
+    
+    var title: String {
+        switch self {
+        case .aiTextCleanup:
+            return "AI Text Cleanup"
+        case .importAudio:
+            return "Import Audio"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .aiTextCleanup:
+            return "Clean up and format transcribed text"
+        case .importAudio:
+            return "Transcribe an audio file"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .aiTextCleanup:
+            return "sparkles"
+        case .importAudio:
+            return "square.and.arrow.down"
+        }
+    }
+}
+
+// MARK: - US-805: Quick Tool Button Component
+
+/// Bordered button component for Quick Tools with hover state
+/// US-805: Build bordered button components with icons
+/// Implements hover states where border and icon turn terracotta
+struct QuickToolButton: View {
+    let tool: QuickToolAction
+    let isHovered: Bool
+    var onHover: (Bool) -> Void
+    
+    var body: some View {
+        Button(action: performAction) {
+            HStack(spacing: Spacing.md) {
+                // Icon - changes to terracotta on hover
+                Image(systemName: tool.icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(isHovered ? Color.Voxa.accent : Color.Voxa.textSecondary)
+                
+                // Label and description
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(tool.title)
+                        .font(Font.Voxa.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Voxa.textPrimary)
+                    
+                    Text(tool.description)
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                }
+                
+                Spacer()
+                
+                // Chevron indicator
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(isHovered ? Color.Voxa.accent : Color.Voxa.textTertiary)
+            }
+            .padding(Spacing.lg)
+            .background(Color.Voxa.surface)
+            // US-805: Bordered button with hover state - border turns terracotta on hover
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(isHovered ? Color.Voxa.accent : Color.Voxa.border, lineWidth: isHovered ? 1.5 : 1)
+            )
+            .cornerRadius(CornerRadius.medium)
+            // Subtle shadow on hover
+            .voxaShadow(isHovered ? .subtle : .subtle)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hovering in
+            onHover(hovering)
+        }
+        .contentShape(Rectangle())
+        .animation(VoxaAnimation.quick, value: isHovered)
+    }
+    
+    private func performAction() {
+        switch tool {
+        case .aiTextCleanup:
+            // Navigate to Settings -> Text Cleanup
+            print("[US-805] QuickTool: AI Text Cleanup tapped - navigating to Text Cleanup settings")
+            NotificationCenter.default.post(name: .navigateToTextCleanupSettings, object: nil)
+        case .importAudio:
+            // Show file picker for audio import
+            print("[US-805] QuickTool: Import Audio tapped - showing file picker")
+            NotificationCenter.default.post(name: .showAudioImportPicker, object: nil)
         }
     }
 }
