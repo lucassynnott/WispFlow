@@ -1367,8 +1367,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-633: Dashboard Home View
-**Status:** open
+### [x] US-633: Dashboard Home View
+**Status:** complete
 **Priority:** high
 **Estimated effort:** large
 **Depends on:** US-632
@@ -1376,22 +1376,63 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Create a welcoming dashboard home view showing activity and quick actions.
 
 **Tasks:**
-- [ ] Display personalized welcome message ("Welcome back" or user name)
-- [ ] Show usage statistics: streak days, total words transcribed, average WPM
-- [ ] Design stats row with icons in clean horizontal layout
-- [ ] Add optional promotional/feature banner area
-- [ ] Create Quick Actions section with card-based shortcuts
-- [ ] Design cards with icons, labels, subtle shadows/borders
-- [ ] Implement hover lift effect on cards
-- [ ] Add Recent Activity timeline with dated transcription entries
-- [ ] Each timeline entry shows timestamp and text preview
+- [x] Display personalized welcome message ("Welcome back" or user name)
+- [x] Show usage statistics: streak days, total words transcribed, average WPM
+- [x] Design stats row with icons in clean horizontal layout
+- [x] Add optional promotional/feature banner area
+- [x] Create Quick Actions section with card-based shortcuts
+- [x] Design cards with icons, labels, subtle shadows/borders
+- [x] Implement hover lift effect on cards
+- [x] Add Recent Activity timeline with dated transcription entries
+- [x] Each timeline entry shows timestamp and text preview
 
 **Acceptance Criteria:**
-- [ ] Welcome message displayed at top
-- [ ] Usage stats visible (streak, words, WPM)
-- [ ] Quick action cards functional with hover effects
-- [ ] Recent activity shows dated entries
-- [ ] Empty state shows onboarding prompt
+- [x] Welcome message displayed at top
+- [x] Usage stats visible (streak, words, WPM)
+- [x] Quick action cards functional with hover effects
+- [x] Recent activity shows dated entries
+- [x] Empty state shows onboarding prompt
+
+**Implementation Notes:**
+- Created `UsageStatsManager.swift` singleton for tracking usage statistics:
+  - `TranscriptionEntry` data model stores transcription text preview, word count, duration, timestamp
+  - Tracks streak days (consecutive days of transcription usage)
+  - Tracks total words transcribed across all sessions
+  - Tracks total recordings count and recording duration
+  - Calculates average WPM from total words / total duration
+  - Persists to UserDefaults for data persistence across app restarts
+  - Recent entries stored with 50-entry limit (newest first)
+  - Streak management: increments on daily usage, resets after gap > 1 day
+- Updated `HomeContentView` in `MainWindow.swift` with full dashboard implementation:
+  - **Welcome Section:** Time-based greeting ("Good morning/afternoon/evening") with current date
+  - **Stats Section:** Four `StatCard` components showing:
+    - Streak days (flame icon, orange)
+    - Total words transcribed with K/M suffix formatting
+    - Average WPM (speedometer icon, info blue)
+    - Total recordings count (waveform icon, success green)
+  - **Empty Stats State:** Onboarding prompt when no activity yet ("Record your first transcription")
+  - **Feature Banner:** Promotional area highlighting AI-powered text cleanup with Settings link
+  - **Quick Actions:** Four `QuickActionCard` components with hover lift effect:
+    - New Recording (mic icon)
+    - View History (clock icon)
+    - Snippets (clipboard icon)
+    - Settings (gear icon)
+  - **Recent Activity Timeline:** 
+    - Groups entries by date (Today, Yesterday, date format)
+    - `ActivityTimelineEntry` component with:
+      - Timeline dot and connecting line
+      - Timestamp and word count badge
+      - Text preview (2-line limit, expandable)
+      - WPM and duration info when expanded
+      - Hover highlight and expand/collapse animation
+  - **Empty Activity State:** Message "No transcriptions yet" with icon
+- Integrated `UsageStatsManager` with `AppDelegate`:
+  - Added `lastRecordingDuration` property to track recording duration
+  - Updated `processTranscription()` to accept recording duration parameter
+  - Updated `processTextCleanup()` to accept and pass recording duration
+  - Calls `UsageStatsManager.shared.recordTranscription()` after successful text insertion
+- All components use existing design system: `Color.Wispflow`, `Font.Wispflow`, `Spacing`, `CornerRadius`, `WispflowAnimation`
+- Verified via `swift build` - typecheck passes
 
 ---
 

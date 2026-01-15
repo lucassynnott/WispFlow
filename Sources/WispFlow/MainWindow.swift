@@ -330,28 +330,633 @@ struct NavigationItemRow: View {
     }
 }
 
-// MARK: - Placeholder Content Views
+// MARK: - Dashboard Home View (US-633)
 
-/// Home view placeholder (to be implemented in US-633)
+/// Dashboard home view showing activity and quick actions
+/// US-633: Dashboard Home View
 struct HomeContentView: View {
+    @StateObject private var statsManager = UsageStatsManager.shared
+    @State private var hoveredQuickAction: QuickAction?
+    
     var body: some View {
-        VStack(spacing: Spacing.lg) {
-            Image(systemName: "house.fill")
-                .font(.system(size: 48, weight: .light))
-                .foregroundColor(Color.Wispflow.accent.opacity(0.5))
-            
-            Text("Home")
-                .font(Font.Wispflow.largeTitle)
-                .foregroundColor(Color.Wispflow.textPrimary)
-            
-            Text("Dashboard and quick actions coming soon")
-                .font(Font.Wispflow.body)
-                .foregroundColor(Color.Wispflow.textSecondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
+                // MARK: - Welcome Message
+                welcomeSection
+                
+                // MARK: - Usage Statistics Row
+                if statsManager.hasActivity {
+                    statsSection
+                } else {
+                    emptyStatsSection
+                }
+                
+                // MARK: - Feature Banner (optional promotional area)
+                featureBannerSection
+                
+                // MARK: - Quick Actions
+                quickActionsSection
+                
+                // MARK: - Recent Activity Timeline
+                recentActivitySection
+                
+                Spacer(minLength: Spacing.xxl)
+            }
+            .padding(Spacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.Wispflow.background)
     }
+    
+    // MARK: - Welcome Section
+    
+    private var welcomeSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.md) {
+                // Greeting based on time of day
+                Text(greetingMessage)
+                    .font(Font.Wispflow.largeTitle)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Spacer()
+                
+                // Current date
+                Text(currentDateString)
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Text("Ready to capture your thoughts")
+                .font(Font.Wispflow.body)
+                .foregroundColor(Color.Wispflow.textSecondary)
+        }
+    }
+    
+    /// Time-based greeting message
+    private var greetingMessage: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 {
+            return "Good morning"
+        } else if hour < 17 {
+            return "Good afternoon"
+        } else {
+            return "Good evening"
+        }
+    }
+    
+    /// Current date string
+    private var currentDateString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter.string(from: Date())
+    }
+    
+    // MARK: - Stats Section
+    
+    private var statsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("Your Activity")
+                .font(Font.Wispflow.headline)
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            HStack(spacing: Spacing.lg) {
+                // Streak Days
+                StatCard(
+                    icon: "flame.fill",
+                    value: "\(statsManager.streakDays)",
+                    label: "Day Streak",
+                    iconColor: .orange
+                )
+                
+                // Total Words
+                StatCard(
+                    icon: "text.word.spacing",
+                    value: formatNumber(statsManager.totalWordsTranscribed),
+                    label: "Words",
+                    iconColor: Color.Wispflow.accent
+                )
+                
+                // Average WPM
+                StatCard(
+                    icon: "speedometer",
+                    value: String(format: "%.0f", statsManager.averageWPM),
+                    label: "Avg WPM",
+                    iconColor: Color.Wispflow.info
+                )
+                
+                // Total Transcriptions
+                StatCard(
+                    icon: "waveform",
+                    value: "\(statsManager.totalTranscriptions)",
+                    label: "Recordings",
+                    iconColor: Color.Wispflow.success
+                )
+            }
+        }
+    }
+    
+    /// Empty state for stats section showing onboarding prompt
+    private var emptyStatsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("Get Started")
+                .font(Font.Wispflow.headline)
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            HStack(spacing: Spacing.lg) {
+                Image(systemName: "waveform.badge.plus")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundColor(Color.Wispflow.accent)
+                
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("Record your first transcription")
+                        .font(Font.Wispflow.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                    
+                    Text("Press ⌘⇧Space anywhere to start recording")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                }
+                
+                Spacer()
+            }
+            .padding(Spacing.lg)
+            .background(Color.Wispflow.accentLight)
+            .cornerRadius(CornerRadius.medium)
+        }
+    }
+    
+    // MARK: - Feature Banner Section
+    
+    private var featureBannerSection: some View {
+        HStack(spacing: Spacing.lg) {
+            // Banner icon
+            ZStack {
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.Wispflow.accent.opacity(0.8), Color.Wispflow.accent],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 50, height: 50)
+                
+                Image(systemName: "sparkles")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("AI-Powered Text Cleanup")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Text("Enable intelligent formatting and punctuation in Settings → Text Cleanup")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+            }
+            
+            Spacer()
+            
+            Button(action: {
+                NotificationCenter.default.post(name: .openSettings, object: nil)
+            }) {
+                Text("Settings")
+                    .font(Font.Wispflow.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.Wispflow.accent)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
+                    .background(Color.Wispflow.accentLight)
+                    .cornerRadius(CornerRadius.small)
+            }
+            .buttonStyle(InteractiveScaleStyle())
+        }
+        .padding(Spacing.lg)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .wispflowShadow(.subtle)
+    }
+    
+    // MARK: - Quick Actions Section
+    
+    private var quickActionsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("Quick Actions")
+                .font(Font.Wispflow.headline)
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            HStack(spacing: Spacing.lg) {
+                ForEach(QuickAction.allCases) { action in
+                    QuickActionCard(
+                        action: action,
+                        isHovered: hoveredQuickAction == action,
+                        onHover: { isHovering in
+                            withAnimation(WispflowAnimation.quick) {
+                                hoveredQuickAction = isHovering ? action : nil
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+    
+    // MARK: - Recent Activity Section
+    
+    private var recentActivitySection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack {
+                Text("Recent Activity")
+                    .font(Font.Wispflow.headline)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                Spacer()
+                
+                if !statsManager.recentEntries.isEmpty {
+                    Text("\(statsManager.recentEntries.count) entries")
+                        .font(Font.Wispflow.caption)
+                        .foregroundColor(Color.Wispflow.textSecondary)
+                }
+            }
+            
+            if statsManager.recentEntries.isEmpty {
+                // Empty state
+                emptyActivityState
+            } else {
+                // Activity timeline
+                activityTimeline
+            }
+        }
+    }
+    
+    /// Empty state for activity section
+    private var emptyActivityState: some View {
+        HStack {
+            Spacer()
+            VStack(spacing: Spacing.md) {
+                Image(systemName: "clock.badge.questionmark")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundColor(Color.Wispflow.textTertiary)
+                
+                Text("No transcriptions yet")
+                    .font(Font.Wispflow.body)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                
+                Text("Your recent activity will appear here")
+                    .font(Font.Wispflow.caption)
+                    .foregroundColor(Color.Wispflow.textTertiary)
+            }
+            .padding(.vertical, Spacing.xxl)
+            Spacer()
+        }
+        .background(Color.Wispflow.surfaceSecondary.opacity(0.5))
+        .cornerRadius(CornerRadius.medium)
+    }
+    
+    /// Activity timeline with dated entries
+    private var activityTimeline: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Group entries by date
+            ForEach(groupedEntries.keys.sorted(by: >), id: \.self) { date in
+                if let entries = groupedEntries[date] {
+                    // Date header
+                    dateHeader(for: date)
+                    
+                    // Entries for this date
+                    ForEach(entries) { entry in
+                        ActivityTimelineEntry(entry: entry)
+                    }
+                }
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .wispflowShadow(.subtle)
+    }
+    
+    /// Group entries by date
+    private var groupedEntries: [Date: [TranscriptionEntry]] {
+        let calendar = Calendar.current
+        var groups: [Date: [TranscriptionEntry]] = [:]
+        
+        for entry in statsManager.recentEntries {
+            let dateKey = calendar.startOfDay(for: entry.timestamp)
+            if groups[dateKey] == nil {
+                groups[dateKey] = []
+            }
+            groups[dateKey]?.append(entry)
+        }
+        
+        return groups
+    }
+    
+    /// Date header for activity timeline
+    private func dateHeader(for date: Date) -> some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        
+        let label: String
+        if calendar.isDate(date, inSameDayAs: today) {
+            label = "Today"
+        } else if calendar.isDate(date, inSameDayAs: yesterday) {
+            label = "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE, MMMM d"
+            label = formatter.string(from: date)
+        }
+        
+        return Text(label)
+            .font(Font.Wispflow.caption)
+            .fontWeight(.semibold)
+            .foregroundColor(Color.Wispflow.textSecondary)
+            .padding(.vertical, Spacing.sm)
+            .padding(.horizontal, Spacing.xs)
+    }
+    
+    // MARK: - Helpers
+    
+    /// Format large numbers with K/M suffix
+    private func formatNumber(_ number: Int) -> String {
+        if number >= 1_000_000 {
+            return String(format: "%.1fM", Double(number) / 1_000_000)
+        } else if number >= 1_000 {
+            return String(format: "%.1fK", Double(number) / 1_000)
+        }
+        return "\(number)"
+    }
 }
+
+// MARK: - Stat Card Component
+
+/// Individual stat card with icon and value
+struct StatCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    let iconColor: Color
+    
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(iconColor.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(iconColor)
+            }
+            
+            // Value
+            Text(value)
+                .font(Font.Wispflow.title)
+                .foregroundColor(Color.Wispflow.textPrimary)
+            
+            // Label
+            Text(label)
+                .font(Font.Wispflow.caption)
+                .foregroundColor(Color.Wispflow.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.lg)
+        .background(Color.Wispflow.surface)
+        .cornerRadius(CornerRadius.medium)
+        .wispflowShadow(.subtle)
+    }
+}
+
+// MARK: - Quick Action Model
+
+/// Quick action types for dashboard
+enum QuickAction: String, CaseIterable, Identifiable {
+    case newRecording = "new_recording"
+    case viewHistory = "view_history"
+    case openSnippets = "open_snippets"
+    case openSettings = "open_settings"
+    
+    var id: String { rawValue }
+    
+    var title: String {
+        switch self {
+        case .newRecording:
+            return "New Recording"
+        case .viewHistory:
+            return "View History"
+        case .openSnippets:
+            return "Snippets"
+        case .openSettings:
+            return "Settings"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .newRecording:
+            return "Start a new voice transcription"
+        case .viewHistory:
+            return "Browse past transcriptions"
+        case .openSnippets:
+            return "Save and reuse text snippets"
+        case .openSettings:
+            return "Configure WispFlow preferences"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .newRecording:
+            return "mic.fill"
+        case .viewHistory:
+            return "clock.fill"
+        case .openSnippets:
+            return "doc.on.clipboard.fill"
+        case .openSettings:
+            return "gearshape.fill"
+        }
+    }
+    
+    var iconColor: Color {
+        switch self {
+        case .newRecording:
+            return Color.Wispflow.accent
+        case .viewHistory:
+            return Color.Wispflow.info
+        case .openSnippets:
+            return Color.Wispflow.success
+        case .openSettings:
+            return Color.Wispflow.textSecondary
+        }
+    }
+}
+
+// MARK: - Quick Action Card Component
+
+/// Quick action card with hover lift effect
+struct QuickActionCard: View {
+    let action: QuickAction
+    let isHovered: Bool
+    var onHover: (Bool) -> Void
+    
+    var body: some View {
+        Button(action: performAction) {
+            VStack(spacing: Spacing.md) {
+                // Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.small)
+                        .fill(action.iconColor.opacity(isHovered ? 0.2 : 0.12))
+                        .frame(width: 48, height: 48)
+                    
+                    Image(systemName: action.icon)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundColor(action.iconColor)
+                }
+                
+                // Label
+                Text(action.title)
+                    .font(Font.Wispflow.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.Wispflow.textPrimary)
+                
+                // Description
+                Text(action.description)
+                    .font(Font.Wispflow.small)
+                    .foregroundColor(Color.Wispflow.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.lg)
+            .padding(.horizontal, Spacing.md)
+            .background(Color.Wispflow.surface)
+            .cornerRadius(CornerRadius.medium)
+            // Hover lift effect: shadow and slight scale
+            .wispflowShadow(isHovered ? .card : .subtle)
+            .scaleEffect(isHovered ? 1.02 : 1.0)
+            .offset(y: isHovered ? -2 : 0)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hovering in
+            onHover(hovering)
+        }
+        .animation(WispflowAnimation.quick, value: isHovered)
+    }
+    
+    private func performAction() {
+        switch action {
+        case .newRecording:
+            // Note: Recording is triggered via hotkey, show hint
+            // Could post notification to show recording hint
+            print("QuickAction: New Recording tapped - use hotkey ⌘⇧Space")
+        case .viewHistory:
+            // Navigate to history tab (would require coordination with parent)
+            print("QuickAction: View History tapped")
+        case .openSnippets:
+            // Navigate to snippets tab
+            print("QuickAction: Open Snippets tapped")
+        case .openSettings:
+            NotificationCenter.default.post(name: .openSettings, object: nil)
+        }
+    }
+}
+
+// MARK: - Activity Timeline Entry Component
+
+/// Single entry in the activity timeline
+struct ActivityTimelineEntry: View {
+    let entry: TranscriptionEntry
+    @State private var isHovered = false
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                // Timeline dot and line
+                VStack(spacing: 0) {
+                    Circle()
+                        .fill(Color.Wispflow.accent)
+                        .frame(width: 8, height: 8)
+                    
+                    Rectangle()
+                        .fill(Color.Wispflow.border)
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                }
+                .frame(width: 20)
+                
+                // Entry content
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    HStack {
+                        // Timestamp
+                        Text(entry.timeString)
+                            .font(Font.Wispflow.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color.Wispflow.textSecondary)
+                        
+                        // Word count badge
+                        Text("\(entry.wordCount) words")
+                            .font(Font.Wispflow.small)
+                            .foregroundColor(Color.Wispflow.textTertiary)
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, 2)
+                            .background(Color.Wispflow.surfaceSecondary)
+                            .cornerRadius(CornerRadius.small)
+                        
+                        Spacer()
+                        
+                        // Expand/collapse button
+                        Button(action: { 
+                            withAnimation(WispflowAnimation.quick) {
+                                isExpanded.toggle() 
+                            }
+                        }) {
+                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(Color.Wispflow.textTertiary)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .opacity(isHovered || isExpanded ? 1 : 0)
+                    }
+                    
+                    // Text preview
+                    Text(entry.textPreview)
+                        .font(Font.Wispflow.body)
+                        .foregroundColor(Color.Wispflow.textPrimary)
+                        .lineLimit(isExpanded ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    // WPM info when expanded
+                    if isExpanded {
+                        HStack(spacing: Spacing.md) {
+                            Label(String(format: "%.0f WPM", entry.wordsPerMinute), systemImage: "speedometer")
+                            Label(String(format: "%.1fs", entry.durationSeconds), systemImage: "clock")
+                        }
+                        .font(Font.Wispflow.small)
+                        .foregroundColor(Color.Wispflow.textTertiary)
+                        .padding(.top, Spacing.xs)
+                    }
+                }
+                .padding(.vertical, Spacing.sm)
+            }
+            .padding(.horizontal, Spacing.sm)
+            .background(isHovered ? Color.Wispflow.surfaceSecondary.opacity(0.5) : Color.clear)
+            .cornerRadius(CornerRadius.small)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                withAnimation(WispflowAnimation.quick) {
+                    isHovered = hovering
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Placeholder Content Views
 
 /// History view placeholder (to be implemented in US-634)
 struct HistoryContentView: View {

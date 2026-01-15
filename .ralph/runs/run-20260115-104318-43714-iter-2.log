@@ -1,0 +1,42 @@
+There are still 4 uncompleted stories (US-633, US-634, US-635, US-636) in the PRD. Since I completed US-632 but there are remaining stories, I should NOT output the completion signal.
+
+Let me provide a summary of what was accomplished:
+
+## Summary
+
+I successfully implemented **US-632: Main Window with Sidebar Navigation** for WispFlow. Here's what was done:
+
+**Files Created/Modified:**
+1. **Sources/WispFlow/MainWindow.swift** (new) - Contains:
+   - `NavigationItem` enum with 5 navigation items (Home, History, Snippets, Dictionary, Settings)
+   - `MainWindowView` - SwiftUI view with sidebar navigation and content area
+   - `NavigationItemRow` - Individual navigation item component with hover/active states
+   - `MainWindowController` - AppKit window controller handling window lifecycle and state persistence
+   - Placeholder content views for each navigation section
+
+2. **Sources/WispFlow/AppDelegate.swift** (modified) - Added:
+   - `mainWindowController` property
+   - `openMainWindow()` method
+   - Callback connection for StatusBarController
+
+3. **Sources/WispFlow/StatusBarController.swift** (modified) - Added:
+   - `onOpenMainWindow` callback
+   - "Open WispFlow" menu item (Cmd+O)
+   - `openMainWindow()` action method
+
+**Key Features Implemented:**
+- Fixed left sidebar (220px expanded, 70px collapsed) with app branding
+- 5 navigation items with distinctive SF Symbol icons  
+- Active state highlighting with left accent bar and background color
+- Smooth hover state transitions
+- Window state persistence via UserDefaults and NSWindow.setFrameAutosaveName
+- Minimum window size: 800x600px
+- Auto-collapse sidebar when window width < 700px
+- Manual collapse/expand toggle button
+
+**Verification:**
+- `swift build` → PASS
+
+**Commits:**
+- `aecb2d8` feat(US-632): Main Window with Sidebar Navigation
+- `d0955d9` docs: add progress log for US-632 Main Window with Sidebar Navigation

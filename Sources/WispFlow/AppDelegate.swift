@@ -20,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastAudioData: Data?
     private var lastAudioSampleRate: Double = 16000.0
     
+    // US-633: Track last recording duration for stats
+    private var lastRecordingDuration: Double = 0.0
+    
     // US-608: Timer to clear audio buffer after timeout (30 seconds)
     private var audioBufferClearTimer: Timer?
     private static let audioBufferTimeoutSeconds: TimeInterval = 30.0
@@ -652,10 +655,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 recordingIndicator?.updateStatus(String(format: "%.1fs", result.duration))
                 recordingIndicator?.showWithAnimation()
                 
+                // US-633: Store recording duration for stats tracking
+                self.lastRecordingDuration = result.duration
+                
                 // Process transcription on MainActor where we can check DebugManager
                 let audioData = result.audioData
                 let sampleRate = result.sampleRate
                 let wasSilent = result.wasSilent
+                let duration = result.duration
                 
                 Task { @MainActor [weak self] in
                     // Check if silence detection is disabled in debug mode
@@ -668,7 +675,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             print("Audio is silent but silence detection is disabled in debug mode - proceeding with transcription")
                         }
                         // Process transcription with Whisper
-                        self?.processTranscription(audioData: audioData, sampleRate: sampleRate)
+                        self?.processTranscription(audioData: audioData, sampleRate: sampleRate, recordingDuration: duration)
                     } else {
                         // Hide indicator after showing duration for silent audio
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
@@ -712,7 +719,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @MainActor
-    private func processTranscription(audioData: Data, sampleRate: Double) {
+    private func processTranscription(audioData: Data, sampleRate: Double, recordingDuration: Double? = nil) {
         guard let whisper = whisperManager else {
             print("WhisperManager not available")
             return
@@ -728,6 +735,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // US-608: Store audio data for potential retry
         lastAudioData = audioData
         lastAudioSampleRate = sampleRate
+        
+        // US-633: Store recording duration if provided
+        if let duration = recordingDuration {
+            lastRecordingDuration = duration
+        }
         
         // US-608: Start buffer clear timer (30 seconds to allow retry)
         startAudioBufferClearTimer()
@@ -751,7 +763,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // Clear stored audio data on successful transcription
                     lastAudioData = nil
                     // Pass to text cleanup (US-005), including raw text for debug comparison
-                    await processTextCleanup(transcribedText, rawTranscription: transcribedText)
+                    // US-633: Include recording duration for stats tracking
+                    await processTextCleanup(transcribedText, rawTranscription: transcribedText, recordingDuration: lastRecordingDuration)
                 } else {
                     // Empty transcription (no speech) - don't clear audio data yet (allows retry)
                     recordingIndicator?.hideWithAnimation()
@@ -880,12 +893,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @MainActor
-    private func processTextCleanup(_ transcribedText: String, rawTranscription: String? = nil) async {
+    private func processTextCleanup(_ transcribedText: String, rawTranscription: String? = nil, recordingDuration: Double = 0) async {
         guard let cleanup = textCleanupManager else {
             print("TextCleanupManager not available, using raw text")
             recordingIndicator?.hideWithAnimation()
             // Insert raw text directly
             await performTextInsertion(transcribedText)
+            // US-633: Still record stats even without cleanup
+            UsageStatsManager.shared.recordTranscription(text: transcribedText, durationSeconds: recordingDuration)
             return
         }
         
@@ -921,6 +936,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Insert cleaned text into active application
         await performTextInsertion(cleanedText)
+        
+        // US-633: Record transcription to usage stats for dashboard
+        UsageStatsManager.shared.recordTranscription(text: cleanedText, durationSeconds: recordingDuration)
         
         // Hide the indicator after insertion
         recordingIndicator?.hideWithAnimation()
