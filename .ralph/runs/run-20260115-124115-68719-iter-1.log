@@ -1,0 +1,16 @@
+## Summary
+
+US-706: Migrate Text Insertion Settings Section has been **completed** by a parallel run. The implementation includes:
+
+1. **Insertion Method Section** - Card-based display showing Paste (⌘V) method with features
+2. **Clipboard Preservation Toggle** - Toggle to preserve/restore original clipboard after insertion  
+3. **Timing Options** - Custom slider for restore delay (0.2s - 2.0s) with visual feedback
+4. **Accessibility Permission Section** - Permission status with grant button and instructions
+5. **How It Works Section** - Step-by-step explanation of the insertion process
+
+**Verification:**
+- `swift build` → PASS
+- Commit: `6c5fe63` feat(settings): migrate text insertion settings to integrated view (US-706)
+- Post-commit status: clean
+
+**Remaining Stories:** US-707, US-708, US-709 are still open and need to be completed before the PRD is fully complete.

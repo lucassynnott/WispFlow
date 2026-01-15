@@ -1,0 +1,22 @@
+US-706 is now complete. There are still 3 remaining open stories in the PRD (US-707, US-708, US-709), so I cannot output the completion signal.
+
+**Summary of changes made for US-706:**
+
+Successfully migrated the Text Insertion Settings Section to the integrated settings view in MainWindow.swift:
+
+1. **Insertion Method Section** - Shows Paste (⌘V) method with card-based UI, "Active" badge, and feature list
+2. **Clipboard Preservation Toggle** - Toggle with status indicator showing if clipboard will be restored
+3. **Timing Options Section** - Custom slider (0.2s-2.0s) for clipboard restore delay, only shown when preservation is enabled
+4. **Accessibility Permission Section** - Permission status card with grant button and step-by-step instructions
+5. **How It Works Section** - Numbered steps explaining the text insertion flow
+
+Created 5 new supporting components following the established design system patterns:
+- `TextInsertionMethodCard`
+- `TextInsertionToggleRow`
+- `TextInsertionDelaySlider`
+- `TextInsertionInstructionRow`
+- `TextInsertionFeatureRow`
+
+All acceptance criteria verified:
+- ✅ Insertion method selection works
+- ✅ Clipboard preservation toggle functions
