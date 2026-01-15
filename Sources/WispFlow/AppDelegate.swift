@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var textCleanupManager: TextCleanupManager?
     private var llmManager: LLMManager?
     private var textInserter: TextInserter?
-    private var settingsWindowController: SettingsWindowController?
+    // US-708: settingsWindowController removed - settings now displayed in main window
     private var debugManager: DebugManager?
     private var toastWindowController: ToastWindowController?
     private var onboardingWindowController: OnboardingWindowController?
@@ -84,18 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Connect LLM manager to text cleanup manager
             textCleanupManager?.llmManager = llmManager
             
-            // Set up settings window controller with all managers
-            if let whisper = whisperManager, let cleanup = textCleanupManager, let inserter = textInserter, let hotkey = hotkeyManager, let debug = debugManager, let llm = llmManager, let audio = audioManager {
-                settingsWindowController = SettingsWindowController(
-                    whisperManager: whisper,
-                    textCleanupManager: cleanup,
-                    llmManager: llm,
-                    textInserter: inserter,
-                    hotkeyManager: hotkey,
-                    debugManager: debug,
-                    audioManager: audio
-                )
-            }
+            // US-708: Settings window controller removed - settings now displayed in main window
             
             // Auto-load the selected Whisper model in background
             print("Auto-loading Whisper model...")
@@ -415,8 +404,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
     
+    /// US-708: Open the main window with Settings selected
     private func openSettings() {
-        settingsWindowController?.showSettings()
+        openMainWindow(initialNavItem: .settings)
     }
     
     private func setupHotkeyManager() {
@@ -490,8 +480,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     /// US-632: Open the main application window
-    private func openMainWindow() {
-        mainWindowController?.showMainWindow()
+    /// - Parameter initialNavItem: Optional navigation item to select when window opens
+    private func openMainWindow(initialNavItem: NavigationItem? = nil) {
+        mainWindowController?.showMainWindow(initialNavItem: initialNavItem)
     }
     
     /// US-517: Set up and show onboarding wizard on first launch

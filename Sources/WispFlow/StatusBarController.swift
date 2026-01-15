@@ -464,7 +464,8 @@ final class StatusBarController: NSObject {
     }
     
     @objc private func openSettings() {
-        print("Settings clicked - opening settings window")
+        // US-708: Settings menu now opens main window with Settings tab selected
+        print("Settings clicked - opening main window with Settings tab")
         onOpenSettings?()
     }
     

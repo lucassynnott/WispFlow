@@ -4649,78 +4649,11 @@ struct AudioInfoRow: View {
     }
 }
 
-// MARK: - Settings Window Controller
+// MARK: - US-708: SettingsWindowController Removed
+// The separate Settings window has been removed as part of US-708.
+// All settings are now displayed in the integrated Settings view within the main window.
+// The settings views (SettingsView, GeneralSettingsView, AudioSettingsView, etc.) are still
+// used by the SettingsContentView in MainWindow.swift.
 
-final class SettingsWindowController: NSObject {
-    private var settingsWindow: NSWindow?
-    private let whisperManager: WhisperManager
-    private let textCleanupManager: TextCleanupManager
-    private let llmManager: LLMManager
-    private let textInserter: TextInserter
-    private let hotkeyManager: HotkeyManager
-    private let debugManager: DebugManager
-    private let audioManager: AudioManager
-    private var debugLogWindowController: DebugLogWindowController?
-    
-    init(whisperManager: WhisperManager, textCleanupManager: TextCleanupManager, llmManager: LLMManager, textInserter: TextInserter, hotkeyManager: HotkeyManager, debugManager: DebugManager, audioManager: AudioManager) {
-        self.whisperManager = whisperManager
-        self.textCleanupManager = textCleanupManager
-        self.llmManager = llmManager
-        self.textInserter = textInserter
-        self.hotkeyManager = hotkeyManager
-        self.debugManager = debugManager
-        self.audioManager = audioManager
-        self.debugLogWindowController = DebugLogWindowController(debugManager: debugManager)
-        super.init()
-    }
-    
-    func showSettings() {
-        if let existingWindow = settingsWindow {
-            existingWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-        
-        let settingsView = SettingsView(
-            whisperManager: whisperManager,
-            textCleanupManager: textCleanupManager,
-            llmManager: llmManager,
-            textInserter: textInserter,
-            hotkeyManager: hotkeyManager,
-            debugManager: debugManager,
-            audioManager: audioManager,
-            onOpenDebugWindow: { [weak self] in
-                self?.showDebugWindow()
-            }
-        )
-        let hostingController = NSHostingController(rootView: settingsView)
-        
-        let window = NSWindow(contentViewController: hostingController)
-        window.title = "WispFlow Settings"
-        // US-523: Added .resizable to allow users to adjust window size if needed for tab visibility
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.minSize = NSSize(width: 750, height: 560)
-        window.center()
-        window.setFrameAutosaveName("SettingsWindow")
-        
-        // Handle window close
-        window.delegate = self
-        
-        settingsWindow = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-    
-    func showDebugWindow() {
-        debugLogWindowController?.showDebugWindow()
-    }
-}
-
-extension SettingsWindowController: NSWindowDelegate {
-    func windowWillClose(_ notification: Notification) {
-        settingsWindow = nil
-    }
-}
-
-// Import SwiftUI hosting controller
-import AppKit
+// Note: Keep the SettingsView and its subviews as they are used by SettingsContentView in MainWindow.swift
+// for displaying settings in the integrated settings panel.

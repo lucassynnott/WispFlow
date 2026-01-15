@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import ServiceManagement
+import Combine
 
 // MARK: - Navigation Item Enum
 
@@ -87,6 +88,9 @@ struct MainWindowView: View {
     private let sidebarCollapsedWidth: CGFloat = 70
     private let collapseThreshold: CGFloat = 700
     
+    /// US-708: Initial navigation item (can be set when opening window)
+    var initialNavigationItem: NavigationItem? = nil
+    
     var body: some View {
         GeometryReader { geometry in
             HStack(spacing: 0) {
@@ -114,6 +118,18 @@ struct MainWindowView: View {
             .onAppear {
                 windowWidth = geometry.size.width
                 isSidebarCollapsed = geometry.size.width < collapseThreshold
+                // US-708: Navigate to initial item if specified
+                if let initialItem = initialNavigationItem {
+                    withAnimation(WispflowAnimation.smooth) {
+                        selectedItem = initialItem
+                    }
+                }
+            }
+            // US-708: Listen for navigation requests from openSettings notification
+            .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+                withAnimation(WispflowAnimation.smooth) {
+                    selectedItem = .settings
+                }
             }
         }
         .background(Color.Wispflow.background)
@@ -8142,29 +8158,7 @@ struct MiniFeatureBadge: View {
     }
 }
 
-/// Button to open the full settings window
-struct SettingsOpenFullButton: View {
-    var body: some View {
-        Button(action: {
-            NotificationCenter.default.post(name: .openSettings, object: nil)
-        }) {
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: "arrow.up.right.square")
-                    .font(.system(size: 12, weight: .medium))
-                Text("Open Full Settings")
-                    .font(Font.Wispflow.caption)
-            }
-            .foregroundColor(Color.Wispflow.accent)
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-            .background(Color.Wispflow.accentLight)
-            .cornerRadius(CornerRadius.small)
-        }
-        .buttonStyle(InteractiveScaleStyle())
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.top, Spacing.sm)
-    }
-}
+// US-708: SettingsOpenFullButton removed - settings now displayed directly in main window
 
 // MARK: - Main Window Controller
 
@@ -8190,14 +8184,23 @@ final class MainWindowController: NSObject {
     }
     
     /// Show the main window
-    func showMainWindow() {
+    /// - Parameter initialNavItem: Optional navigation item to select when window opens
+    func showMainWindow(initialNavItem: NavigationItem? = nil) {
         if let existingWindow = mainWindow {
             existingWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
+            // US-708: If a specific nav item is requested and window exists, send notification
+            // to navigate to that item (the MainWindowView listens for this)
+            if let navItem = initialNavItem {
+                // Post openSettings notification for settings, or a generic navigation notification
+                if navItem == .settings {
+                    NotificationCenter.default.post(name: .openSettings, object: nil)
+                }
+            }
             return
         }
         
-        let mainView = MainWindowView()
+        let mainView = MainWindowView(initialNavigationItem: initialNavItem)
         let hostingController = NSHostingController(rootView: mainView)
         
         let window = NSWindow(contentViewController: hostingController)

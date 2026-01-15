@@ -1,0 +1,25 @@
+US-707 is complete. Let me provide a summary:
+
+## Summary
+
+**US-707: Migrate Debug Settings Section** has been successfully completed.
+
+### What was implemented:
+
+1. **Log Level Selector** (Task 1): Added `LogLevel` enum to `DebugManager.swift` with four levels (Verbose, Info, Warning, Error), each with icon, description, and priority. Created `LogLevelPicker` component for card-based selection.
+
+2. **Export Logs Button** (Task 2): Added `exportLogs()` method to `DebugManager.swift` with NSSavePanel for user-selected export location. Export includes system info header and all log entries.
+
+3. **Open Recordings Folder Button** (Task 3): Button in Debug Tools section calls `AudioExporter.shared.openDebugRecordingsFolder()` to open Finder.
+
+4. **System Info Display** (Task 4): Added `SystemInfo` struct gathering app version, macOS version, machine model (via sysctlbyname), CPU info, and memory size. Created `SystemInfoCard` component with Copy button.
+
+5. **Reset All Settings** (Task 5): Added `resetAllSettings()` method clearing all WispFlow UserDefaults keys with confirmation alert.
+
+### Verification:
+- `swift build` → PASS
+- All acceptance criteria verified and marked complete in IMPLEMENTATION_PLAN.md
+
+### Commits:
+- `120d633` - feat(settings): migrate debug settings to integrated view (US-707)
+- `f97c446` - docs: add run summary and logs for US-707 verification

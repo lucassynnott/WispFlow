@@ -2018,8 +2018,8 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 
 ---
 
-### [ ] US-708: Remove Separate Settings Window
-**Status:** open
+### [x] US-708: Remove Separate Settings Window
+**Status:** complete
 **Priority:** high
 **Estimated effort:** small
 **Depends on:** US-702, US-703, US-704, US-705, US-706, US-707
@@ -2027,15 +2027,26 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 **Description:** Remove the separate Settings popout window.
 
 **Tasks:**
-- [ ] Remove or repurpose SettingsWindow.swift
-- [ ] Remove 'Open Settings Window' button from placeholder
-- [ ] Update StatusBarController Settings menu to open main window
-- [ ] Clean up unused settings window code
+- [x] Remove or repurpose SettingsWindow.swift
+- [x] Remove 'Open Settings Window' button from placeholder
+- [x] Update StatusBarController Settings menu to open main window
+- [x] Clean up unused settings window code
 
 **Acceptance Criteria:**
-- [ ] No separate settings window opens
-- [ ] Menu bar Settings opens main window with Settings selected
-- [ ] No orphaned code remains
+- [x] No separate settings window opens
+- [x] Menu bar Settings opens main window with Settings selected
+- [x] No orphaned code remains
+
+**Implementation Notes:**
+- Removed `SettingsWindowController` class from SettingsWindow.swift (no longer needed)
+- Removed `SettingsOpenFullButton` component from MainWindow.swift (was already done)
+- Removed `settingsWindowController` property from AppDelegate (was already done)
+- Updated `AppDelegate.openSettings()` to call `openMainWindow(initialNavItem: .settings)` instead of `settingsWindowController?.showSettings()`
+- Updated `StatusBarController.openSettings()` print statement to reflect new behavior
+- Updated `MainWindowView` to listen for `.openSettings` notification and navigate to Settings tab
+- Updated `MainWindowController.showMainWindow(initialNavItem:)` to post `.openSettings` notification when window already exists
+- All settings functionality remains accessible through the integrated Settings tab in the main window
+- Verified via `swift build` - typecheck passes
 
 ---
 
