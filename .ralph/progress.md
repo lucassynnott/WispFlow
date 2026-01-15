@@ -4652,3 +4652,69 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115703-60368-it
   - Mode description dynamically updates based on selected mode
   - Preview section shows real-time effect of mode selection on sample text
 ---
+
+## [2026-01-15 12:22] - US-705: Migrate Text Cleanup Settings Section (Verification Run - Iteration 5)
+Thread: 
+Run: 20260115-115700-60282 (iteration 5)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115700-60282-iter-5.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115700-60282-iter-5.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none - implementation already complete from parallel run (commit 8df6cd0)
+- Post-commit status: clean
+- Verification:
+  - Command: swift build -> PASS
+- Files changed:
+  - .ralph/progress.md (this progress entry only)
+- What was verified:
+  - Confirmed US-705 was already fully implemented in commit 8df6cd0 by parallel run
+  - TextCleanupSettingsSummary expanded to full settings section with all required features:
+    - **Task 1 (Cleanup Toggle):** Enable/disable toggle with StatusPill and description - VERIFIED
+    - **Task 2 (Filler Word Removal):** Card-based mode picker (TextCleanupModeCard) for Basic, Standard, Thorough, AI-Powered modes - VERIFIED
+    - **Task 3 (Post-Processing Toggles):** Three TextCleanupToggleRow components for auto-capitalize, add period, trim whitespace - VERIFIED
+  - All acceptance criteria verified met:
+    - [x] Cleanup toggle works - bound to textCleanupManager.isCleanupEnabled
+    - [x] Filler word options functional - TextCleanupModeCard shows filler words removed per mode
+    - [x] Post-processing toggles persist - all bound to TextCleanupManager published properties with UserDefaults
+  - Additional features implemented beyond requirements:
+    - Preview section showing before/after text comparison
+    - LLM status indicator for AI-Powered mode
+    - Mode description updates dynamically based on selection
+  - Build verification: swift build passes
+- **Learnings for future iterations:**
+  - US-705 completed by parallel run (run-20260115-115705-60444 iteration 5 or run-20260115-115703-60368 iteration 5)
+  - Always check git log --grep="US-XXX" to detect prior completions early
+  - IMPLEMENTATION_PLAN.md already had all tasks and acceptance criteria checked
+---
+
+## [2026-01-15 13:10] - US-705: Migrate Text Cleanup Settings Section (Verification Run)
+Thread: 
+Run: 20260115-115707-60521 (iteration 5)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115707-60521-iter-5.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115707-60521-iter-5.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none - implementation already complete (commit 8df6cd0)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - .ralph/progress.md (this progress entry only)
+  - .ralph/activity.log (verification log entry)
+- What was verified:
+  - Confirmed US-705 was already fully implemented in commit 8df6cd0 from parallel run
+  - TextCleanupSettingsSummary expanded to full settings section with 4 subsections:
+    1. Cleanup Toggle Section (Task 1): Enable/disable with status badge
+    2. Filler Word Removal Section (Task 2): Card-based mode picker (Basic, Standard, Thorough, AI-Powered)
+    3. Post-Processing Section (Task 3): Three toggles (auto-capitalize, add period, trim whitespace)
+    4. Preview Section: Before/after text comparison
+  - All acceptance criteria verified:
+    - [x] Cleanup toggle works - `isCleanupEnabled` binding at line 6203
+    - [x] Filler word options functional - `TextCleanupModeCard` with `selectedMode` binding
+    - [x] Post-processing toggles persist - Three toggles bound to UserDefaults-backed properties
+  - Build verification: swift build passes
+- **Learnings for future iterations:**
+  - Always check `git log --oneline --grep="US-XXX"` first to detect prior completions
+  - US-705 followed the same pattern as US-702, US-703, US-704 for settings migration
+  - Component naming with prefix (TextCleanup*) ensures no conflicts with SettingsWindow
+---
