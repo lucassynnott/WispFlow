@@ -2241,32 +2241,32 @@ This plan implements a comprehensive overhaul of WispFlow's core systems based o
 - [x] Stats from actual usage data
 
 **Implementation Notes:**
-- Created `dailyInsightsSidebar` computed property in `HomeContentView` (MainWindow.swift)
+- Created `DailyInsightsSection` component in `MainWindow.swift` for sidebar display
 - **Section header**: Uses `Font.Voxa.sectionHeaderItalic` (serif italic 18pt) for "Daily Insights" title
-- **DailyInsightCard component**: Reusable card showing icon, title, large value, percentage change, and subtitle
-  - Icon in colored circle (15% opacity background)
-  - Large numbers use `Font.Voxa.largeTitle` (28pt, bold, rounded) for prominence
-  - `PercentageChangeIndicator` component for percentage changes with colored arrows
-- **Words Spoken card**:
-  - Icon: `text.word.spacing` in accent color
-  - Value: Today's words spoken from `UsageStatsManager.todayWordsSpoken`
-  - Percentage change: Compares to yesterday via `wordsSpokenPercentageChange` (green up arrow/red down arrow)
-  - Subtitle: Transcription count for today
-- **Time Saved card**:
-  - Icon: `clock.badge.checkmark` in success color
-  - Value: Formatted time saved from `UsageStatsManager.todayTimeSavedFormatted`
-  - Subtitle: Comparison label "vs typing at 40 WPM"
-- **Today's Pace card** (conditional on activity):
-  - Icon: `speedometer` in info color
-  - Value: Today's average WPM calculated from today's words and duration
-  - Subtitle: "words per minute"
-- **PercentageChangeIndicator component**:
-  - Positive change: Green with up arrow
-  - Negative change: Red with down arrow
-  - Zero change: Gray with dash
-  - Formatted percentage with badge background
-- Layout: Sidebar uses 280px fixed width in right column of dashboard (HStack with main content)
-- Data source: All stats come from `UsageStatsManager.shared` computed properties (already implemented)
+- **Words Spoken stat** (`DailyInsightsStatCard`):
+  - Large number displayed prominently using `Font.Voxa.title` with bold weight
+  - Icon (`text.word.spacing`) in accentLight circle
+  - Percentage change indicator (`DailyInsightsPercentageChange`) shows comparison to yesterday
+  - Green arrow for increase, red arrow for decrease
+  - Percentage badge with colored background (success/error opacity 0.15)
+- **Time Saved stat** (`DailyInsightsStatCard`):
+  - Displays formatted time (e.g., "5 min", "1 hr 30 min")
+  - Icon (`clock.arrow.circlepath`) in accentLight circle
+  - Comparison label "vs typing at 40 WPM"
+- **Data source**: Connected to `UsageStatsManager.shared` computed properties:
+  - `todayWordsSpoken`: Sum of word counts for today's entries
+  - `wordsSpokenPercentageChange`: Percentage change vs yesterday (nil if no yesterday data)
+  - `todayTimeSavedFormatted`: Human-readable time saved string
+  - `timeSavedComparisonLabel`: Comparison reference text
+  - `hasTodayActivity`: Boolean to show stats vs empty state
+- **Empty state** (`DailyInsightsEmptyState`):
+  - Shown when no activity today
+  - Chart icon with "No activity today" message
+  - "Start recording to see your insights" prompt
+- **Sidebar integration**:
+  - Added to `sidebarView` between navigation items and collapse button
+  - Only shown when sidebar is expanded (`!isSidebarCollapsed`)
+  - Uses `surfaceSecondary` background with `medium` corner radius
 - Verified via `swift build` - typecheck passes
 
 ---
