@@ -5812,3 +5812,80 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142036-87912-it
   - `.navigateToHistory` notification navigates sidebar to History tab
   - Consolidating documentation and marking stories complete is valid work
 ---
+
+## [2026-01-15 16:10] - US-803: Recent Transcriptions List (Verification)
+Thread: codex exec session
+Run: 20260115-142054-88543 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142054-88543-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142054-88543-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 282de7d feat(US-803): mark Recent Transcriptions List as complete (prior commit)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete in 0.13s)
+  - Command: `git status --porcelain` -> PASS (clean working tree)
+- What was verified:
+  - US-803 implementation was already complete (commit 282de7d from parallel agent)
+  - All tasks verified complete:
+    - [x] Create section header with Playfair Display italic (Font.Voxa.sectionHeaderItalic)
+    - [x] Add View All link (posts .navigateToHistory notification)
+    - [x] Build transcription item component with icon, title, subtitle, timestamp
+    - [x] Implement hover states (title color change + background highlight)
+    - [x] Connect to transcription history data (UsageStatsManager.shared.recentEntries)
+  - All acceptance criteria verified:
+    - [x] Shows last 3-5 transcriptions (displays up to 5 entries)
+    - [x] Each item has icon, title, metadata, timestamp
+    - [x] Hover highlights and changes title color
+    - [x] Empty state when no transcriptions
+- Files verified:
+  - Sources/Voxa/MainWindow.swift (recentTranscriptionsSection, RecentTranscriptionItem)
+  - Sources/Voxa/UsageStatsManager.swift (recentEntries data source)
+  - Sources/Voxa/ToastView.swift (.navigateToHistory notification)
+  - .ralph/IMPLEMENTATION_PLAN.md (US-803 marked complete)
+- **Learnings for future iterations:**
+  - US-803 was completed by parallel agent 282de7d
+  - No additional implementation needed - verification run only
+  - 5 stories remain in Phase 11: US-804 through US-808
+---
+
+## [2026-01-15 16:30] - US-803: Recent Transcriptions List (Final Verification)
+Thread: codex exec session
+Run: 20260115-142052-88463 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142052-88463-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142052-88463-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 282de7d feat(US-803): mark Recent Transcriptions List as complete (prior)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build complete in 0.12s)
+  - Command: `git status --porcelain` -> PASS (only activity.log and progress.md uncommitted)
+- What was verified:
+  - US-803 fully implemented in MainWindow.swift
+  - All tasks verified complete:
+    - [x] Create section header with Playfair Display italic (`Font.Voxa.sectionHeaderItalic`)
+    - [x] Add View All link (posts `.navigateToHistory` notification)
+    - [x] Build transcription item component (`RecentTranscriptionItem` struct)
+    - [x] Implement hover states (title color change + background highlight)
+    - [x] Connect to transcription history data (`UsageStatsManager.shared.recentEntries`)
+  - All acceptance criteria verified:
+    - [x] Shows last 3-5 transcriptions (displays up to 5 entries via `.prefix(5)`)
+    - [x] Each item has icon, title, metadata, timestamp (`RecentTranscriptionItem`)
+    - [x] Hover highlights and changes title color (`isHovered` state)
+    - [x] Empty state when no transcriptions (`recentTranscriptionsEmptyState`)
+- Implementation details verified:
+  - `recentActivitySection`: Section header + View All link + list or empty state
+  - `recentTranscriptionsList`: VStack with up to 5 `RecentTranscriptionItem` components
+  - `RecentTranscriptionItem` features:
+    - Icon: `doc.text.fill` or `questionmark.bubble.fill` based on content
+    - Title: First sentence or first 8 words with ellipsis
+    - Subtitle: Word count and duration (e.g., "42 words • 15s")
+    - Timestamp: Relative date via `entry.relativeDateString`
+    - Hover: Title color changes from `textPrimary` to `accent`; background to `surfaceSecondary.opacity(0.5)`
+  - Navigation: MainWindowView observes `.navigateToHistory` and switches `selectedItem` to `.history`
+- **Learnings for future iterations:**
+  - US-803 fully complete and verified across multiple parallel runs
+  - IMPLEMENTATION_PLAN.md already has complete status with detailed notes
+  - 5 stories remain in Phase 11: US-804, US-805, US-806, US-807, US-808
+---
