@@ -413,8 +413,8 @@ struct HomeContentView: View {
                 // MARK: - Quick Actions
                 quickActionsSection
                 
-                // MARK: - Recent Activity Timeline
-                recentActivitySection
+                // MARK: - US-803: Recent Transcriptions List
+                recentTranscriptionsSection
                 
                 Spacer(minLength: Spacing.xxl)
             }
