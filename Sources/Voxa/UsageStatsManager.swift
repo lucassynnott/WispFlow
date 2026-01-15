@@ -107,6 +107,104 @@ final class UsageStatsManager: ObservableObject {
         return totalTranscriptions > 0
     }
     
+    // MARK: - US-804: Daily Insights Computed Properties
+    
+    /// Words spoken today (sum of word counts for today's entries)
+    var todayWordsSpoken: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return recentEntries
+            .filter { calendar.isDate(calendar.startOfDay(for: $0.timestamp), inSameDayAs: today) }
+            .reduce(0) { $0 + $1.wordCount }
+    }
+    
+    /// Words spoken yesterday (sum of word counts for yesterday's entries)
+    var yesterdayWordsSpoken: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else { return 0 }
+        return recentEntries
+            .filter { calendar.isDate(calendar.startOfDay(for: $0.timestamp), inSameDayAs: yesterday) }
+            .reduce(0) { $0 + $1.wordCount }
+    }
+    
+    /// Percentage change in words spoken today compared to yesterday
+    /// Returns nil if no data from yesterday, otherwise returns percentage change (positive = increase, negative = decrease)
+    var wordsSpokenPercentageChange: Double? {
+        let yesterday = yesterdayWordsSpoken
+        let today = todayWordsSpoken
+        
+        // Need yesterday data to calculate percentage change
+        guard yesterday > 0 else {
+            // If no yesterday data, return nil to indicate no comparison available
+            return nil
+        }
+        
+        let change = Double(today - yesterday) / Double(yesterday) * 100.0
+        return change
+    }
+    
+    /// Time saved today in seconds (estimated based on average typing speed vs speaking)
+    /// Assumes average typing speed of 40 WPM, speaking captures at ~150 WPM
+    /// Time saved = words_spoken * (1/40 - 1/150) minutes = words_spoken * 0.0183 minutes
+    var todayTimeSavedSeconds: Double {
+        let typingWPM = 40.0
+        let minutesPerWordTyping = 1.0 / typingWPM
+        let today = Double(todayWordsSpoken)
+        // Time it would take to type vs time spent speaking (use actual recording duration)
+        let todayRecordingDuration = todayRecordingDurationSeconds
+        let typingTime = today * minutesPerWordTyping * 60.0 // in seconds
+        return max(0, typingTime - todayRecordingDuration)
+    }
+    
+    /// Recording duration in seconds for today's entries
+    var todayRecordingDurationSeconds: Double {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return recentEntries
+            .filter { calendar.isDate(calendar.startOfDay(for: $0.timestamp), inSameDayAs: today) }
+            .reduce(0) { $0 + $1.durationSeconds }
+    }
+    
+    /// Time saved formatted as human-readable string (e.g., "5 min", "1 hr 30 min")
+    var todayTimeSavedFormatted: String {
+        let seconds = todayTimeSavedSeconds
+        let minutes = Int(seconds / 60)
+        
+        if minutes < 1 {
+            return "< 1 min"
+        } else if minutes < 60 {
+            return "\(minutes) min"
+        } else {
+            let hours = minutes / 60
+            let remainingMinutes = minutes % 60
+            if remainingMinutes == 0 {
+                return "\(hours) hr"
+            } else {
+                return "\(hours) hr \(remainingMinutes) min"
+            }
+        }
+    }
+    
+    /// Comparison label for time saved (e.g., "vs typing at 40 WPM")
+    var timeSavedComparisonLabel: String {
+        return "vs typing at 40 WPM"
+    }
+    
+    /// Number of transcriptions today
+    var todayTranscriptionCount: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return recentEntries
+            .filter { calendar.isDate(calendar.startOfDay(for: $0.timestamp), inSameDayAs: today) }
+            .count
+    }
+    
+    /// Check if there's today's activity for Daily Insights
+    var hasTodayActivity: Bool {
+        return todayTranscriptionCount > 0
+    }
+    
     // MARK: - Initialization
     
     private init() {

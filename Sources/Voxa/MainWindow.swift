@@ -204,6 +204,13 @@ struct MainWindowView: View {
             
             Spacer()
             
+            // US-804: Daily Insights Section (only shown when sidebar is expanded)
+            if !isSidebarCollapsed {
+                DailyInsightsSection()
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.bottom, Spacing.lg)
+            }
+            
             // Collapse toggle button
             collapseToggleButton
                 .padding(.horizontal, Spacing.md)
@@ -406,21 +413,33 @@ struct HomeContentView: View {
                 // MARK: - Welcome Message
                 welcomeSection
                 
-                // MARK: - Usage Statistics Row
-                if statsManager.hasActivity {
-                    statsSection
-                } else {
-                    emptyStatsSection
+                // MARK: - Two Column Layout (US-804, US-807)
+                // Main content (8/12) + Daily Insights Sidebar (4/12)
+                HStack(alignment: .top, spacing: Spacing.xl) {
+                    // MARK: - Main Content Column (Left)
+                    VStack(alignment: .leading, spacing: Spacing.xl) {
+                        // MARK: - Usage Statistics Row
+                        if statsManager.hasActivity {
+                            statsSection
+                        } else {
+                            emptyStatsSection
+                        }
+                        
+                        // MARK: - Feature Banner (optional promotional area)
+                        featureBannerSection
+                        
+                        // MARK: - Quick Actions
+                        quickActionsSection
+                        
+                        // MARK: - US-803: Recent Transcriptions List
+                        recentTranscriptionsSection
+                    }
+                    .frame(maxWidth: .infinity)
+                    
+                    // MARK: - US-804: Daily Insights Sidebar (Right)
+                    dailyInsightsSidebar
+                        .frame(width: 280)
                 }
-                
-                // MARK: - Feature Banner (optional promotional area)
-                featureBannerSection
-                
-                // MARK: - Quick Actions
-                quickActionsSection
-                
-                // MARK: - US-803: Recent Transcriptions List
-                recentTranscriptionsSection
                 
                 Spacer(minLength: Spacing.xxl)
             }
@@ -915,6 +934,70 @@ struct HomeContentView: View {
         .voxaShadow(.subtle)
     }
     
+    // MARK: - US-804: Daily Insights Sidebar
+    
+    /// US-804: Daily Insights Sidebar showing daily statistics (words spoken, time saved)
+    /// Displays in the right column of the dashboard with italic header and prominent numbers
+    private var dailyInsightsSidebar: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // MARK: - Section Header with Italic Style
+            // US-804: Daily Insights section with italic header (matching Recent Transcriptions)
+            Text("Daily Insights")
+                .font(Font.Voxa.sectionHeaderItalic)
+                .foregroundColor(Color.Voxa.textPrimary)
+            
+            // MARK: - Insights Content
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                // MARK: - Words Spoken Card
+                // US-804: Display Words Spoken with large number and percentage change
+                DailyInsightCard(
+                    icon: "text.word.spacing",
+                    iconColor: Color.Voxa.accent,
+                    title: "Words Spoken",
+                    value: formatNumber(statsManager.todayWordsSpoken),
+                    percentageChange: statsManager.wordsSpokenPercentageChange,
+                    subtitle: statsManager.hasTodayActivity ? "\(statsManager.todayTranscriptionCount) transcription\(statsManager.todayTranscriptionCount == 1 ? "" : "s") today" : "No activity today"
+                )
+                
+                // MARK: - Time Saved Card
+                // US-804: Display Time Saved with comparison label
+                DailyInsightCard(
+                    icon: "clock.badge.checkmark",
+                    iconColor: Color.Voxa.success,
+                    title: "Time Saved",
+                    value: statsManager.todayTimeSavedFormatted,
+                    percentageChange: nil, // Time saved doesn't show percentage
+                    subtitle: statsManager.timeSavedComparisonLabel
+                )
+                
+                // MARK: - Additional Insight: Today's WPM (optional context)
+                if statsManager.hasTodayActivity {
+                    DailyInsightCard(
+                        icon: "speedometer",
+                        iconColor: Color.Voxa.info,
+                        title: "Today's Pace",
+                        value: String(format: "%.0f", todayAverageWPM),
+                        percentageChange: nil,
+                        subtitle: "words per minute"
+                    )
+                }
+            }
+            .padding(Spacing.md)
+            .background(Color.Voxa.surface)
+            .cornerRadius(CornerRadius.medium)
+            .voxaShadow(.subtle)
+            
+            Spacer()
+        }
+    }
+    
+    /// Calculate today's average WPM for Daily Insights
+    private var todayAverageWPM: Double {
+        let todayDuration = statsManager.todayRecordingDurationSeconds
+        guard todayDuration > 0 else { return 0 }
+        return Double(statsManager.todayWordsSpoken) / (todayDuration / 60.0)
+    }
+    
     // MARK: - Helpers
     
     /// Format large numbers with K/M suffix
@@ -925,6 +1008,129 @@ struct HomeContentView: View {
             return String(format: "%.1fK", Double(number) / 1_000)
         }
         return "\(number)"
+    }
+}
+
+// MARK: - US-804: Daily Insight Card Component
+
+/// Individual insight card for the Daily Insights sidebar
+/// US-804: Displays a single statistic with icon, large number, percentage change indicator, and subtitle
+struct DailyInsightCard: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let value: String
+    let percentageChange: Double?
+    let subtitle: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            // MARK: - Header Row (Icon + Title)
+            HStack(spacing: Spacing.sm) {
+                // Icon in colored circle
+                ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(iconColor)
+                }
+                
+                Text(title)
+                    .font(Font.Voxa.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.Voxa.textSecondary)
+                
+                Spacer()
+            }
+            
+            // MARK: - Large Value with Percentage Change
+            HStack(alignment: .lastTextBaseline, spacing: Spacing.sm) {
+                // US-804: Large numbers displayed prominently
+                Text(value)
+                    .font(Font.Voxa.largeTitle)
+                    .foregroundColor(Color.Voxa.textPrimary)
+                
+                // US-804: Percentage change with colored indicator
+                if let change = percentageChange {
+                    PercentageChangeIndicator(change: change)
+                }
+                
+                Spacer()
+            }
+            
+            // MARK: - Subtitle / Comparison Label
+            // US-804: Display comparison label below value
+            Text(subtitle)
+                .font(Font.Voxa.small)
+                .foregroundColor(Color.Voxa.textTertiary)
+        }
+        .padding(Spacing.md)
+        .background(Color.Voxa.surfaceSecondary.opacity(0.5))
+        .cornerRadius(CornerRadius.small)
+    }
+}
+
+// MARK: - US-804: Percentage Change Indicator Component
+
+/// Colored percentage change indicator for Daily Insights
+/// US-804: Shows percentage change with up/down arrow and colored background
+/// - Positive change: green with up arrow
+/// - Negative change: red with down arrow
+/// - Zero change: gray with dash
+struct PercentageChangeIndicator: View {
+    let change: Double
+    
+    /// Color based on change direction
+    private var indicatorColor: Color {
+        if change > 0 {
+            return Color.Voxa.success
+        } else if change < 0 {
+            return Color.Voxa.error
+        } else {
+            return Color.Voxa.textTertiary
+        }
+    }
+    
+    /// Arrow icon based on change direction
+    private var arrowIcon: String {
+        if change > 0 {
+            return "arrow.up"
+        } else if change < 0 {
+            return "arrow.down"
+        } else {
+            return "minus"
+        }
+    }
+    
+    /// Formatted percentage string (absolute value)
+    private var percentageText: String {
+        let absChange = abs(change)
+        if absChange >= 100 {
+            return String(format: "%.0f%%", absChange)
+        } else if absChange >= 10 {
+            return String(format: "%.0f%%", absChange)
+        } else {
+            return String(format: "%.1f%%", absChange)
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: arrowIcon)
+                .font(.system(size: 9, weight: .bold))
+            
+            Text(percentageText)
+                .font(Font.Voxa.small)
+                .fontWeight(.semibold)
+        }
+        .foregroundColor(indicatorColor)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(indicatorColor.opacity(0.12))
+        .cornerRadius(CornerRadius.small)
     }
 }
 
@@ -1212,6 +1418,177 @@ struct QuickActionCard: View {
     }
 }
 
+// MARK: - US-804: Daily Insights Section Component
+
+/// Daily Insights section for the sidebar showing daily statistics
+/// US-804: Display daily statistics (words spoken, time saved) in sidebar
+struct DailyInsightsSection: View {
+    @StateObject private var statsManager = UsageStatsManager.shared
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // US-804: Section header with italic font (matching other section headers)
+            Text("Daily Insights")
+                .font(Font.Voxa.sectionHeaderItalic)
+                .foregroundColor(Color.Voxa.textPrimary)
+            
+            // US-804: Stats cards
+            if statsManager.hasTodayActivity {
+                VStack(spacing: Spacing.sm) {
+                    // Words Spoken stat
+                    DailyInsightsStatCard(
+                        value: "\(statsManager.todayWordsSpoken)",
+                        label: "Words Spoken",
+                        percentageChange: statsManager.wordsSpokenPercentageChange,
+                        icon: "text.word.spacing"
+                    )
+                    
+                    // Time Saved stat
+                    DailyInsightsStatCard(
+                        value: statsManager.todayTimeSavedFormatted,
+                        label: "Time Saved",
+                        comparisonLabel: statsManager.timeSavedComparisonLabel,
+                        icon: "clock.arrow.circlepath"
+                    )
+                }
+            } else {
+                // Empty state when no activity today
+                DailyInsightsEmptyState()
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color.Voxa.surfaceSecondary)
+        .cornerRadius(CornerRadius.medium)
+    }
+}
+
+/// Individual stat card for Daily Insights section
+/// US-804: Display large numbers prominently with percentage change indicator
+struct DailyInsightsStatCard: View {
+    let value: String
+    let label: String
+    var percentageChange: Double? = nil
+    var comparisonLabel: String? = nil
+    let icon: String
+    
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(Color.Voxa.accentLight)
+                    .frame(width: 32, height: 32)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.Voxa.accent)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                // US-804: Large number displayed prominently
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                    Text(value)
+                        .font(Font.Voxa.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(Color.Voxa.textPrimary)
+                    
+                    // US-804: Percentage change with colored indicator
+                    if let change = percentageChange {
+                        DailyInsightsPercentageChange(change: change)
+                    }
+                }
+                
+                // Label and comparison
+                HStack(spacing: Spacing.xs) {
+                    Text(label)
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                    
+                    // US-804: Comparison label for time saved
+                    if let comparison = comparisonLabel {
+                        Text("•")
+                            .font(Font.Voxa.small)
+                            .foregroundColor(Color.Voxa.textTertiary)
+                        Text(comparison)
+                            .font(Font.Voxa.small)
+                            .foregroundColor(Color.Voxa.textTertiary)
+                    }
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(Spacing.sm)
+        .background(Color.Voxa.surface)
+        .cornerRadius(CornerRadius.small)
+    }
+}
+
+/// Percentage change indicator with colored arrow
+/// US-804: Percentage change with colored indicator (green for increase, red for decrease)
+struct DailyInsightsPercentageChange: View {
+    let change: Double
+    
+    /// Whether the change is positive
+    private var isPositive: Bool { change >= 0 }
+    
+    /// Formatted percentage string
+    private var formattedChange: String {
+        let absChange = abs(change)
+        if absChange >= 100 {
+            return String(format: "%.0f%%", absChange)
+        } else {
+            return String(format: "%.1f%%", absChange)
+        }
+    }
+    
+    /// Color based on direction (green for increase, red for decrease)
+    private var changeColor: Color {
+        isPositive ? Color.Voxa.success : Color.Voxa.error
+    }
+    
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: isPositive ? "arrow.up.right" : "arrow.down.right")
+                .font(.system(size: 10, weight: .semibold))
+            
+            Text(formattedChange)
+                .font(Font.Voxa.small)
+                .fontWeight(.medium)
+        }
+        .foregroundColor(changeColor)
+        .padding(.horizontal, Spacing.xs)
+        .padding(.vertical, 2)
+        .background(changeColor.opacity(0.15))
+        .cornerRadius(CornerRadius.small)
+    }
+}
+
+/// Empty state for Daily Insights when no activity today
+/// US-804: Shows a prompt to start recording when no daily activity
+struct DailyInsightsEmptyState: View {
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            Image(systemName: "chart.bar.doc.horizontal")
+                .font(.system(size: 24, weight: .light))
+                .foregroundColor(Color.Voxa.textTertiary)
+            
+            Text("No activity today")
+                .font(Font.Voxa.small)
+                .foregroundColor(Color.Voxa.textSecondary)
+            
+            Text("Start recording to see your insights")
+                .font(Font.Voxa.small)
+                .foregroundColor(Color.Voxa.textTertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Spacing.md)
+        .background(Color.Voxa.surface)
+        .cornerRadius(CornerRadius.small)
+    }
+}
+
 // MARK: - Activity Timeline Entry Component
 
 /// Single entry in the activity timeline
@@ -1303,119 +1680,6 @@ struct ActivityTimelineEntry: View {
     }
 }
 
-// MARK: - US-803: Recent Transcription Item Component
-
-/// Individual transcription item for the Recent Transcriptions section
-/// US-803: Displays icon, title, subtitle (metadata), and timestamp with hover states
-struct RecentTranscriptionItem: View {
-    let entry: TranscriptionEntry
-    let isLast: Bool
-    
-    /// US-803: Hover state for highlight and title color change
-    @State private var isHovered = false
-    
-    /// US-803: Generate a descriptive title from the transcription text
-    /// Takes first 3-5 words or first sentence, whichever is shorter
-    private var transcriptionTitle: String {
-        let text = entry.textPreview.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Try to get first sentence (up to first period, question mark, or exclamation)
-        if let sentenceEnd = text.firstIndex(where: { $0 == "." || $0 == "?" || $0 == "!" }) {
-            let firstSentence = String(text[..<sentenceEnd])
-            // If first sentence is short enough, use it
-            if firstSentence.count <= 60 {
-                return firstSentence + String(text[sentenceEnd])
-            }
-        }
-        
-        // Otherwise, take first 5-8 words
-        let words = text.split(separator: " ").prefix(8)
-        let title = words.joined(separator: " ")
-        
-        if title.count < text.count {
-            return title + "..."
-        }
-        return title
-    }
-    
-    /// US-803: Subtitle showing word count and duration
-    private var subtitle: String {
-        let duration = String(format: "%.0fs", entry.durationSeconds)
-        return "\(entry.wordCount) words • \(duration)"
-    }
-    
-    /// US-803: Formatted relative timestamp
-    private var timestampText: String {
-        entry.relativeDateString
-    }
-    
-    /// US-803: Icon based on content type (simple heuristic)
-    private var iconName: String {
-        // Simple heuristic: if text contains question, use question mark icon
-        if entry.textPreview.contains("?") {
-            return "questionmark.bubble.fill"
-        }
-        // Default: document icon for general transcription
-        return "doc.text.fill"
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: Spacing.md) {
-                // MARK: - Icon
-                // US-803: Icon with subtle background
-                ZStack {
-                    RoundedRectangle(cornerRadius: CornerRadius.small)
-                        .fill(Color.Voxa.accentLight)
-                        .frame(width: 40, height: 40)
-                    
-                    Image(systemName: iconName)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.Voxa.accent)
-                }
-                
-                // MARK: - Title & Subtitle
-                VStack(alignment: .leading, spacing: Spacing.xs - 2) {
-                    // US-803: Title with hover color change
-                    Text(transcriptionTitle)
-                        .font(Font.Voxa.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(isHovered ? Color.Voxa.accent : Color.Voxa.textPrimary)
-                        .lineLimit(1)
-                    
-                    // US-803: Subtitle with metadata
-                    Text(subtitle)
-                        .font(Font.Voxa.small)
-                        .foregroundColor(Color.Voxa.textTertiary)
-                }
-                
-                Spacer()
-                
-                // MARK: - Timestamp
-                Text(timestampText)
-                    .font(Font.Voxa.small)
-                    .foregroundColor(Color.Voxa.textTertiary)
-            }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, Spacing.md)
-            // US-803: Hover highlight background
-            .background(isHovered ? Color.Voxa.surfaceSecondary.opacity(0.5) : Color.clear)
-            .contentShape(Rectangle())
-            .onHover { hovering in
-                withAnimation(VoxaAnimation.quick) {
-                    isHovered = hovering
-                }
-            }
-            
-            // MARK: - Separator (except for last item)
-            if !isLast {
-                Divider()
-                    .background(Color.Voxa.border)
-                    .padding(.leading, Spacing.lg + 40 + Spacing.md) // Align with text, skip icon
-            }
-        }
-    }
-}
 
 // MARK: - US-634: Transcription History View
 

@@ -5889,3 +5889,31 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142052-88463-it
   - IMPLEMENTATION_PLAN.md already has complete status with detailed notes
   - 5 stories remain in Phase 11: US-804, US-805, US-806, US-807, US-808
 ---
+
+## [2026-01-15 17:00] - US-803: Recent Transcriptions List (Run Verification)
+Thread: codex exec session
+Run: 20260115-142034-87809 (iteration 3)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142034-87809-iter-3.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142034-87809-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: <pending - parallel runs completed implementation>
+- Post-commit status: <pending>
+- Verification:
+  - Command: `swift build` -> PASS (build completes successfully)
+- What was verified:
+  - US-803 was completed by parallel runs
+  - All acceptance criteria verified:
+    - [x] Shows last 3-5 transcriptions (up to 5 entries from recentEntries)
+    - [x] Each item has icon, title, metadata, timestamp
+    - [x] Hover highlights and changes title color
+    - [x] Empty state when no transcriptions
+- Files involved:
+  - Sources/Voxa/MainWindow.swift (recentActivitySection, RecentTranscriptionItem)
+  - .ralph/IMPLEMENTATION_PLAN.md (US-803 marked complete)
+  - .ralph/progress.md (progress entries from parallel runs)
+- **Learnings for future iterations:**
+  - US-803 was fully implemented by parallel runs before this iteration
+  - Parallel execution of multiple runs can cause duplicate struct definitions
+  - Always verify build passes after file modifications
+---

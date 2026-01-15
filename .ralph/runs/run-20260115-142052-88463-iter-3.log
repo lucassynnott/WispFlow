@@ -1,0 +1,25 @@
+US-803 is marked complete.
+
+## Summary
+
+I have verified that **US-803: Recent Transcriptions List** is fully implemented and complete. Here's what was verified:
+
+### Tasks Completed:
+1. ✅ Section header with Playfair Display italic (`Font.Voxa.sectionHeaderItalic`)
+2. ✅ View All link that posts `.navigateToHistory` notification
+3. ✅ `RecentTranscriptionItem` component with icon, title, subtitle, timestamp
+4. ✅ Hover states (title color changes, background highlights)
+5. ✅ Connected to `UsageStatsManager.shared.recentEntries`
+
+### Acceptance Criteria Met:
+1. ✅ Shows last 3-5 transcriptions (up to 5 via `.prefix(5)`)
+2. ✅ Each item has icon, title, metadata, timestamp
+3. ✅ Hover highlights and changes title color (accent on hover)
+4. ✅ Empty state when no transcriptions
+
+### Verification:
+- `swift build` → PASS
+- `git status --porcelain` → Clean working tree
+- Commit: `45f7ab7 docs: add run log and progress entry for US-803 verification`
+
+**5 stories remain** in Phase 11: US-804, US-805, US-806, US-807, US-808.
