@@ -4453,3 +4453,38 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115707-60521-it
   - IMPLEMENTATION_PLAN.md already showed all tasks and acceptance criteria checked
   - The AudioSettingsSummary follows same expansion pattern as GeneralSettingsSummary (US-702)
 ---
+
+## [2026-01-15 12:30] - US-704: Migrate Transcription Settings Section
+Thread: 
+Run: 20260115-115705-60444 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115705-60444-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-115705-60444-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 57d7c57 feat(US-704): Migrate Transcription Settings Section to integrated settings view
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/WispFlow/MainWindow.swift (modified - expanded TranscriptionSettingsSummary to full settings section)
+  - .ralph/IMPLEMENTATION_PLAN.md (updated - US-704 tasks and acceptance criteria marked complete)
+- What was implemented:
+  - **TranscriptionSettingsSummary:** Expanded from summary view to full settings section with 4 subsections:
+    1. Model Selection Section: Card-based picker for Tiny, Base, Small, Medium models with size/speed/accuracy specs
+    2. Model Actions Section: Download/Load buttons with gradient progress bar and error handling
+    3. Language Selection Section: Dropdown with 12 languages and flags, persistence via WhisperManager
+    4. Quality vs Speed Section: Tradeoff info with dynamic highlighting based on selected model
+  - **New Components Created:**
+    - `TranscriptionModelCard` - card-based model selection with hover effects and status badges
+    - `TranscriptionModelBadge` - status badges for Active/Downloaded states
+    - `TranscriptionModelSpec` - small spec indicators (size, speed, accuracy)
+    - `TranscriptionProgressBar` - gradient progress bar with shimmer effect for downloads
+    - `TranscriptionLanguagePicker` - language dropdown with flags and expand/collapse animation
+    - `TranscriptionLanguageRow` - individual language row items with checkmarks
+    - `TranscriptionTradeoffRow` - quality/speed tradeoff info with dynamic highlighting
+- **Learnings for future iterations:**
+  - Consistent component naming pattern (prefix with section name) avoids conflicts with SettingsWindow components
+  - Following the US-702/US-703 pattern for section expansion works well (summary view → full section)
+  - Binding language selection via `$whisperManager.selectedLanguage` provides automatic persistence
+  - SwiftUI `@StateObject` with shared singleton instances maintains state across view rebuilds
+---
