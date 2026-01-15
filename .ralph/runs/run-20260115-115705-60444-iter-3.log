@@ -1,0 +1,18 @@
+## Summary
+
+Successfully completed US-703: Migrate Audio Settings Section to integrated settings view.
+
+**Changes made:**
+- Expanded `AudioSettingsSummary` in `MainWindow.swift` from a summary view to a full settings section
+- Added 4 main sections: Input Device, Audio Preview, Input Sensitivity, and Calibration
+- Created new components: `AudioSettingsDevicePicker`, `AudioSettingsDeviceRow`, `AudioSettingsLevelMeter`, `AudioSettingsSlider`, and calibration status components
+
+**All acceptance criteria verified:**
+- ✅ Device selection works via dropdown picker
+- ✅ Audio preview shows real-time levels at 20fps
+- ✅ Sensitivity slider adjusts threshold (0.5x-2.0x range)
+- ✅ Calibration functions correctly with state handling
+
+**Commits:**
+- `b3f0422` feat(US-703): Migrate Audio Settings Section to integrated settings view
+- `ab587fb` docs: add progress log for US-703
