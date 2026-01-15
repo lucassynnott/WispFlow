@@ -6183,3 +6183,67 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142052-88463-it
     - Connected to UsageStatsManager for actual usage data
   - Build can fail due to incomplete code from other stories (US-805)
 ---
+
+## [2026-01-15 15:00] - US-805: Quick Tools Section
+Thread: 
+Run: 20260115-142043-88159 (iteration 4)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142043-88159-iter-4.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142043-88159-iter-4.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 63af19a feat(US-805): Add Quick Tools Section with AI Text Cleanup and Import Audio buttons
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS
+- Files changed:
+  - Sources/Voxa/MainWindow.swift
+  - Sources/Voxa/ToastView.swift
+  - .ralph/IMPLEMENTATION_PLAN.md
+- What was implemented:
+  - Added QuickToolAction enum with aiTextCleanup and importAudio cases
+  - Created QuickToolButton component with bordered style
+  - Implemented hover states where border and icon turn terracotta color
+  - Added quickToolsSection to HomeContentView with italic header (Font.Voxa.sectionHeaderItalic)
+  - Connected AI Text Cleanup button to navigate to Settings/Text Cleanup tab
+  - Connected Import Audio button to show NSOpenPanel file picker
+  - Added notification handlers in MainWindowView for navigateToTextCleanup and openAudioImport
+  - Added audioFileSelected notification name to ToastView.swift
+- **Learnings for future iterations:**
+  - MainWindow.swift already had partial US-805 implementations using .fileImporter modifier
+  - The existing implementation uses state-based SwiftUI file importer rather than NSOpenPanel
+  - Notification names defined in ToastView.swift extension Notification.Name
+  - Font.Voxa.sectionHeaderItalic provides serif italic styling for section headers
+---
+
+## [2026-01-15 15:15] - US-805: Quick Tools Section (Verification)
+Thread: codex exec session
+Run: 20260115-142036-87912 (iteration 5)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142036-87912-iter-5.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142036-87912-iter-5.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 4db3f8f feat(US-805): implement Quick Tools section with AI Text Cleanup and Import Audio buttons (committed by parallel iteration)
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (Build complete!)
+- What was verified:
+  - US-805 fully implemented by a parallel iteration (commit 4db3f8f)
+  - All UI components present in MainWindow.swift:
+    - `QuickToolAction` enum with `aiTextCleanup` and `importAudio` cases (line 1548)
+    - `QuickToolButton` struct with bordered style and terracotta hover states (line 1587)
+    - `quickToolsSection` computed property with italic header (line 941)
+    - `hoveredQuickTool` state variable for hover tracking (line 457)
+  - Notification infrastructure:
+    - `.navigateToTextCleanup` - navigates to Settings tab
+    - `.openAudioImport` - triggers file picker
+    - `.scrollToTextCleanupSection` - scrolls to text cleanup in settings
+  - File importer implementation for audio import
+- Acceptance criteria verified:
+  - [x] Two tool buttons displayed (AI Text Cleanup, Import Audio)
+  - [x] Hover changes border and icon color (terracotta accent on hover)
+  - [x] Buttons trigger appropriate actions (navigation and file picker)
+- **Learnings for future iterations:**
+  - US-805 was fully implemented by a parallel iteration
+  - Multiple parallel runs working on same story can coordinate via git commits
+  - File conflicts resolved through incremental commits and verification builds
+---
