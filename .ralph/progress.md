@@ -5453,3 +5453,110 @@ Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142052-88463-it
   - Recording state is tracked via NotificationCenter notifications between MainWindow and AppDelegate
   - All US-802 tasks were already complete in the codebase
 ---
+
+## [2026-01-15 14:48] - US-802: Start Recording Button
+Thread: codex exec session
+Run: 20260115-142034-87809 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142034-87809-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142034-87809-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: a5e6541 feat(US-802): implement Start Recording button in dashboard header
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build completes with 1 unrelated warning)
+- Files changed:
+  - Sources/Voxa/MainWindow.swift (added startRecordingButton, shortcutBadge, toggleRecording)
+  - Sources/Voxa/ToastView.swift (added recordingStateChanged notification name)
+  - Sources/Voxa/AppDelegate.swift (added .toggleRecording observer, .recordingStateChanged posting)
+  - .ralph/IMPLEMENTATION_PLAN.md (marked US-802 tasks and acceptance criteria complete)
+- What was implemented:
+  - Prominent pill-shaped Start Recording button in dashboard header
+  - Pill shape via `Capsule()` with `Color.Voxa.accent` (terracotta) background
+  - Microphone icon with pulse animation when recording (circle scales/fades with repeatForever)
+  - Keyboard shortcut badge "⌘⇧Space" in semi-transparent white capsule
+  - Hover lift effect: shadow radius 6→12, scale 1.0→1.02, Y offset -2
+  - Recording state sync via NotificationCenter (.toggleRecording to start/stop, .recordingStateChanged to update UI)
+  - Button text/icon/color changes when recording (Stop Recording, stop.fill icon, error color)
+- All acceptance criteria verified:
+  - [x] Button triggers recording (posts .toggleRecording notification)
+  - [x] Hover state with lift effect (shadow, scale, offset transitions)
+  - [x] Shows Stop Recording when active (dynamic text, icon, and color)
+- **Learnings for future iterations:**
+  - NotificationCenter is the bridge between SwiftUI views (MainWindow) and AppKit (AppDelegate)
+  - Pulse animation requires separate isPulsing state with repeatForever animation
+  - Button state changes (recording/idle) handled via onChange(of:) modifier
+---
+
+## [2026-01-15 14:55] - US-802: Start Recording Button
+Thread: codex exec session
+Run: 20260115-142045-88235 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142045-88235-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142045-88235-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: a5e6541 feat(US-802): implement Start Recording button in dashboard header
+- Post-commit status: clean
+- Verification:
+  - Command: `swift build` -> PASS (build completes successfully in 0.12s)
+  - Command: `git status --porcelain` -> PASS (empty output indicates clean working tree)
+- Files changed:
+  - Sources/Voxa/MainWindow.swift - startRecordingButton, shortcutBadge, toggleRecording
+  - Sources/Voxa/ToastView.swift - .toggleRecording, .recordingStateChanged notifications
+  - Sources/Voxa/AppDelegate.swift - observes .toggleRecording, posts .recordingStateChanged
+  - .ralph/IMPLEMENTATION_PLAN.md - marked US-802 complete with implementation notes
+- What was implemented:
+  - US-802 Start Recording Button with all acceptance criteria met:
+    - Pill-shaped button using `Capsule()` with `Color.Voxa.accent` (terracotta) background
+    - Microphone icon with pulse animation when recording
+    - Keyboard shortcut badge showing "⌘⇧Space"
+    - Hover lift effect: shadow, scale, Y offset on hover
+    - Recording functionality via NotificationCenter (.toggleRecording, .recordingStateChanged)
+    - Button text/icon changes to "Stop Recording"/stop.fill when recording
+    - Button color changes to red when recording
+- **Learnings for future iterations:**
+  - Recording state synchronization uses NotificationCenter for decoupled communication
+  - MainWindow subscribes to .recordingStateChanged to update button appearance
+  - AppDelegate observes .toggleRecording to trigger recording via statusBarController
+---
+
+## [2026-01-15 14:50] - US-802: Start Recording Button (Verification Run)
+Thread: codex exec session
+Run: 20260115-142041-88087 (iteration 2)
+Run log: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142041-88087-iter-2.log
+Run summary: /Users/lucasnolan/WispFlow/.ralph/runs/run-20260115-142041-88087-iter-2.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: a5e6541 feat(US-802): implement Start Recording button in dashboard header (already committed)
+- Post-commit status: clean (working tree clean)
+- Verification:
+  - Command: `swift build` -> PASS (build completes successfully in 0.18s)
+  - Command: `git status --porcelain` -> PASS (empty output indicates clean tree)
+  - Command: `git log --oneline -10` -> Confirmed a5e6541 feat(US-802): implement Start Recording button
+- Files verified:
+  - Sources/Voxa/MainWindow.swift - startRecordingButton, shortcutBadge, toggleRecording, isPulsing, isRecordingButtonHovered
+  - Sources/Voxa/ToastView.swift - .toggleRecording, .recordingStateChanged notification names
+  - Sources/Voxa/AppDelegate.swift - observes .toggleRecording, posts .recordingStateChanged in handleRecordingStateChange
+- What was verified:
+  - US-802 fully implemented and all acceptance criteria verified:
+    - [x] Button triggers recording (via .toggleRecording notification -> toggleRecordingFromHotkey)
+    - [x] Hover state with lift effect (shadow 6->12, scale 1.0->1.02, Y offset -2)
+    - [x] Shows Stop Recording when active (text changes, background changes to error color)
+  - Implementation highlights:
+    - Pill-shaped Capsule() with Color.Voxa.accent (terracotta) background
+    - Microphone icon (mic.fill) with pulse animation (Circle scales 1.0->1.4, fades)
+    - Keyboard shortcut badge showing "⌘⇧Space" with monoSmall font
+    - Hover lift: shadow radius 6->12, y-offset 2->4, scale 1.02, y-offset -2
+    - State sync via NotificationCenter (toggleRecording, recordingStateChanged)
+    - Button changes to stop.fill icon and error color when recording
+  - All tasks complete:
+    - [x] Create pill-shaped button with terracotta background
+    - [x] Add microphone icon with pulse animation
+    - [x] Add keyboard shortcut badge
+    - [x] Implement hover lift effect
+    - [x] Connect to recording functionality
+- **Learnings for future iterations:**
+  - US-802 was already completed by parallel run 20260115-142052-88463
+  - This iteration verified the implementation and confirmed working tree is clean
+  - No changes needed - story already complete with proper commit
+---
