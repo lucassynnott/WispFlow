@@ -487,7 +487,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showAccessibilityPermissionPrompt()
             }
         }
-        
+
+        // US-016: Handle cancel hotkey to discard recording
+        hotkeyManager?.onCancelHotkeyPressed = { [weak self] in
+            print("AppDelegate: [US-016] Cancel hotkey pressed")
+            DispatchQueue.main.async {
+                self?.cancelRecordingWithFeedback()
+            }
+        }
+
         // Only start hotkey manager immediately if onboarding has been completed
         // Otherwise, it will be started after onboarding completes (in setupOnboarding completion callback)
         // This prevents permission prompts from appearing before the user reaches the accessibility step
@@ -663,6 +671,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         audioManager?.cancelCapturing()
         // Force state to idle (even if already idle, this is safe)
         statusBarController?.setRecordingState(.idle)
+    }
+
+    /// US-016: Cancel recording with visual feedback (only when recording is active)
+    private func cancelRecordingWithFeedback() {
+        // Only cancel if we're currently recording
+        guard statusBarController?.currentState == .recording else {
+            print("AppDelegate: [US-016] Cancel hotkey ignored - not currently recording")
+            return
+        }
+
+        print("AppDelegate: [US-016] Cancelling recording with feedback")
+
+        // Disconnect audio level meter from indicator
+        recordingIndicator?.disconnectAudioManager()
+
+        // Cancel audio capture (discards recorded audio)
+        audioManager?.cancelCapturing()
+
+        // Update indicator to show cancellation feedback briefly
+        recordingIndicator?.updateStatus("Cancelled")
+
+        // Show a brief animation and then hide
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.recordingIndicator?.hideWithAnimation()
+        }
+
+        // Force state to idle
+        statusBarController?.setRecordingState(.idle)
+
+        // Show toast notification for visual feedback
+        ToastManager.shared.showInfo(
+            "Recording Cancelled",
+            message: "Audio discarded",
+            icon: "xmark.circle"
+        )
     }
     
     // MARK: - Recording State Handling

@@ -4912,6 +4912,7 @@ struct GeneralSettingsSummary: View {
     @StateObject private var permissionManager = PermissionManager.shared
     @State private var isRecordingHotkey = false
     @State private var isRecordingStopHotkey = false  // US-015
+    @State private var isRecordingCancelHotkey = false  // US-016
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     
     /// Get the app version from the bundle
@@ -5148,9 +5149,57 @@ struct GeneralSettingsSummary: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: hotkeyManager.useSameHotkeyForStop)
+
+            Divider()
+                .background(Color.Voxa.border)
+                .padding(.vertical, Spacing.xs)
+
+            // US-016: Cancel Recording Hotkey
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Cancel Recording")
+                    .font(Font.Voxa.body)
+                    .foregroundColor(Color.Voxa.textPrimary)
+
+                Text("Discards current recording without transcribing.")
+                    .font(Font.Voxa.caption)
+                    .foregroundColor(Color.Voxa.textSecondary)
+
+                HStack(spacing: Spacing.md) {
+                    GeneralSettingsCancelHotkeyRecorder(
+                        hotkeyManager: hotkeyManager,
+                        isRecording: $isRecordingCancelHotkey
+                    )
+
+                    Button(action: {
+                        print("[US-016] Button action: Reset Cancel Hotkey to Default")
+                        hotkeyManager.resetCancelToDefault()
+                    }) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Reset")
+                        }
+                    }
+                    .buttonStyle(VoxaButtonStyle.secondary)
+                    .disabled(hotkeyManager.cancelConfiguration == .defaultCancelHotkey)
+                }
+
+                if isRecordingCancelHotkey {
+                    HStack(spacing: Spacing.sm) {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                            .frame(width: 12, height: 12)
+                        Text("Press your desired key or key combination...")
+                            .font(Font.Voxa.caption)
+                            .foregroundColor(Color.Voxa.accent)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: isRecordingCancelHotkey)
         }
         .animation(.easeInOut(duration: 0.2), value: isRecordingHotkey)
         .animation(.easeInOut(duration: 0.2), value: isRecordingStopHotkey)
+        .animation(.easeInOut(duration: 0.2), value: isRecordingCancelHotkey)
     }
     
     // MARK: - Startup Section
@@ -5489,6 +5538,187 @@ struct GeneralSettingsHotkeyRecorder: View {
     private func cancelPendingConfig() {
         let hotkeyType = isForStopHotkey ? "stop" : "start"
         print("[US-015] User cancelled conflicting \(hotkeyType) hotkey")
+        pendingConfig = nil
+        conflictingShortcuts = []
+    }
+}
+
+// MARK: - General Settings Cancel Hotkey Recorder (US-016)
+
+/// Cancel hotkey recorder component for the General settings section
+/// US-016: Allows setting a cancel hotkey (can be single key like Escape or key with modifiers)
+struct GeneralSettingsCancelHotkeyRecorder: View {
+    @ObservedObject var hotkeyManager: HotkeyManager
+    @Binding var isRecording: Bool
+    @State private var localEventMonitor: Any?
+    @State private var isHovering = false
+    @State private var pulseAnimation = false
+
+    // Conflict detection state
+    @State private var pendingConfig: HotkeyManager.HotkeyConfiguration?
+    @State private var conflictingShortcuts: [HotkeyManager.SystemShortcut] = []
+    @State private var showConflictWarning = false
+
+    /// Display string for the cancel hotkey
+    private var displayString: String {
+        hotkeyManager.cancelHotkeyDisplayString
+    }
+
+    var body: some View {
+        Button(action: {
+            if isRecording {
+                stopRecording()
+            } else {
+                startRecording()
+            }
+        }) {
+            HStack(spacing: Spacing.sm) {
+                if isRecording {
+                    // Animated recording indicator
+                    Circle()
+                        .fill(Color.Voxa.accent)
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(pulseAnimation ? 1.2 : 0.8)
+                        .opacity(pulseAnimation ? 1.0 : 0.6)
+
+                    Text("Recording...")
+                        .font(Font.Voxa.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Voxa.accent)
+                } else {
+                    // Keyboard icon
+                    Image(systemName: "escape")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(isHovering ? Color.Voxa.accent : Color.Voxa.textSecondary)
+
+                    Text(displayString)
+                        .font(Font.Voxa.mono)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Voxa.textPrimary)
+                }
+            }
+            .frame(minWidth: 140)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .contentShape(Rectangle())
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .fill(isRecording ? Color.Voxa.accentLight : (isHovering ? Color.Voxa.border.opacity(0.3) : Color.Voxa.surface))
+
+                    if !isRecording {
+                        RoundedRectangle(cornerRadius: CornerRadius.medium)
+                            .stroke(Color.Voxa.border.opacity(0.5), lineWidth: 1)
+                    }
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(
+                        isRecording ? Color.Voxa.accent : (isHovering ? Color.Voxa.accent.opacity(0.5) : Color.Voxa.border),
+                        lineWidth: isRecording ? 2 : 1
+                    )
+            )
+            .shadow(
+                color: isRecording ? Color.Voxa.accent.opacity(0.4) : (isHovering ? Color.Voxa.accent.opacity(0.15) : Color.clear),
+                radius: isRecording ? 12 : 6,
+                x: 0,
+                y: 0
+            )
+            .scaleEffect(isRecording ? 1.02 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+        .onDisappear {
+            stopRecording()
+        }
+        .onChange(of: isRecording) { _, newValue in
+            if newValue {
+                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                    pulseAnimation = true
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    pulseAnimation = false
+                }
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
+        .animation(.easeInOut(duration: 0.15), value: isHovering)
+        .alert("Shortcut Conflict", isPresented: $showConflictWarning, presenting: pendingConfig) { config in
+            Button("Use Anyway", role: .destructive) {
+                applyPendingConfig()
+            }
+            Button("Cancel", role: .cancel) {
+                cancelPendingConfig()
+            }
+        } message: { config in
+            let conflictDescriptions = conflictingShortcuts.map { "• \($0.name): \($0.description)" }.joined(separator: "\n")
+            Text("\(config.displayString) conflicts with:\n\n\(conflictDescriptions)\n\nUsing this hotkey may prevent these system shortcuts from working.")
+        }
+    }
+
+    private func startRecording() {
+        isRecording = true
+
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            if event.type == .keyDown {
+                handleKeyEvent(event)
+                return nil
+            }
+            return event
+        }
+    }
+
+    private func stopRecording() {
+        isRecording = false
+        if let monitor = localEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            localEventMonitor = nil
+        }
+    }
+
+    private func handleKeyEvent(_ event: NSEvent) {
+        let relevantFlags: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
+        let modifiers = event.modifierFlags.intersection(relevantFlags)
+
+        // US-016: Cancel hotkey allows keys without modifiers (like Escape)
+        // Unlike start/stop hotkeys which require at least one modifier
+
+        let newConfig = HotkeyManager.HotkeyConfiguration(
+            keyCode: event.keyCode,
+            modifierFlags: modifiers
+        )
+
+        let conflicts = HotkeyManager.checkForConflicts(newConfig)
+
+        if !conflicts.isEmpty {
+            pendingConfig = newConfig
+            conflictingShortcuts = conflicts
+            showConflictWarning = true
+            stopRecording()
+            print("[US-016] Conflict detected for cancel hotkey: \(conflicts.map { $0.name }.joined(separator: ", "))")
+        } else {
+            hotkeyManager.updateCancelConfiguration(newConfig)
+            print("[US-016] New cancel hotkey set to \(newConfig.displayString)")
+            stopRecording()
+        }
+    }
+
+    private func applyPendingConfig() {
+        guard let config = pendingConfig else { return }
+        hotkeyManager.updateCancelConfiguration(config)
+        print("[US-016] User proceeded despite conflict, cancel hotkey set to \(config.displayString)")
+        pendingConfig = nil
+        conflictingShortcuts = []
+    }
+
+    private func cancelPendingConfig() {
+        print("[US-016] User cancelled conflicting cancel hotkey")
         pendingConfig = nil
         conflictingShortcuts = []
     }

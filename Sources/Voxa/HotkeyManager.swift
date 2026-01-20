@@ -21,6 +21,9 @@ final class HotkeyManager: ObservableObject {
         static let stopHotkeyKeyCodeKey = "stopHotkeyKeyCode"
         static let stopHotkeyModifiersKey = "stopHotkeyModifiers"
         static let useSameHotkeyForStopKey = "useSameHotkeyForStop"
+        // US-016: Cancel hotkey configuration keys
+        static let cancelHotkeyKeyCodeKey = "cancelHotkeyKeyCode"
+        static let cancelHotkeyModifiersKey = "cancelHotkeyModifiers"
     }
     
     // MARK: - US-512: System Shortcut Conflicts
@@ -284,6 +287,12 @@ final class HotkeyManager: ObservableObject {
             keyCode: UInt16(kVK_ANSI_R),
             modifierFlags: [.command, .option]
         )
+
+        /// US-016: Default cancel hotkey is Escape (no modifiers)
+        static let defaultCancelHotkey = HotkeyConfiguration(
+            keyCode: UInt16(kVK_Escape),
+            modifierFlags: []
+        )
         
         /// Human-readable string for the hotkey
         var displayString: String {
@@ -338,6 +347,9 @@ final class HotkeyManager: ObservableObject {
     /// US-015: Stop recording hotkey configuration (separate from start)
     @Published private(set) var stopConfiguration: HotkeyConfiguration
 
+    /// US-016: Cancel recording hotkey configuration (discards audio)
+    @Published private(set) var cancelConfiguration: HotkeyConfiguration
+
     /// US-015: Whether to use the same hotkey for both start and stop (toggle behavior)
     @Published var useSameHotkeyForStop: Bool {
         didSet {
@@ -351,6 +363,9 @@ final class HotkeyManager: ObservableObject {
 
     /// US-015: Callback triggered when the stop hotkey is pressed
     var onStopHotkeyPressed: (() -> Void)?
+
+    /// US-016: Callback triggered when the cancel hotkey is pressed
+    var onCancelHotkeyPressed: (() -> Void)?
 
     /// Callback triggered when accessibility permission is needed (US-510)
     var onAccessibilityPermissionNeeded: (() -> Void)?
@@ -371,8 +386,11 @@ final class HotkeyManager: ObservableObject {
         let (stopConfig, useSame) = Self.loadStopConfiguration()
         self.stopConfiguration = stopConfig
         self.useSameHotkeyForStop = useSame
+        // US-016: Load cancel hotkey configuration
+        self.cancelConfiguration = Self.loadCancelConfiguration()
         print("HotkeyManager: [US-510] Initialized with start hotkey: \(self.configuration.displayString)")
         print("HotkeyManager: [US-015] Stop hotkey: \(useSame ? "same as start" : self.stopConfiguration.displayString)")
+        print("HotkeyManager: [US-016] Cancel hotkey: \(self.cancelConfiguration.displayString)")
     }
     
     // MARK: - Persistence
@@ -435,7 +453,35 @@ final class HotkeyManager: ObservableObject {
         defaults.set(useSameHotkeyForStop, forKey: Constants.useSameHotkeyForStopKey)
         print("HotkeyManager: [US-015] Saved stop hotkey configuration: \(stopConfiguration.displayString), useSame: \(useSameHotkeyForStop)")
     }
-    
+
+    // MARK: - US-016: Cancel Hotkey Persistence
+
+    /// Load cancel hotkey configuration from UserDefaults
+    private static func loadCancelConfiguration() -> HotkeyConfiguration {
+        let defaults = UserDefaults.standard
+
+        // Check if we have saved cancel hotkey values
+        if defaults.object(forKey: Constants.cancelHotkeyKeyCodeKey) != nil {
+            let keyCode = UInt16(defaults.integer(forKey: Constants.cancelHotkeyKeyCodeKey))
+            let modifiers = UInt(defaults.integer(forKey: Constants.cancelHotkeyModifiersKey))
+            let config = HotkeyConfiguration(keyCode: keyCode, modifierFlags: modifiers)
+            print("HotkeyManager: [US-016] Loaded saved cancel hotkey configuration: \(config.displayString)")
+            return config
+        }
+
+        // Default cancel hotkey is Escape
+        print("HotkeyManager: [US-016] Using default cancel hotkey configuration (Escape)")
+        return .defaultCancelHotkey
+    }
+
+    /// Save cancel hotkey configuration to UserDefaults
+    private func saveCancelConfiguration() {
+        let defaults = UserDefaults.standard
+        defaults.set(Int(cancelConfiguration.keyCode), forKey: Constants.cancelHotkeyKeyCodeKey)
+        defaults.set(Int(cancelConfiguration.modifierFlags), forKey: Constants.cancelHotkeyModifiersKey)
+        print("HotkeyManager: [US-016] Saved cancel hotkey configuration: \(cancelConfiguration.displayString)")
+    }
+
     deinit {
         stop()
     }
@@ -552,6 +598,18 @@ final class HotkeyManager: ObservableObject {
         useSameHotkeyForStop = true
     }
 
+    /// US-016: Update the cancel hotkey configuration and save to UserDefaults
+    func updateCancelConfiguration(_ newConfig: HotkeyConfiguration) {
+        cancelConfiguration = newConfig
+        saveCancelConfiguration()
+        print("HotkeyManager: [US-016] Cancel hotkey updated to \(newConfig.displayString)")
+    }
+
+    /// US-016: Reset cancel hotkey to default (Escape) and save
+    func resetCancelToDefault() {
+        updateCancelConfiguration(.defaultCancelHotkey)
+    }
+
     /// Get current hotkey display string
     var hotkeyDisplayString: String {
         return configuration.displayString
@@ -560,6 +618,11 @@ final class HotkeyManager: ObservableObject {
     /// US-015: Get current stop hotkey display string
     var stopHotkeyDisplayString: String {
         return useSameHotkeyForStop ? configuration.displayString : stopConfiguration.displayString
+    }
+
+    /// US-016: Get current cancel hotkey display string
+    var cancelHotkeyDisplayString: String {
+        return cancelConfiguration.displayString
     }
 
     /// US-015: Get the effective stop configuration (either same as start or separate)
@@ -643,6 +706,22 @@ final class HotkeyManager: ObservableObject {
 
                 return Unmanaged.passUnretained(event)
             }
+        }
+
+        // US-016: Check for cancel hotkey match
+        let cancelKeyCode = Int64(manager.cancelConfiguration.keyCode)
+        let cancelModifiers = manager.cancelConfiguration.cgEventFlags.intersection(modifierMask)
+
+        if keyCode == cancelKeyCode && eventModifiers == cancelModifiers {
+            // Cancel hotkey matched!
+            print("HotkeyManager: [US-016] Cancel hotkey detected: \(manager.cancelConfiguration.displayString)")
+
+            // Call the cancel callback on the main thread
+            DispatchQueue.main.async {
+                manager.onCancelHotkeyPressed?()
+            }
+
+            return Unmanaged.passUnretained(event)
         }
 
         // Always pass the event through - we're using .listenOnly mode
