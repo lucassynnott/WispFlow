@@ -165,6 +165,10 @@ final class StatusBarController: NSObject {
         case .downloading(let progress):
             statusText = "Model: Downloading \(Int(progress * 100))%"
             statusIcon = "🔄"
+        case .switching(let toModel, let progress):
+            // US-008: Show switching status in menu bar
+            statusText = "Model: Switching to \(toModel.components(separatedBy: " (").first ?? toModel) \(Int(progress * 100))%"
+            statusIcon = "🔄"
         case .downloaded:
             statusText = "Model: Downloaded (Not Loaded)"
             statusIcon = "🔵"
@@ -289,6 +293,11 @@ final class StatusBarController: NSObject {
             case .downloading(let progress):
                 iconName = "arrow.down.circle"
                 tooltip = "Voxa - Downloading model (\(Int(progress * 100))%)"
+                iconTint = NSColor.Voxa.accent
+            case .switching(let toModel, let progress):
+                // US-008: Show switching status - model still usable during switch
+                iconName = "arrow.triangle.2.circlepath"
+                tooltip = "Voxa - Switching to \(toModel.components(separatedBy: " (").first ?? toModel) (\(Int(progress * 100))%)"
                 iconTint = NSColor.Voxa.accent
             case .loading:
                 iconName = "arrow.clockwise.circle"
@@ -427,6 +436,9 @@ final class StatusBarController: NSObject {
             return "Not Downloaded"
         case .downloading(let progress):
             return "Downloading (\(Int(progress * 100))%)"
+        case .switching(let toModel, let progress):
+            // US-008: Show switching status
+            return "Switching to \(toModel.components(separatedBy: " (").first ?? toModel) (\(Int(progress * 100))%)"
         case .downloaded:
             return "Downloaded"
         case .loading:

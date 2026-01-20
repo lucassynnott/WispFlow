@@ -6647,6 +6647,8 @@ struct TranscriptionSettingsSummary: View {
                         isSelected: whisperManager.selectedModel == model,
                         isDownloaded: whisperManager.isModelDownloaded(model),
                         isActive: model == whisperManager.selectedModel && whisperManager.modelStatus == .ready,
+                        // US-008: Show switching indicator when this model is being hot-swapped to
+                        isSwitchingTo: whisperManager.pendingModel == model,
                         onSelect: {
                             Task {
                                 print("[US-704] Model selected: \(model.rawValue)")
@@ -6693,11 +6695,11 @@ struct TranscriptionSettingsSummary: View {
                             .fontWeight(.semibold)
                             .foregroundColor(Color.Voxa.accent)
                     }
-                    
+
                     // Gradient progress bar
                     TranscriptionProgressBar(progress: progress)
                         .frame(height: 10)
-                    
+
                     // Status message
                     Text("Please wait, this may take a few minutes...")
                         .font(Font.Voxa.small)
@@ -6706,6 +6708,68 @@ struct TranscriptionSettingsSummary: View {
                 .padding(Spacing.md)
                 .background(Color.Voxa.accentLight.opacity(0.5))
                 .cornerRadius(CornerRadius.small)
+            }
+
+            // US-008: Hot-swap progress indicator
+            if case .switching(let toModel, let progress) = whisperManager.modelStatus {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    // Header with switch icon
+                    HStack {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .foregroundColor(Color.Voxa.accent)
+                            .font(.system(size: 14, weight: .medium))
+                        Text("Switching to \(toModel.components(separatedBy: " (").first ?? "model")...")
+                            .font(Font.Voxa.body)
+                            .foregroundColor(Color.Voxa.textPrimary)
+                        Spacer()
+                        Text("\(Int(progress * 100))%")
+                            .font(Font.Voxa.mono)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Color.Voxa.accent)
+                    }
+
+                    // Progress bar
+                    TranscriptionProgressBar(progress: progress)
+                        .frame(height: 10)
+
+                    // Status message showing current model remains active
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(Color.Voxa.success)
+                            .font(.system(size: 12))
+                        Text("Current model (\(whisperManager.selectedModel.displayName.components(separatedBy: " (").first ?? "model")) remains active during switch")
+                            .font(Font.Voxa.small)
+                            .foregroundColor(Color.Voxa.textSecondary)
+                    }
+
+                    // Cancel button
+                    Button(action: {
+                        whisperManager.cancelModelSwitch()
+                    }) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "xmark.circle")
+                            Text("Cancel Switch")
+                        }
+                        .font(Font.Voxa.small)
+                    }
+                    .buttonStyle(VoxaButtonStyle.ghost)
+                }
+                .padding(Spacing.md)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color.Voxa.accentLight.opacity(0.3),
+                            Color.Voxa.accent.opacity(0.1)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(CornerRadius.small)
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.small)
+                        .stroke(Color.Voxa.accent.opacity(0.3), lineWidth: 1)
+                )
             }
             
             // Action buttons
@@ -6733,7 +6797,8 @@ struct TranscriptionSettingsSummary: View {
                         Text(buttonTitle)
                     }
                 }
-                .disabled(isLoadingModel || whisperManager.modelStatus == .ready)
+                // US-008: Also disable during model switching
+                .disabled(isLoadingModel || whisperManager.modelStatus == .ready || whisperManager.isModelSwitchInProgress)
                 .buttonStyle(VoxaButtonStyle.primary)
                 
                 // Retry button (shown when there's an error)
@@ -6870,6 +6935,9 @@ struct TranscriptionSettingsSummary: View {
             return "Loading..."
         case .downloading:
             return "Downloading..."
+        case .switching:
+            // US-008: Show switching status
+            return "Switching..."
         case .notDownloaded:
             return whisperManager.isModelDownloaded(whisperManager.selectedModel) ? "Load Model" : "Download & Load"
         case .downloaded:
@@ -6878,13 +6946,16 @@ struct TranscriptionSettingsSummary: View {
             return "Retry"
         }
     }
-    
+
     private var buttonIconName: String {
         switch whisperManager.modelStatus {
         case .ready:
             return "checkmark.circle"
         case .loading, .downloading:
             return "arrow.clockwise"
+        case .switching:
+            // US-008: Show switching icon
+            return "arrow.triangle.2.circlepath"
         case .notDownloaded:
             return whisperManager.isModelDownloaded(whisperManager.selectedModel) ? "play.circle" : "arrow.down.circle"
         case .downloaded:
@@ -6904,8 +6975,10 @@ struct TranscriptionModelCard: View {
     let isSelected: Bool
     let isDownloaded: Bool
     let isActive: Bool
+    /// US-008: Whether this model is currently being switched to (hot-swap in progress)
+    var isSwitchingTo: Bool = false
     let onSelect: () -> Void
-    
+
     @State private var isHovering = false
     
     // Model metadata for quality/speed display
@@ -6948,7 +7021,15 @@ struct TranscriptionModelCard: View {
                             .foregroundColor(Color.Voxa.textPrimary)
                         
                         // Status badge
-                        if isActive {
+                        // US-008: Show switching indicator during hot-swap
+                        if isSwitchingTo {
+                            HStack(spacing: Spacing.xs) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .frame(width: 12, height: 12)
+                                TranscriptionModelBadge(text: "Switching...", color: Color.Voxa.accent)
+                            }
+                        } else if isActive {
                             TranscriptionModelBadge(text: "Active", color: Color.Voxa.success)
                         } else if isDownloaded {
                             TranscriptionModelBadge(text: "Downloaded", color: Color.Voxa.accent)
@@ -9210,17 +9291,19 @@ struct ModelStatusIndicator: View {
         switch status {
         case .ready: return Color.Voxa.success
         case .loading, .downloading: return Color.Voxa.warning
+        case .switching: return Color.Voxa.accent  // US-008
         case .downloaded: return Color.Voxa.accent
         case .notDownloaded: return Color.Voxa.textTertiary
         case .error: return Color.Voxa.error
         }
     }
-    
+
     private var text: String {
         switch status {
         case .ready: return "Ready"
         case .loading: return "Loading"
         case .downloading: return "Downloading"
+        case .switching: return "Switching"  // US-008
         case .downloaded: return "Downloaded"
         case .notDownloaded: return "Not Loaded"
         case .error: return "Error"

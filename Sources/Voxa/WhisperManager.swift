@@ -137,6 +137,8 @@ final class WhisperManager: ObservableObject {
         case loading
         case ready
         case error(String)
+        /// US-008: Hot-swap in progress - new model loading while current remains available
+        case switching(toModel: String, progress: Double)
     }
     // MARK: - Constants
     
@@ -239,10 +241,16 @@ final class WhisperManager: ObservableObject {
     }
     
     // MARK: - Properties
-    
+
     /// The WhisperKit pipeline instance
     private var whisperKit: WhisperKit?
-    
+
+    /// US-008: Pending WhisperKit instance being loaded during hot-swap
+    private var pendingWhisperKit: WhisperKit?
+
+    /// US-008: The model being loaded during hot-swap (nil when not switching)
+    @Published private(set) var pendingModel: ModelSize?
+
     /// Currently selected model size
     @Published private(set) var selectedModel: ModelSize
     
@@ -312,20 +320,170 @@ final class WhisperManager: ObservableObject {
     }
     
     // MARK: - Model Management
-    
+
     /// Select a different model size
+    /// US-008: Now performs hot-swap - loads new model in background while current remains available
     func selectModel(_ model: ModelSize) async {
+        // If same model is already ready, do nothing
         guard model != selectedModel || modelStatus != .ready else { return }
-        
-        selectedModel = model
+
+        // If already switching to this model, do nothing
+        if pendingModel == model {
+            print("WhisperManager: [US-008] Already switching to \(model.rawValue)")
+            return
+        }
+
+        // Cancel any pending switch
+        if pendingModel != nil {
+            print("WhisperManager: [US-008] Cancelling pending switch to \(pendingModel!.rawValue)")
+            pendingWhisperKit = nil
+            pendingModel = nil
+        }
+
+        // Save the new selection
         UserDefaults.standard.set(model.rawValue, forKey: Constants.selectedModelKey)
-        
-        // Unload current model
-        whisperKit = nil
-        modelStatus = .notDownloaded
-        statusMessage = "Model changed to \(model.displayName)"
-        
-        print("WhisperManager: Selected model \(model.rawValue)")
+        print("WhisperManager: [US-008] Selected model \(model.rawValue)")
+
+        // If we have a current model ready, hot-swap in background
+        if modelStatus == .ready && whisperKit != nil {
+            print("WhisperManager: [US-008] Hot-swap: loading \(model.rawValue) in background while \(selectedModel.rawValue) remains active")
+            await hotSwapModel(to: model)
+        } else {
+            // No current model, just update selection (user will manually load)
+            selectedModel = model
+            modelStatus = .notDownloaded
+            statusMessage = "Model changed to \(model.displayName)"
+        }
+    }
+
+    /// US-008: Hot-swap to a new model while keeping current model available
+    private func hotSwapModel(to newModel: ModelSize) async {
+        pendingModel = newModel
+        let isDownloaded = isModelDownloaded(newModel)
+
+        // Update status to show switching in progress
+        modelStatus = .switching(toModel: newModel.displayName, progress: 0.0)
+        statusMessage = "Switching to \(newModel.displayName)..."
+
+        print("╔═══════════════════════════════════════════════════════════════╗")
+        print("║ [US-008] HOT-SWAP MODEL START                                  ║")
+        print("╠═══════════════════════════════════════════════════════════════╣")
+        print("║ Current Model: \(selectedModel.rawValue) (remains active)")
+        print("║ New Model: \(newModel.rawValue)")
+        print("║ Already Downloaded: \(isDownloaded)")
+        print("╚═══════════════════════════════════════════════════════════════╝")
+
+        do {
+            // Show download progress if not already downloaded
+            if !isDownloaded {
+                modelStatus = .switching(toModel: newModel.displayName, progress: 0.1)
+                statusMessage = "Downloading \(newModel.displayName) in background..."
+
+                // Progress updates during download
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    if case .switching(let model, _) = self.modelStatus, model == newModel.displayName {
+                        self.modelStatus = .switching(toModel: model, progress: 0.3)
+                        self.statusMessage = "Downloading \(newModel.displayName)... (~\(self.getEstimatedSize(for: newModel)))"
+                    }
+                }
+
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    if case .switching(let model, _) = self.modelStatus, model == newModel.displayName {
+                        self.modelStatus = .switching(toModel: model, progress: 0.5)
+                        self.statusMessage = "Still downloading \(newModel.displayName)..."
+                    }
+                }
+            } else {
+                modelStatus = .switching(toModel: newModel.displayName, progress: 0.5)
+                statusMessage = "Loading \(newModel.displayName) in background..."
+            }
+
+            // Load the new model into pending instance
+            let config = WhisperKitConfig(
+                model: newModel.modelPattern,
+                downloadBase: modelsDirectory,
+                verbose: true,
+                prewarm: true
+            )
+
+            let newWhisperKit = try await WhisperKit(config)
+
+            // Check if switch was cancelled
+            guard pendingModel == newModel else {
+                print("WhisperManager: [US-008] Hot-swap cancelled, discarding loaded model")
+                return
+            }
+
+            // Atomic swap: replace old model with new one
+            print("WhisperManager: [US-008] Hot-swap complete, switching from \(selectedModel.rawValue) to \(newModel.rawValue)")
+
+            // Store old model reference for cleanup
+            let oldModel = selectedModel
+
+            // Perform the swap
+            pendingWhisperKit = nil
+            whisperKit = newWhisperKit
+            selectedModel = newModel
+            pendingModel = nil
+            modelStatus = .ready
+            statusMessage = "\(newModel.displayName) ready"
+
+            print("╔═══════════════════════════════════════════════════════════════╗")
+            print("║ [US-008] HOT-SWAP COMPLETE                                     ║")
+            print("╠═══════════════════════════════════════════════════════════════╣")
+            print("║ Previous Model: \(oldModel.rawValue) (unloaded)")
+            print("║ Active Model: \(newModel.rawValue) (ready)")
+            print("║ Next transcription will use: \(newModel.rawValue)")
+            print("╚═══════════════════════════════════════════════════════════════╝")
+
+        } catch {
+            // Hot-swap failed, keep current model active
+            print("WhisperManager: [US-008] Hot-swap failed: \(error.localizedDescription)")
+            print("WhisperManager: [US-008] Keeping \(selectedModel.rawValue) active")
+
+            pendingWhisperKit = nil
+            pendingModel = nil
+
+            // Restore ready status with current model
+            modelStatus = .ready
+            statusMessage = "\(selectedModel.displayName) ready (switch to \(newModel.displayName) failed)"
+            lastErrorMessage = "Failed to switch to \(newModel.displayName): \(error.localizedDescription)\n\nThe current model (\(selectedModel.displayName)) remains active."
+
+            ErrorLogger.shared.log(
+                "Hot-swap model loading failed",
+                category: .model,
+                severity: .error,
+                context: [
+                    "currentModel": selectedModel.rawValue,
+                    "targetModel": newModel.rawValue,
+                    "error": error.localizedDescription
+                ]
+            )
+        }
+    }
+
+    /// US-008: Cancel any pending model switch
+    func cancelModelSwitch() {
+        guard pendingModel != nil else { return }
+
+        print("WhisperManager: [US-008] Cancelling model switch")
+        pendingWhisperKit = nil
+        pendingModel = nil
+
+        if whisperKit != nil {
+            modelStatus = .ready
+            statusMessage = "\(selectedModel.displayName) ready"
+        } else {
+            modelStatus = .notDownloaded
+            statusMessage = "No model loaded"
+        }
+    }
+
+    /// US-008: Check if a model switch is in progress
+    var isModelSwitchInProgress: Bool {
+        pendingModel != nil
     }
     
     /// Load the selected model (downloads if necessary)
@@ -492,7 +650,12 @@ final class WhisperManager: ObservableObject {
     /// Get estimated model size for display
     /// US-007: Updated for all five model sizes
     private func getEstimatedSize() -> String {
-        switch selectedModel {
+        return getEstimatedSize(for: selectedModel)
+    }
+
+    /// US-008: Get estimated model size for a specific model
+    private func getEstimatedSize(for model: ModelSize) -> String {
+        switch model {
         case .tiny: return "75MB"
         case .base: return "145MB"
         case .small: return "485MB"
@@ -1020,9 +1183,21 @@ final class WhisperManager: ObservableObject {
     }
     
     // MARK: - Status
-    
+
     /// Check if the manager is ready to transcribe
+    /// US-008: Also returns true during switching since current model remains available
     var isReady: Bool {
-        return modelStatus == .ready && whisperKit != nil
+        let hasModel = whisperKit != nil
+        let statusReady: Bool
+        switch modelStatus {
+        case .ready:
+            statusReady = true
+        case .switching:
+            // US-008: During hot-swap, current model is still usable
+            statusReady = true
+        default:
+            statusReady = false
+        }
+        return statusReady && hasModel
     }
 }

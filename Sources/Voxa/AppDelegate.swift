@@ -632,6 +632,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 detailMessage = "No Whisper model is downloaded. Please open Settings and download a model."
             case .downloading(let progress):
                 detailMessage = "Model is downloading (\(Int(progress * 100))%). Please wait for the download to complete."
+            case .switching(let toModel, let progress):
+                // US-008: Model switch in progress - current model still available
+                detailMessage = "Switching to \(toModel) (\(Int(progress * 100))%). The current model remains available for transcription."
             case .downloaded:
                 detailMessage = "Model is downloaded but not loaded. Please open Settings and load the model."
             case .loading:
