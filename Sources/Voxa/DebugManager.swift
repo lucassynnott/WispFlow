@@ -1040,6 +1040,9 @@ final class DebugManager: ObservableObject {
     }
 
     /// Generate model status section
+    /// US-049: WhisperKit version bundled with the app (from Package.swift)
+    private static let whisperKitVersion = "0.9.0+"
+
     private func generateModelStatusInfo() -> String {
         let whisperManager = WhisperManager.shared
 
@@ -1051,6 +1054,8 @@ final class DebugManager: ObservableObject {
 
         """
 
+        // US-049: Include WhisperKit version info
+        section += "WhisperKit Version: \(Self.whisperKitVersion)\n"
         section += "Current Whisper Model: \(whisperManager.selectedModel.rawValue)\n"
         section += "Model Status: \(formatModelStatus(whisperManager.modelStatus))\n"
         section += "Is Ready: \(whisperManager.isReady ? "Yes" : "No")\n"
