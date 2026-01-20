@@ -1,6 +1,52 @@
 import SwiftUI
 import AppKit
 
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║                         VOXA DESIGN SYSTEM                                   ║
+// ║                                                                              ║
+// ║  A comprehensive design system following Apple Human Interface Guidelines    ║
+// ║                                                                              ║
+// ╠══════════════════════════════════════════════════════════════════════════════╣
+// ║                                                                              ║
+// ║  DESIGN PRINCIPLES (Apple HIG Compliance):                                   ║
+// ║  ─────────────────────────────────────────                                   ║
+// ║  • Clarity: Content is prioritized, negative space provides breathing room  ║
+// ║  • Deference: UI helps users understand content without competing with it   ║
+// ║  • Depth: Visual layers and realistic motion convey hierarchy               ║
+// ║                                                                              ║
+// ║  SPACING SCALE (4pt grid):                                                   ║
+// ║  ─────────────────────────                                                   ║
+// ║  xs: 4pt   │ sm: 8pt   │ md: 12pt  │ lg: 16pt  │ xl: 24pt  │ xxl: 32pt     ║
+// ║                                                                              ║
+// ║  TYPOGRAPHY SCALE:                                                           ║
+// ║  ─────────────────                                                           ║
+// ║  Display:   heroXL(44) → heroLarge(40) → hero(36) → heroSmall(32)           ║
+// ║  Heading:   largeTitle(28) → display(24) → metric(22) → title(20)           ║
+// ║  Content:   subheadline(18) → headline(16) → body(14) → caption(12)         ║
+// ║  Fine:      small(11) → micro(10) → nano(9)                                 ║
+// ║                                                                              ║
+// ║  COLOR PALETTE:                                                              ║
+// ║  ─────────────                                                               ║
+// ║  Primary:    Muted Terracotta (#D97058) - warm, sophisticated accent        ║
+// ║  Background: Warm Alabaster (#F9F8F6) / Deep Charcoal (#121212)             ║
+// ║  Surface:    White / Elevated Dark (#1E1E1E)                                ║
+// ║  Text:       Charcoal (#2D2D2D) / Light Gray (#E0E0E0)                       ║
+// ║  Semantic:   Success (#81B29A) / Warning (#E09F3E) / Error (#D64545)        ║
+// ║                                                                              ║
+// ║  CORNER RADII:                                                               ║
+// ║  ─────────────                                                               ║
+// ║  none: 0pt │ small: 8pt │ medium: 12pt │ large: 16pt │ extraLarge: 22pt    ║
+// ║                                                                              ║
+// ║  SHADOWS:                                                                    ║
+// ║  ─────────                                                                   ║
+// ║  subtle: light elevation │ card: standard cards │ floating: overlays        ║
+// ║                                                                              ║
+// ║  ANIMATION PRESETS:                                                          ║
+// ║  ──────────────────                                                          ║
+// ║  quick(0.1s) │ standard(0.2s) │ smooth(0.3s) │ spring │ slide │ tab        ║
+// ║                                                                              ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+
 // MARK: - Color Extension for Hex Initialization
 
 extension Color {
@@ -414,10 +460,45 @@ extension Font {
         /// Headline (16pt, semibold, rounded) - for subsection headers
         /// Use for: Group labels, form section titles, button labels
         static let headline = Font.system(size: 16, weight: .semibold, design: .rounded)
-        
+
+        /// Subheadline (18pt, medium) - for larger subsection headers
+        /// Use for: Settings section headers, card subtitles
+        static let subheadline = Font.system(size: 18, weight: .medium)
+
+        // MARK: - Hero/Display Fonts (Large Sizes)
+        // These fonts are for large display elements and hero sections
+
+        /// Hero XL (44pt, light) - for extra large hero numbers/text
+        /// Use for: Primary dashboard metrics, large display numbers
+        static let heroXL = Font.system(size: 44, weight: .light)
+
+        /// Hero Large (40pt, medium) - for large icons and emphasis
+        /// Use for: Large status icons, empty state icons
+        static let heroLarge = Font.system(size: 40, weight: .medium)
+
+        /// Hero (36pt, light) - for hero numbers and emphasis
+        /// Use for: Large metric displays, section hero text
+        static let hero = Font.system(size: 36, weight: .light)
+
+        /// Hero Small (32pt, medium) - for medium display text
+        /// Use for: App logo icon, medium display elements
+        static let heroSmall = Font.system(size: 32, weight: .medium)
+
+        /// Display (24pt, medium) - for prominent display text
+        /// Use for: Large labels, prominent metrics, icons
+        static let display = Font.system(size: 24, weight: .medium)
+
+        /// Display Light (24pt, light) - for light display text
+        /// Use for: Secondary large labels, subtle emphasis
+        static let displayLight = Font.system(size: 24, weight: .light)
+
+        /// Metric (22pt, medium) - for metrics and numbers
+        /// Use for: Counter displays, time displays, metrics
+        static let metric = Font.system(size: 22, weight: .medium)
+
         // MARK: - Body Fonts (System Default)
         // These fonts use the system default for maximum legibility
-        
+
         /// Body (14pt, regular) - for main content
         /// Use for: Primary paragraph text, descriptions, form fields
         static let body = Font.system(size: 14, weight: .regular)
@@ -433,7 +514,23 @@ extension Font {
         /// Small (11pt, regular) - for tertiary/fine print
         /// Use for: Legal text, footnotes, less important details
         static let small = Font.system(size: 11, weight: .regular)
-        
+
+        /// Small Semibold (11pt, semibold) - for emphasized small text
+        /// Use for: Small labels, compact badges
+        static let smallSemibold = Font.system(size: 11, weight: .semibold)
+
+        /// Micro (10pt, medium) - for tiny labels and badges
+        /// Use for: Badge text, keyboard shortcuts, compact indicators
+        static let micro = Font.system(size: 10, weight: .medium)
+
+        /// Micro Semibold (10pt, semibold) - for emphasized micro text
+        /// Use for: Badge labels, status indicators
+        static let microSemibold = Font.system(size: 10, weight: .semibold)
+
+        /// Nano (9pt, medium) - for very small labels
+        /// Use for: Timestamp suffixes, compact metadata
+        static let nano = Font.system(size: 9, weight: .medium)
+
         // MARK: - Monospace Fonts
         // For technical content and fixed-width display
         
@@ -462,35 +559,73 @@ extension NSFont {
     /// Voxa design system fonts for AppKit
     struct Voxa {
         // MARK: - Display Fonts
-        
+
         /// Large title (28pt, bold) - for main headers
         static let largeTitle = NSFont.systemFont(ofSize: 28, weight: .bold)
-        
+
         /// Title (20pt, semibold) - for section headers
         static let title = NSFont.systemFont(ofSize: 20, weight: .semibold)
-        
+
         /// Headline (16pt, semibold) - for subsection headers
         static let headline = NSFont.systemFont(ofSize: 16, weight: .semibold)
-        
+
+        /// Subheadline (18pt, medium) - for larger subsection headers
+        static let subheadline = NSFont.systemFont(ofSize: 18, weight: .medium)
+
+        // MARK: - Hero/Display Fonts (Large Sizes)
+
+        /// Hero XL (44pt, light) - for extra large hero numbers/text
+        static let heroXL = NSFont.systemFont(ofSize: 44, weight: .light)
+
+        /// Hero Large (40pt, medium) - for large icons and emphasis
+        static let heroLarge = NSFont.systemFont(ofSize: 40, weight: .medium)
+
+        /// Hero (36pt, light) - for hero numbers and emphasis
+        static let hero = NSFont.systemFont(ofSize: 36, weight: .light)
+
+        /// Hero Small (32pt, medium) - for medium display text
+        static let heroSmall = NSFont.systemFont(ofSize: 32, weight: .medium)
+
+        /// Display (24pt, medium) - for prominent display text
+        static let display = NSFont.systemFont(ofSize: 24, weight: .medium)
+
+        /// Display Light (24pt, light) - for light display text
+        static let displayLight = NSFont.systemFont(ofSize: 24, weight: .light)
+
+        /// Metric (22pt, medium) - for metrics and numbers
+        static let metric = NSFont.systemFont(ofSize: 22, weight: .medium)
+
         // MARK: - Body Fonts
-        
+
         /// Body (14pt, regular) - for main content
         static let body = NSFont.systemFont(ofSize: 14, weight: .regular)
-        
+
         /// Body bold (14pt, semibold) - for emphasized body text
         static let bodyBold = NSFont.systemFont(ofSize: 14, weight: .semibold)
-        
+
         /// Caption (12pt, medium) - for secondary text
         static let caption = NSFont.systemFont(ofSize: 12, weight: .medium)
-        
+
         /// Small (11pt, regular) - for tertiary/fine print
         static let small = NSFont.systemFont(ofSize: 11, weight: .regular)
-        
+
+        /// Small Semibold (11pt, semibold) - for emphasized small text
+        static let smallSemibold = NSFont.systemFont(ofSize: 11, weight: .semibold)
+
+        /// Micro (10pt, medium) - for tiny labels and badges
+        static let micro = NSFont.systemFont(ofSize: 10, weight: .medium)
+
+        /// Micro Semibold (10pt, semibold) - for emphasized micro text
+        static let microSemibold = NSFont.systemFont(ofSize: 10, weight: .semibold)
+
+        /// Nano (9pt, medium) - for very small labels
+        static let nano = NSFont.systemFont(ofSize: 9, weight: .medium)
+
         // MARK: - Monospace Fonts
-        
+
         /// Monospace (13pt, regular) - for code/technical
         static let mono = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        
+
         /// Monospace small (11pt, regular) - for compact code
         static let monoSmall = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
     }
