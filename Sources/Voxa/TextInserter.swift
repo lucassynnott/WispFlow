@@ -5,15 +5,15 @@ import Foundation
 /// Requires accessibility permissions to simulate Cmd+V keystroke
 @MainActor
 final class TextInserter: ObservableObject {
-    
+
     // MARK: - Singleton
-    
+
     /// Shared instance for app-wide access
     /// US-701: Added for SettingsContentView in MainWindow
     static let shared = TextInserter()
-    
+
     // MARK: - Types
-    
+
     /// Insertion result
     enum InsertionResult {
         case success
@@ -22,7 +22,7 @@ final class TextInserter: ObservableObject {
         /// US-515: Paste simulation failed but text is on clipboard for manual paste
         case fallbackToManualPaste(String)
     }
-    
+
     /// Insertion status for UI feedback
     enum InsertionStatus: Equatable {
         case idle
@@ -30,12 +30,48 @@ final class TextInserter: ObservableObject {
         case completed
         case error(String)
     }
+
+    /// US-028: Paste format options for text insertion
+    /// Determines how transcribed text is formatted when pasted
+    enum PasteFormat: String, CaseIterable, Identifiable {
+        case plainText = "plain_text"
+        case richText = "rich_text"
+        case markdown = "markdown"
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .plainText: return "Plain Text"
+            case .richText: return "Rich Text"
+            case .markdown: return "Markdown"
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .plainText: return "Simple text without any formatting"
+            case .richText: return "Formatted text with basic styling (bold, italic)"
+            case .markdown: return "Text formatted using Markdown syntax"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .plainText: return "doc.plaintext"
+            case .richText: return "doc.richtext"
+            case .markdown: return "text.badge.checkmark"
+            }
+        }
+    }
     
     // MARK: - Constants
-    
+
     private struct Constants {
         static let preserveClipboardKey = "preserveClipboard"
         static let clipboardRestoreDelayKey = "clipboardRestoreDelay"
+        // US-028: Paste format preference key
+        static let pasteFormatKey = "pasteFormat"
         static let defaultRestoreDelay: Double = 0.8  // US-513: 800ms as per acceptance criteria
         static let keystrokeDelay: UInt32 = 10_000    // US-514: 10ms in microseconds between key down and key up
         static let pasteboardReadyDelay: UInt32 = 50_000  // 50ms to ensure pasteboard is ready before paste
@@ -57,7 +93,15 @@ final class TextInserter: ObservableObject {
             UserDefaults.standard.set(clipboardRestoreDelay, forKey: Constants.clipboardRestoreDelayKey)
         }
     }
-    
+
+    /// US-028: Selected paste format for text insertion
+    /// Determines how transcribed text is formatted when pasted
+    @Published var selectedPasteFormat: PasteFormat {
+        didSet {
+            UserDefaults.standard.set(selectedPasteFormat.rawValue, forKey: Constants.pasteFormatKey)
+        }
+    }
+
     /// Current insertion status
     @Published private(set) var insertionStatus: InsertionStatus = .idle
     
@@ -95,20 +139,28 @@ final class TextInserter: ObservableObject {
         // Load saved preferences
         preserveClipboard = UserDefaults.standard.object(forKey: Constants.preserveClipboardKey) as? Bool ?? true
         clipboardRestoreDelay = UserDefaults.standard.object(forKey: Constants.clipboardRestoreDelayKey) as? Double ?? Constants.defaultRestoreDelay
-        
+
+        // US-028: Load saved paste format preference (default to plain text)
+        if let savedFormat = UserDefaults.standard.string(forKey: Constants.pasteFormatKey),
+           let format = PasteFormat(rawValue: savedFormat) {
+            selectedPasteFormat = format
+        } else {
+            selectedPasteFormat = .plainText
+        }
+
         // Check initial permission status
         hasAccessibilityPermission = AXIsProcessTrusted()
-        
+
         // Set up app activation observer to re-check permissions when user returns from System Settings
         setupAppActivationObserver()
-        
+
         // NOTE: Disabled automatic polling to prevent potential main thread blocking
         // Permissions will be refreshed when app becomes active or manually checked
         // if !hasAccessibilityPermission {
         //     startPermissionPolling()
         // }
-        
-        print("TextInserter initialized (preserveClipboard: \(preserveClipboard), restoreDelay: \(clipboardRestoreDelay)s, permission: \(hasAccessibilityPermission))")
+
+        print("TextInserter initialized (preserveClipboard: \(preserveClipboard), restoreDelay: \(clipboardRestoreDelay)s, pasteFormat: \(selectedPasteFormat.rawValue), permission: \(hasAccessibilityPermission))")
     }
     
     deinit {
@@ -242,17 +294,17 @@ final class TextInserter: ObservableObject {
         
         insertionStatus = .inserting
         statusMessage = "Inserting text..."
-        
+
         // Save current clipboard if needed
         if preserveClipboard {
             saveClipboardContents()
         }
-        
-        // Copy text to pasteboard
+
+        // US-028: Copy text to pasteboard using selected format
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        let success = pasteboard.setString(text, forType: .string)
-        
+        let success = setPasteboardContent(text, pasteboard: pasteboard)
+
         guard success else {
             insertionStatus = .error("Failed to copy to clipboard")
             statusMessage = "Failed to copy text to clipboard"
@@ -581,5 +633,86 @@ final class TextInserter: ObservableObject {
 
         print("TextInserter: [US-026] Successfully simulated \(count) backspaces")
         return .success
+    }
+
+    // MARK: - US-028: Paste Format Support
+
+    /// US-028: Set pasteboard content based on selected paste format
+    /// - Parameters:
+    ///   - text: The text to add to pasteboard
+    ///   - pasteboard: The pasteboard to write to
+    /// - Returns: True if successful, false otherwise
+    private func setPasteboardContent(_ text: String, pasteboard: NSPasteboard) -> Bool {
+        switch selectedPasteFormat {
+        case .plainText:
+            return setPlainTextContent(text, pasteboard: pasteboard)
+        case .richText:
+            return setRichTextContent(text, pasteboard: pasteboard)
+        case .markdown:
+            return setMarkdownContent(text, pasteboard: pasteboard)
+        }
+    }
+
+    /// US-028: Set plain text content on pasteboard
+    private func setPlainTextContent(_ text: String, pasteboard: NSPasteboard) -> Bool {
+        print("TextInserter: [US-028] Setting plain text format")
+        return pasteboard.setString(text, forType: .string)
+    }
+
+    /// US-028: Set rich text (RTF) content on pasteboard
+    /// Creates basic RTF with the system font
+    private func setRichTextContent(_ text: String, pasteboard: NSPasteboard) -> Bool {
+        print("TextInserter: [US-028] Setting rich text format")
+
+        // Create an attributed string with default system font
+        let attributedString = NSAttributedString(
+            string: text,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: NSFont.systemFontSize),
+                .foregroundColor: NSColor.textColor
+            ]
+        )
+
+        // Convert to RTF data
+        let documentAttributes: [NSAttributedString.DocumentAttributeKey: Any] = [
+            .documentType: NSAttributedString.DocumentType.rtf
+        ]
+
+        guard let rtfData = try? attributedString.data(
+            from: NSRange(location: 0, length: attributedString.length),
+            documentAttributes: documentAttributes
+        ) else {
+            print("TextInserter: [US-028] Failed to create RTF data, falling back to plain text")
+            return pasteboard.setString(text, forType: .string)
+        }
+
+        // Set both RTF and plain text for maximum compatibility
+        // Some apps prefer RTF, others only accept plain text
+        let rtfSuccess = pasteboard.setData(rtfData, forType: .rtf)
+        let stringSuccess = pasteboard.setString(text, forType: .string)
+
+        return rtfSuccess || stringSuccess
+    }
+
+    /// US-028: Set markdown content on pasteboard
+    /// Sets the raw markdown text (not converted to HTML/RTF)
+    /// Apps that support markdown will render it, others will show plain text
+    private func setMarkdownContent(_ text: String, pasteboard: NSPasteboard) -> Bool {
+        print("TextInserter: [US-028] Setting markdown format")
+
+        // Set as plain text - markdown is just specially formatted text
+        // The user selects markdown when they want the raw markdown syntax preserved
+        // This is useful for pasting into markdown editors, note apps, etc.
+        return pasteboard.setString(text, forType: .string)
+    }
+
+    /// US-028: Convert plain text to basic markdown format
+    /// This can be used if we want to apply markdown formatting to transcriptions
+    /// Currently unused but available for future enhancement
+    func convertToMarkdown(_ text: String) -> String {
+        // Basic markdown conversions could be added here
+        // For now, we just return the text as-is since transcriptions
+        // are typically plain spoken text without formatting needs
+        return text
     }
 }

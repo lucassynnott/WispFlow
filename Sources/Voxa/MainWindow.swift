@@ -9069,10 +9069,16 @@ struct TextInsertionSettingsSummary: View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             // MARK: - Insertion Method Section (US-706 Task 1)
             insertionMethodSection
-            
+
             Divider()
                 .background(Color.Voxa.border)
-            
+
+            // MARK: - Paste Format Section (US-028)
+            pasteFormatSection
+
+            Divider()
+                .background(Color.Voxa.border)
+
             // MARK: - Clipboard Preservation Section (US-706 Task 2)
             clipboardPreservationSection
             
@@ -9160,7 +9166,62 @@ struct TextInsertionSettingsSummary: View {
             .cornerRadius(CornerRadius.small)
         }
     }
-    
+
+    // MARK: - Paste Format Section (US-028)
+
+    /// US-028: Paste format selection for different text formats
+    private var pasteFormatSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // Section Header
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color.Voxa.accent)
+                Text("Paste Format")
+                    .font(Font.Voxa.headline)
+                    .foregroundColor(Color.Voxa.textPrimary)
+            }
+
+            Text("Choose how transcribed text is formatted when pasted.")
+                .font(Font.Voxa.caption)
+                .foregroundColor(Color.Voxa.textSecondary)
+
+            // Format selection cards
+            VStack(spacing: Spacing.sm) {
+                ForEach(TextInserter.PasteFormat.allCases, id: \.id) { format in
+                    PasteFormatCard(
+                        format: format,
+                        isSelected: textInserter.selectedPasteFormat == format,
+                        onSelect: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                textInserter.selectedPasteFormat = format
+                            }
+                            print("[US-028] Paste format selected: \(format.rawValue)")
+                        }
+                    )
+                }
+            }
+
+            // Format description
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: pasteFormatDescriptionIcon)
+                    .foregroundColor(Color.Voxa.textSecondary)
+                    .font(.system(size: 12))
+                Text(textInserter.selectedPasteFormat.description)
+                    .font(Font.Voxa.caption)
+                    .foregroundColor(Color.Voxa.textSecondary)
+            }
+            .padding(Spacing.sm)
+            .background(Color.Voxa.border.opacity(0.3))
+            .cornerRadius(CornerRadius.small)
+        }
+    }
+
+    /// Helper property for paste format description icon
+    private var pasteFormatDescriptionIcon: String {
+        textInserter.selectedPasteFormat.icon
+    }
+
     // MARK: - Clipboard Preservation Section
     
     /// US-706 Task 2: Include clipboard preservation toggle
@@ -9629,6 +9690,80 @@ struct TextInsertionMethodCard: View {
             RoundedRectangle(cornerRadius: CornerRadius.medium)
                 .stroke(isSelected ? Color.Voxa.accent.opacity(0.5) : Color.Voxa.border, lineWidth: isSelected ? 2 : 1)
         )
+        .scaleEffect(isHovering ? 1.01 : 1.0)
+        .animation(VoxaAnimation.quick, value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+}
+
+// MARK: - Paste Format Card (US-028)
+
+/// Card-based format selection item for paste format options
+/// US-028: Paste format options component
+struct PasteFormatCard: View {
+    let format: TextInserter.PasteFormat
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: Spacing.md) {
+                // Format icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.small)
+                        .fill(isSelected ? Color.Voxa.accentLight : Color.Voxa.border.opacity(0.3))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: format.icon)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(isSelected ? Color.Voxa.accent : Color.Voxa.textSecondary)
+                }
+
+                // Format info
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    HStack(spacing: Spacing.sm) {
+                        Text(format.displayName)
+                            .font(Font.Voxa.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color.Voxa.textPrimary)
+
+                        if isSelected {
+                            Text("Selected")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Color.Voxa.success)
+                                .padding(.horizontal, Spacing.xs)
+                                .padding(.vertical, 2)
+                                .background(Color.Voxa.successLight)
+                                .cornerRadius(CornerRadius.small - 2)
+                        }
+                    }
+
+                    Text(format.description)
+                        .font(Font.Voxa.caption)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                // Selection indicator
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(isSelected ? Color.Voxa.accent : Color.Voxa.border)
+            }
+            .padding(Spacing.sm)
+            .background(isSelected ? Color.Voxa.accentLight.opacity(0.2) : Color.Voxa.surface)
+            .cornerRadius(CornerRadius.medium)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(isSelected ? Color.Voxa.accent.opacity(0.5) : Color.Voxa.border, lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
         .scaleEffect(isHovering ? 1.01 : 1.0)
         .animation(VoxaAnimation.quick, value: isHovering)
         .onHover { hovering in
@@ -10276,6 +10411,7 @@ struct DebugSettingsSummary: View {
         // Reset text insertion settings
         TextInserter.shared.preserveClipboard = true
         TextInserter.shared.clipboardRestoreDelay = 0.8
+        TextInserter.shared.selectedPasteFormat = .plainText  // US-028
 
         // US-027: Reset undo history settings
         UndoStackManager.shared.resetToDefaults()
