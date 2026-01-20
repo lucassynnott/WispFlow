@@ -970,13 +970,14 @@ extension View {
 
 /// Custom toggle style with coral accent color
 /// US-525: Enhanced hit area for reliable toggle interactions in ScrollViews
+/// US-037: Added accessibility support for VoiceOver
 struct VoxaToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack {
             configuration.label
-            
+
             Spacer()
-            
+
             // Custom toggle capsule
             // US-525: Wrapped in a larger hit area for easier tapping
             ZStack {
@@ -984,7 +985,7 @@ struct VoxaToggleStyle: ToggleStyle {
                     .fill(configuration.isOn ? Color.Voxa.accent : Color.Voxa.border)
                     .frame(width: 44, height: 24)
                     .animation(.easeInOut(duration: 0.2), value: configuration.isOn)
-                
+
                 Circle()
                     .fill(Color.white)
                     .frame(width: 20, height: 20)
@@ -997,6 +998,11 @@ struct VoxaToggleStyle: ToggleStyle {
             .onTapGesture {
                 configuration.isOn.toggle()
             }
+            // US-037: Accessibility support for toggle switch
+            .accessibilityElement(children: .ignore)
+            .accessibilityValue(configuration.isOn ? "On" : "Off")
+            .accessibilityHint("Double tap to toggle")
+            .accessibilityAddTraits(.isButton)
         }
         .contentShape(Rectangle()) // US-525: Make entire row tappable
     }
@@ -1054,13 +1060,15 @@ enum VoxaAnimation {
 // MARK: - Animated Success Checkmark
 
 /// Animated success checkmark with draw-in animation
+/// US-037: Added accessibility label for VoiceOver
 struct AnimatedCheckmark: View {
     @State private var isAnimating = false
     var size: CGFloat = 60
     var strokeWidth: CGFloat = 4
     var color: Color = Color.Voxa.success
     var onComplete: (() -> Void)? = nil
-    
+    var accessibilityLabel: String = "Success"
+
     var body: some View {
         ZStack {
             // Background circle
@@ -1069,7 +1077,7 @@ struct AnimatedCheckmark: View {
                 .frame(width: size, height: size)
                 .scaleEffect(isAnimating ? 1.0 : 0.0)
                 .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isAnimating)
-            
+
             // Checkmark path
             CheckmarkShape()
                 .trim(from: 0, to: isAnimating ? 1 : 0)
@@ -1086,6 +1094,9 @@ struct AnimatedCheckmark: View {
                 onComplete?()
             }
         }
+        // US-037: Accessibility support
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(.isImage)
     }
 }
 
@@ -1108,12 +1119,14 @@ struct CheckmarkShape: Shape {
 // MARK: - Loading Spinner
 
 /// Animated loading spinner with smooth rotation
+/// US-037: Added accessibility label for VoiceOver
 struct LoadingSpinner: View {
     @State private var isAnimating = false
     var size: CGFloat = 24
     var lineWidth: CGFloat = 3
     var color: Color = Color.Voxa.accent
-    
+    var accessibilityLabel: String = "Loading"
+
     var body: some View {
         Circle()
             .trim(from: 0.2, to: 1.0)
@@ -1128,17 +1141,22 @@ struct LoadingSpinner: View {
             .onAppear {
                 isAnimating = true
             }
+            // US-037: Accessibility support
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityAddTraits(.updatesFrequently)
     }
 }
 
 // MARK: - Pulsing Dot
 
 /// Pulsing dot indicator for recording or activity states
+/// US-037: Added accessibility label for VoiceOver
 struct PulsingDot: View {
     @State private var isPulsing = false
     var size: CGFloat = 10
     var color: Color = Color.Voxa.accent
-    
+    var accessibilityLabel: String = "Activity indicator"
+
     var body: some View {
         Circle()
             .fill(color)
@@ -1153,6 +1171,9 @@ struct PulsingDot: View {
             .onAppear {
                 isPulsing = true
             }
+            // US-037: Accessibility support
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityAddTraits(.updatesFrequently)
     }
 }
 

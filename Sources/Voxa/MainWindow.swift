@@ -442,6 +442,8 @@ struct NavigationItemRow: View {
             }
         }
         .help(item.displayName)
+        // US-037: Accessibility support for VoiceOver navigation
+        .accessibleNavigationItem(item, isSelected: isSelected)
     }
 }
 
@@ -687,11 +689,15 @@ struct HomeContentView: View {
                     withAnimation(VoxaAnimation.smooth) {
                         isRecording = (state == .recording)
                     }
+                    // US-037: Announce recording state change to VoiceOver
+                    AccessibilityAnnouncer.announceRecordingState(state)
                 }
             }
         }
+        // US-037: Accessibility support for recording button
+        .accessibleRecordingButton(isRecording: isRecording)
     }
-    
+
     /// US-802: Keyboard shortcut badge showing ⌥⌘R
     private var shortcutBadge: some View {
         HStack(spacing: 2) {
@@ -788,6 +794,8 @@ struct HomeContentView: View {
             Text("Your Activity")
                 .font(Font.Voxa.headline)
                 .foregroundColor(Color.Voxa.textPrimary)
+                // US-037: Section header accessibility
+                .accessibleHeader("Your Activity")
             
             HStack(spacing: Spacing.lg) {
                 // Streak Days
@@ -916,7 +924,9 @@ struct HomeContentView: View {
             Text("Quick Actions")
                 .font(Font.Voxa.headline)
                 .foregroundColor(Color.Voxa.textPrimary)
-            
+                // US-037: Section header accessibility
+                .accessibleHeader("Quick Actions")
+
             HStack(spacing: Spacing.lg) {
                 ForEach(QuickAction.allCases) { action in
                     QuickActionCard(
@@ -1192,6 +1202,13 @@ struct DailyInsightCard: View {
         .padding(Spacing.md)
         .background(Color.Voxa.surfaceSecondary.opacity(0.5))
         .cornerRadius(CornerRadius.small)
+        // US-037: Accessibility support for insight cards
+        .accessibleInsightCard(
+            title: title,
+            value: value,
+            percentageChange: percentageChange,
+            subtitle: subtitle
+        )
     }
 }
 
@@ -1354,13 +1371,23 @@ struct RecentTranscriptionItem: View {
                 pasteboard.clearContents()
                 pasteboard.setString(entry.fullText, forType: .string)
                 ToastManager.shared.showCopiedToClipboard()
+                // US-037: Announce copy action to VoiceOver
+                AccessibilityAnnouncer.announce("Copied to clipboard")
             }
-            
+            // US-037: Accessibility support for transcription items
+            .accessibleTranscriptionItem(
+                title: title,
+                wordCount: entry.wordCount,
+                duration: String(format: "%.1f seconds", entry.durationSeconds),
+                timestamp: relativeTimestamp
+            )
+
             // Divider (not shown for last item)
             if !isLast {
                 Divider()
                     .background(Color.Voxa.border.opacity(0.5))
                     .padding(.leading, Spacing.md + 40 + Spacing.md) // Align with text, past icon
+                    .accessibilityHidden(true)
             }
         }
     }
@@ -1403,6 +1430,8 @@ struct StatCard: View {
         .background(Color.Voxa.surface)
         .cornerRadius(CornerRadius.small)
         // US-035: Removed shadow for minimal chrome - stats are informational
+        // US-037: Accessibility support for stat cards
+        .accessibleStatCard(icon: icon, value: value, label: label)
     }
 }
 
@@ -1510,8 +1539,12 @@ struct QuickActionCard: View {
             onHover(hovering)
         }
         .animation(VoxaAnimation.quick, value: isHovered)
+        // US-037: Accessibility support for quick action cards
+        .accessibilityLabel(action.accessibilityLabel)
+        .accessibilityHint(action.accessibilityHint)
+        .accessibilityAddTraits(.isButton)
     }
-    
+
     private func performAction() {
         switch action {
         case .newRecording:
@@ -1612,8 +1645,12 @@ struct QuickToolButton: View {
         }
         .contentShape(Rectangle())
         .animation(VoxaAnimation.quick, value: isHovered)
+        // US-037: Accessibility support for quick tool buttons
+        .accessibilityLabel(tool.accessibilityLabel)
+        .accessibilityHint(tool.accessibilityHint)
+        .accessibilityAddTraits(.isButton)
     }
-    
+
     private func performAction() {
         switch tool {
         case .aiTextCleanup:
@@ -11587,6 +11624,8 @@ private struct KeyboardShortcutHandler: NSViewRepresentable {
             withAnimation(VoxaAnimation.smooth) {
                 isSidebarCollapsed.toggle()
             }
+            // US-037: Announce sidebar state change to VoiceOver
+            AccessibilityAnnouncer.announce(isSidebarCollapsed ? "Sidebar collapsed" : "Sidebar expanded")
             return true
         }
 
@@ -11605,6 +11644,8 @@ private struct KeyboardShortcutHandler: NSViewRepresentable {
             withAnimation(VoxaAnimation.smooth) {
                 selectedItem = item
             }
+            // US-037: Announce navigation change to VoiceOver
+            AccessibilityAnnouncer.announceNavigation(to: item)
             return true
         }
 
