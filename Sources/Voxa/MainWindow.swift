@@ -4543,12 +4543,13 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case general = "general"
     case audio = "audio"
     case transcription = "transcription"
+    case modelManagement = "modelManagement"  // US-012
     case textCleanup = "textCleanup"
     case textInsertion = "textInsertion"
     case debug = "debug"
-    
+
     var id: String { rawValue }
-    
+
     /// Display name for the section
     var displayName: String {
         switch self {
@@ -4558,6 +4559,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
             return "Audio"
         case .transcription:
             return "Transcription"
+        case .modelManagement:
+            return "Model Management"
         case .textCleanup:
             return "Text Cleanup"
         case .textInsertion:
@@ -4566,7 +4569,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
             return "Debug"
         }
     }
-    
+
     /// SF Symbol icon for the section
     var icon: String {
         switch self {
@@ -4576,6 +4579,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
             return "speaker.wave.2"
         case .transcription:
             return "waveform"
+        case .modelManagement:
+            return "internaldrive"
         case .textCleanup:
             return "text.badge.checkmark"
         case .textInsertion:
@@ -4584,7 +4589,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
             return "ladybug"
         }
     }
-    
+
     /// Brief description of the section
     var description: String {
         switch self {
@@ -4594,6 +4599,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
             return "Input device selection, audio preview, and sensitivity settings"
         case .transcription:
             return "Whisper model selection and language preferences"
+        case .modelManagement:
+            return "Download, delete, and manage storage for Whisper models"
         case .textCleanup:
             return "AI-powered text cleanup and post-processing options"
         case .textInsertion:
@@ -4650,7 +4657,17 @@ struct SettingsContentView: View {
                         TranscriptionSettingsSummary()
                     }
                     .id(SettingsSection.transcription)
-                    
+
+                    // MARK: - Model Management Section (US-012)
+                    SettingsSectionView(
+                        title: SettingsSection.modelManagement.displayName,
+                        icon: SettingsSection.modelManagement.icon,
+                        description: SettingsSection.modelManagement.description
+                    ) {
+                        ModelManagementView()
+                    }
+                    .id(SettingsSection.modelManagement)
+
                     // MARK: - Text Cleanup Section
                     SettingsSectionView(
                         title: SettingsSection.textCleanup.displayName,
@@ -7381,6 +7398,483 @@ struct TranscriptionTradeoffRow: View {
                 .fill(highlight ? Color.Voxa.accentLight.opacity(0.5) : Color.clear)
         )
         .padding(.horizontal, Spacing.xs)
+    }
+}
+
+// MARK: - Model Management View (US-012)
+
+/// Model storage management interface for downloading, deleting, and viewing model storage
+/// US-012: Model Management UI with storage information
+struct ModelManagementView: View {
+    @StateObject private var whisperManager = WhisperManager.shared
+
+    /// Show delete confirmation dialog
+    @State private var showDeleteConfirmation = false
+
+    /// Model selected for deletion
+    @State private var modelToDelete: WhisperManager.ModelSize?
+
+    /// Track expanded state for storage details
+    @State private var showStorageDetails = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            // MARK: - Storage Overview Section
+            storageOverviewSection
+
+            // MARK: - Downloaded Models List Section
+            downloadedModelsSection
+
+            // MARK: - Available Models Section
+            availableModelsSection
+        }
+        .alert("Delete Model?", isPresented: $showDeleteConfirmation, presenting: modelToDelete) { model in
+            Button("Delete", role: .destructive) {
+                Task {
+                    await whisperManager.deleteModel(model)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { model in
+            let size = whisperManager.getStorageForModel(model)
+            let formattedSize = WhisperManager.formatBytes(size)
+            Text("Are you sure you want to delete the \(model.displayName.components(separatedBy: " (").first ?? model.rawValue.capitalized) model? This will free up \(formattedSize) of disk space. You can re-download it later.")
+        }
+    }
+
+    // MARK: - Storage Overview Section
+
+    /// Total storage used by all models with visual indicator
+    private var storageOverviewSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "internaldrive")
+                    .foregroundColor(Color.Voxa.accent)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Storage Overview")
+                    .font(Font.Voxa.headline)
+                    .foregroundColor(Color.Voxa.textPrimary)
+            }
+
+            Text("Manage disk space used by downloaded Whisper models.")
+                .font(Font.Voxa.caption)
+                .foregroundColor(Color.Voxa.textSecondary)
+
+            // Storage summary card
+            HStack(spacing: Spacing.lg) {
+                // Total storage used
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("Total Storage Used")
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                    Text(WhisperManager.formatBytes(whisperManager.getTotalStorageUsed()))
+                        .font(Font.Voxa.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(Color.Voxa.textPrimary)
+                }
+
+                Spacer()
+
+                // Downloaded models count
+                VStack(alignment: .trailing, spacing: Spacing.xs) {
+                    Text("Models Downloaded")
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                    HStack(spacing: Spacing.xs) {
+                        Text("\(whisperManager.getDownloadedModels().count)")
+                            .font(Font.Voxa.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(Color.Voxa.accent)
+                        Text("of \(WhisperManager.ModelSize.allCases.count)")
+                            .font(Font.Voxa.body)
+                            .foregroundColor(Color.Voxa.textSecondary)
+                    }
+                }
+            }
+            .padding(Spacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .fill(Color.Voxa.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(Color.Voxa.border, lineWidth: 1)
+            )
+
+            // Storage breakdown toggle
+            Button(action: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    showStorageDetails.toggle()
+                }
+            }) {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: showStorageDetails ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Color.Voxa.textSecondary)
+                    Text(showStorageDetails ? "Hide Storage Breakdown" : "Show Storage Breakdown")
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Storage breakdown (expandable)
+            if showStorageDetails {
+                VStack(spacing: Spacing.sm) {
+                    ForEach(whisperManager.getAllModelsInfo(), id: \.model.id) { info in
+                        if info.isDownloaded {
+                            ModelStorageRow(
+                                modelName: info.model.displayName.components(separatedBy: " (").first ?? info.model.rawValue.capitalized,
+                                storageUsed: WhisperManager.formatBytes(info.size),
+                                isActive: info.isActive,
+                                totalStorage: whisperManager.getTotalStorageUsed(),
+                                modelStorage: info.size
+                            )
+                        }
+                    }
+                }
+                .padding(Spacing.md)
+                .background(Color.Voxa.surface.opacity(0.5))
+                .cornerRadius(CornerRadius.small)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    // MARK: - Downloaded Models Section
+
+    /// List of downloaded models with delete options
+    private var downloadedModelsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Color.Voxa.success)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Downloaded Models")
+                    .font(Font.Voxa.headline)
+                    .foregroundColor(Color.Voxa.textPrimary)
+            }
+
+            let downloadedModels = whisperManager.getDownloadedModels()
+
+            if downloadedModels.isEmpty {
+                // Empty state
+                HStack(spacing: Spacing.md) {
+                    Image(systemName: "arrow.down.circle.dotted")
+                        .font(.system(size: 24))
+                        .foregroundColor(Color.Voxa.textTertiary)
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text("No Models Downloaded")
+                            .font(Font.Voxa.body)
+                            .foregroundColor(Color.Voxa.textSecondary)
+                        Text("Download a model from the Transcription settings to start using Voxa.")
+                            .font(Font.Voxa.small)
+                            .foregroundColor(Color.Voxa.textTertiary)
+                    }
+                }
+                .padding(Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.Voxa.surface)
+                .cornerRadius(CornerRadius.medium)
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .stroke(Color.Voxa.border.opacity(0.5), lineWidth: 1)
+                )
+            } else {
+                // List of downloaded models
+                VStack(spacing: Spacing.sm) {
+                    ForEach(downloadedModels) { model in
+                        DownloadedModelRow(
+                            model: model,
+                            storageUsed: WhisperManager.formatBytes(whisperManager.getStorageForModel(model)),
+                            isActive: model == whisperManager.selectedModel && whisperManager.modelStatus == .ready,
+                            onDelete: {
+                                modelToDelete = model
+                                showDeleteConfirmation = true
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Available Models Section
+
+    /// List of models available for download
+    private var availableModelsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "arrow.down.circle")
+                    .foregroundColor(Color.Voxa.textSecondary)
+                    .font(.system(size: 16, weight: .medium))
+                Text("Available to Download")
+                    .font(Font.Voxa.headline)
+                    .foregroundColor(Color.Voxa.textPrimary)
+            }
+
+            let availableModels = WhisperManager.ModelSize.allCases.filter { !whisperManager.isModelDownloaded($0) }
+
+            if availableModels.isEmpty {
+                // All models downloaded
+                HStack(spacing: Spacing.md) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(Color.Voxa.success)
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text("All Models Downloaded")
+                            .font(Font.Voxa.body)
+                            .foregroundColor(Color.Voxa.textPrimary)
+                        Text("You have downloaded all available Whisper models.")
+                            .font(Font.Voxa.small)
+                            .foregroundColor(Color.Voxa.textSecondary)
+                    }
+                }
+                .padding(Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.Voxa.accentLight.opacity(0.3))
+                .cornerRadius(CornerRadius.medium)
+            } else {
+                // List of available models
+                VStack(spacing: Spacing.sm) {
+                    ForEach(availableModels) { model in
+                        AvailableModelRow(
+                            model: model,
+                            estimatedSize: getEstimatedModelSize(model),
+                            onDownload: {
+                                Task {
+                                    await whisperManager.selectModel(model)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    private func getEstimatedModelSize(_ model: WhisperManager.ModelSize) -> String {
+        switch model {
+        case .tiny: return "~75 MB"
+        case .base: return "~145 MB"
+        case .small: return "~485 MB"
+        case .medium: return "~1.5 GB"
+        case .large: return "~3 GB"
+        }
+    }
+}
+
+// MARK: - Model Storage Row (US-012)
+
+/// Row displaying storage usage for a single model with percentage bar
+struct ModelStorageRow: View {
+    let modelName: String
+    let storageUsed: String
+    let isActive: Bool
+    let totalStorage: UInt64
+    let modelStorage: UInt64
+
+    private var storagePercentage: Double {
+        guard totalStorage > 0 else { return 0 }
+        return Double(modelStorage) / Double(totalStorage)
+    }
+
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Model name
+            HStack(spacing: Spacing.sm) {
+                Text(modelName)
+                    .font(Font.Voxa.body)
+                    .foregroundColor(Color.Voxa.textPrimary)
+                if isActive {
+                    TranscriptionModelBadge(text: "Active", color: Color.Voxa.success)
+                }
+            }
+            .frame(width: 100, alignment: .leading)
+
+            // Storage bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.Voxa.border)
+                        .frame(height: 8)
+
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(isActive ? Color.Voxa.accent : Color.Voxa.textSecondary)
+                        .frame(width: max(4, geometry.size.width * CGFloat(storagePercentage)), height: 8)
+                }
+            }
+            .frame(height: 8)
+
+            // Storage size
+            Text(storageUsed)
+                .font(Font.Voxa.mono)
+                .foregroundColor(Color.Voxa.textSecondary)
+                .frame(width: 70, alignment: .trailing)
+        }
+    }
+}
+
+// MARK: - Downloaded Model Row (US-012)
+
+/// Row displaying a downloaded model with delete option
+struct DownloadedModelRow: View {
+    let model: WhisperManager.ModelSize
+    let storageUsed: String
+    let isActive: Bool
+    let onDelete: () -> Void
+
+    @State private var isHovering = false
+
+    private var modelInfo: (speed: String, accuracy: String) {
+        switch model {
+        case .tiny: return ("Fastest", "Basic")
+        case .base: return ("Fast", "Good")
+        case .small: return ("Medium", "Great")
+        case .medium: return ("Slower", "Best")
+        case .large: return ("Slowest", "Professional")
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Model icon
+            ZStack {
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .fill(isActive ? Color.Voxa.accentLight : Color.Voxa.border.opacity(0.3))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: "cpu")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(isActive ? Color.Voxa.accent : Color.Voxa.textSecondary)
+            }
+
+            // Model info
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
+                    Text(model.displayName.components(separatedBy: " (").first ?? model.rawValue.capitalized)
+                        .font(Font.Voxa.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.Voxa.textPrimary)
+
+                    if isActive {
+                        TranscriptionModelBadge(text: "Active", color: Color.Voxa.success)
+                    }
+                }
+
+                HStack(spacing: Spacing.md) {
+                    TranscriptionModelSpec(icon: "internaldrive", text: storageUsed)
+                    TranscriptionModelSpec(icon: "speedometer", text: modelInfo.speed)
+                    TranscriptionModelSpec(icon: "star", text: modelInfo.accuracy)
+                }
+            }
+
+            Spacer()
+
+            // Delete button
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(isHovering ? Color.Voxa.error : Color.Voxa.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(isActive)
+            .opacity(isActive ? 0.3 : 1.0)
+            .help(isActive ? "Cannot delete the active model" : "Delete this model")
+        }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.medium)
+                .fill(isHovering ? Color.Voxa.border.opacity(0.2) : Color.Voxa.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.medium)
+                .stroke(isActive ? Color.Voxa.accent.opacity(0.5) : Color.Voxa.border.opacity(0.5), lineWidth: 1)
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
+// MARK: - Available Model Row (US-012)
+
+/// Row displaying a model available for download
+struct AvailableModelRow: View {
+    let model: WhisperManager.ModelSize
+    let estimatedSize: String
+    let onDownload: () -> Void
+
+    @State private var isHovering = false
+
+    private var modelInfo: (speed: String, accuracy: String, icon: String) {
+        switch model {
+        case .tiny: return ("Fastest", "Basic", "hare")
+        case .base: return ("Fast", "Good", "tortoise")
+        case .small: return ("Medium", "Great", "gauge.with.dots.needle.33percent")
+        case .medium: return ("Slower", "Best", "gauge.with.dots.needle.67percent")
+        case .large: return ("Slowest", "Professional", "gauge.with.dots.needle.100percent")
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Model icon
+            ZStack {
+                RoundedRectangle(cornerRadius: CornerRadius.small)
+                    .fill(Color.Voxa.border.opacity(0.2))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: modelInfo.icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.Voxa.textTertiary)
+            }
+
+            // Model info
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(model.displayName.components(separatedBy: " (").first ?? model.rawValue.capitalized)
+                    .font(Font.Voxa.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.Voxa.textSecondary)
+
+                HStack(spacing: Spacing.md) {
+                    TranscriptionModelSpec(icon: "arrow.down.circle", text: estimatedSize)
+                    TranscriptionModelSpec(icon: "speedometer", text: modelInfo.speed)
+                    TranscriptionModelSpec(icon: "star", text: modelInfo.accuracy)
+                }
+            }
+
+            Spacer()
+
+            // Download button
+            Button(action: onDownload) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Download")
+                        .font(Font.Voxa.small)
+                }
+            }
+            .buttonStyle(VoxaButtonStyle.secondary)
+        }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.medium)
+                .fill(isHovering ? Color.Voxa.border.opacity(0.1) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.medium)
+                .stroke(Color.Voxa.border.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4]))
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
     }
 }
 

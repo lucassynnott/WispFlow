@@ -856,6 +856,72 @@ final class WhisperManager: ObservableObject {
     func getDownloadedModels() -> [ModelSize] {
         return ModelSize.allCases.filter { isModelDownloaded($0) }
     }
+
+    // MARK: - US-012: Model Storage Management
+
+    /// Get the storage size (in bytes) used by a specific model
+    /// - Parameter model: The model to check
+    /// - Returns: Size in bytes, or 0 if not downloaded
+    func getStorageForModel(_ model: ModelSize) -> UInt64 {
+        let modelPath = modelsDirectory.appendingPathComponent(model.modelPattern)
+        return calculateDirectorySize(at: modelPath)
+    }
+
+    /// Get the total storage size (in bytes) used by all downloaded models
+    /// - Returns: Total size in bytes
+    func getTotalStorageUsed() -> UInt64 {
+        var total: UInt64 = 0
+        for model in ModelSize.allCases {
+            total += getStorageForModel(model)
+        }
+        return total
+    }
+
+    /// Get detailed information about all models including storage and download status
+    /// - Returns: Array of model info tuples
+    func getAllModelsInfo() -> [(model: ModelSize, isDownloaded: Bool, size: UInt64, isActive: Bool)] {
+        return ModelSize.allCases.map { model in
+            (
+                model: model,
+                isDownloaded: isModelDownloaded(model),
+                size: getStorageForModel(model),
+                isActive: model == selectedModel && modelStatus == .ready
+            )
+        }
+    }
+
+    /// Format bytes to human-readable string
+    /// - Parameter bytes: Size in bytes
+    /// - Returns: Formatted string (e.g., "1.5 GB", "485 MB")
+    static func formatBytes(_ bytes: UInt64) -> String {
+        return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    }
+
+    /// Calculate the size of a directory recursively
+    /// - Parameter url: Directory URL
+    /// - Returns: Total size in bytes
+    private func calculateDirectorySize(at url: URL) -> UInt64 {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path) else { return 0 }
+
+        var totalSize: UInt64 = 0
+
+        if let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey], options: [], errorHandler: nil) {
+            for case let fileURL as URL in enumerator {
+                do {
+                    let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+                    if resourceValues.isRegularFile == true, let fileSize = resourceValues.fileSize {
+                        totalSize += UInt64(fileSize)
+                    }
+                } catch {
+                    // Skip files we can't read
+                    continue
+                }
+            }
+        }
+
+        return totalSize
+    }
     
     // MARK: - Audio Validation
     
