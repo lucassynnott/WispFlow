@@ -75,6 +75,8 @@ final class TextCleanupManager: ObservableObject {
         static let trimWhitespaceKey = "postProcessTrimWhitespace"
         // US-023: Auto-capitalize sentences
         static let autoCapitalizeSentencesKey = "postProcessAutoCapitalizeSentences"
+        // US-024: Smart quotes
+        static let useSmartQuotesKey = "postProcessUseSmartQuotes"
     }
     
     /// Common filler words and phrases to remove
@@ -193,6 +195,16 @@ final class TextCleanupManager: ObservableObject {
         }
     }
 
+    // MARK: - US-024: Smart Quotes
+
+    /// Option to convert straight quotes to curly (smart) quotes
+    /// Converts " to " or " and ' to ' or ' based on context
+    @Published var useSmartQuotes: Bool {
+        didSet {
+            UserDefaults.standard.set(useSmartQuotes, forKey: Constants.useSmartQuotesKey)
+        }
+    }
+
     // MARK: - Callbacks
     
     /// Called when cleanup completes
@@ -227,6 +239,9 @@ final class TextCleanupManager: ObservableObject {
 
         // US-023: Load auto-capitalize sentences preference (default to true)
         autoCapitalizeSentences = UserDefaults.standard.object(forKey: Constants.autoCapitalizeSentencesKey) as? Bool ?? true
+
+        // US-024: Load smart quotes preference (default to false - opt-in feature)
+        useSmartQuotes = UserDefaults.standard.object(forKey: Constants.useSmartQuotesKey) as? Bool ?? false
 
         print("TextCleanupManager initialized with mode: \(selectedMode.rawValue), cleanup enabled: \(isCleanupEnabled)")
         print("TextCleanupManager: [US-607] Post-processing: capitalize=\(autoCapitalizeFirstLetter), period=\(addPeriodAtEnd), trim=\(trimWhitespace)")
@@ -554,7 +569,12 @@ final class TextCleanupManager: ObservableObject {
             }
         }
 
-        print("TextCleanupManager: [US-607/US-023] Post-processing applied (capitalizeSentences=\(autoCapitalizeSentences), capitalizeFirst=\(autoCapitalizeFirstLetter), period=\(addPeriodAtEnd), trim=\(trimWhitespace)): '\(text)' -> '\(result)'")
+        // Step 4: Convert to smart quotes (if enabled) - US-024
+        if useSmartQuotes {
+            result = convertToSmartQuotes(result)
+        }
+
+        print("TextCleanupManager: [US-607/US-023/US-024] Post-processing applied (capitalizeSentences=\(autoCapitalizeSentences), capitalizeFirst=\(autoCapitalizeFirstLetter), period=\(addPeriodAtEnd), trim=\(trimWhitespace), smartQuotes=\(useSmartQuotes)): '\(text)' -> '\(result)'")
 
         return result
     }
@@ -589,7 +609,85 @@ final class TextCleanupManager: ObservableObject {
 
         return result
     }
-    
+
+    // MARK: - US-024: Smart Quotes
+
+    /// Convert straight quotes to curly (smart) quotes
+    /// - Parameter text: The text to convert
+    /// - Returns: Text with smart quotes
+    private func convertToSmartQuotes(_ text: String) -> String {
+        var result = text
+        var chars = Array(result)
+
+        // Track quote state for proper opening/closing
+        var inDoubleQuote = false
+        var inSingleQuote = false
+
+        var i = 0
+        while i < chars.count {
+            let char = chars[i]
+
+            // Handle double quotes
+            if char == "\"" {
+                // Determine if this is an opening or closing quote
+                // Opening quote: at start, after whitespace, or after opening punctuation
+                let isOpening: Bool
+                if i == 0 {
+                    isOpening = true
+                } else {
+                    let prevChar = chars[i - 1]
+                    isOpening = prevChar.isWhitespace || "([{".contains(prevChar)
+                }
+
+                if isOpening && !inDoubleQuote {
+                    chars[i] = "\u{201C}" // " Left double quotation mark
+                    inDoubleQuote = true
+                } else {
+                    chars[i] = "\u{201D}" // " Right double quotation mark
+                    inDoubleQuote = false
+                }
+            }
+            // Handle single quotes and apostrophes
+            else if char == "'" || char == "'" {
+                // Determine context: apostrophe in contraction vs opening/closing quote
+                // Check if it's likely an apostrophe (between letters)
+                let prevIsLetter = i > 0 && chars[i - 1].isLetter
+                let nextIsLetter = i < chars.count - 1 && chars[i + 1].isLetter
+
+                if prevIsLetter && nextIsLetter {
+                    // Apostrophe in contraction (e.g., don't, it's)
+                    chars[i] = "\u{2019}" // ' Right single quotation mark (used for apostrophe)
+                } else if prevIsLetter && !nextIsLetter {
+                    // Closing quote or possessive ending (e.g., dogs')
+                    chars[i] = "\u{2019}" // ' Right single quotation mark
+                    inSingleQuote = false
+                } else {
+                    // Opening or closing single quote
+                    let isOpening: Bool
+                    if i == 0 {
+                        isOpening = true
+                    } else {
+                        let prevChar = chars[i - 1]
+                        isOpening = prevChar.isWhitespace || "([{\"".contains(prevChar) || prevChar == "\u{201C}"
+                    }
+
+                    if isOpening && !inSingleQuote {
+                        chars[i] = "\u{2018}" // ' Left single quotation mark
+                        inSingleQuote = true
+                    } else {
+                        chars[i] = "\u{2019}" // ' Right single quotation mark
+                        inSingleQuote = false
+                    }
+                }
+            }
+
+            i += 1
+        }
+
+        result = String(chars)
+        return result
+    }
+
     /// Process text with both cleanup and post-processing
     /// This is the main entry point for full text processing
     /// - Parameter text: The raw transcribed text

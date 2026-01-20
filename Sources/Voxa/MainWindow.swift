@@ -8681,6 +8681,17 @@ struct TextCleanupSettingsSummary: View {
                     description: "Remove leading and trailing whitespace from transcription",
                     isOn: $textCleanupManager.trimWhitespace
                 )
+
+                Divider()
+                    .background(Color.Voxa.border)
+
+                // US-024: Smart quotes toggle
+                TextCleanupToggleRow(
+                    icon: "quote.opening",
+                    title: "Smart Quotes",
+                    description: "Convert straight quotes (\") to curly quotes (\u{201C}\u{201D})",
+                    isOn: $textCleanupManager.useSmartQuotes
+                )
             }
             .padding(Spacing.md)
             .background(Color.Voxa.surface)
@@ -8691,7 +8702,7 @@ struct TextCleanupSettingsSummary: View {
             )
         }
     }
-    
+
     // MARK: - Preview Section
     
     /// Shows before/after preview of text cleanup
@@ -10060,7 +10071,8 @@ struct DebugSettingsSummary: View {
         TextCleanupManager.shared.addPeriodAtEnd = true
         TextCleanupManager.shared.trimWhitespace = true
         TextCleanupManager.shared.autoCapitalizeSentences = true  // US-023
-        
+        TextCleanupManager.shared.useSmartQuotes = false  // US-024 (opt-in feature, default off)
+
         // Reset text insertion settings
         TextInserter.shared.preserveClipboard = true
         TextInserter.shared.clipboardRestoreDelay = 0.8
