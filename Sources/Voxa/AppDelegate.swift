@@ -1050,6 +1050,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Revert state if audio capture failed
                 statusBarController?.setRecordingState(.idle)
             }
+
+        case .processing:
+            // US-034: Processing state - menu bar icon shows processing animation
+            // The processing state is managed by StatusBarController, no additional action needed here
+            print("Processing transcription...")
+
+        case .error:
+            // US-034: Error state - menu bar icon shows error indicator
+            // The error state is managed by StatusBarController, no additional action needed here
+            print("Error state active")
         }
     }
     
@@ -1081,19 +1091,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Track transcription start time for debug
         transcriptionStartTime = Date()
-        
+
+        // US-034: Update menu bar icon to show processing state
+        statusBarController?.setRecordingState(.processing)
+
         // Update recording indicator to show transcribing status
         recordingIndicator?.updateStatus("Transcribing...")
         recordingIndicator?.showWithAnimation()
-        
+
         // Process transcription in background
         Task { @MainActor in
             if let transcribedText = await whisper.transcribe(audioData: audioData, sampleRate: sampleRate) {
                 print("Transcription result: \(transcribedText)")
-                
+
                 // Log raw transcription to debug manager
                 debugManager?.logRawTranscription(transcribedText, model: whisper.selectedModel.rawValue)
-                
+
                 if !transcribedText.isEmpty {
                     // Clear stored audio data on successful transcription
                     lastAudioData = nil
@@ -1103,13 +1116,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 } else {
                     // Empty transcription (no speech) - don't clear audio data yet (allows retry)
                     recordingIndicator?.hideWithAnimation()
+                    // US-034: Return to idle state
+                    statusBarController?.setRecordingState(.idle)
                 }
             } else {
                 // Transcription failed - keep audio data for retry
                 recordingIndicator?.hideWithAnimation()
                 print("Transcription failed or returned empty")
+                // US-034: Return to idle state on failure
+                statusBarController?.setRecordingState(.idle)
             }
-            
+
             // Reset whisper status
             whisper.resetStatus()
         }
@@ -1120,17 +1137,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func handleTranscriptionError(_ error: WhisperManager.TranscriptionError, audioData: Data?, sampleRate: Double) {
         recordingIndicator?.hideWithAnimation()
-        
+
+        // US-034: Show error state in menu bar icon briefly
+        statusBarController?.setRecordingState(.error)
+
         // Store audio data for retry if provided
         if let audioData = audioData {
             lastAudioData = audioData
             lastAudioSampleRate = sampleRate
         }
-        
+
         let alert = NSAlert()
         alert.messageText = error.errorDescription ?? "Transcription Error"
         alert.informativeText = error.recoverySuggestion ?? "An unknown error occurred during transcription."
-        
+
         // Set alert style based on error type
         switch error {
         case .modelNotLoaded:
@@ -1140,13 +1160,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .audioValidationFailed, .whisperKitError, .unknownError:
             alert.alertStyle = .warning
         }
-        
+
         // Add buttons based on whether retry is possible
         if error.isRetryable && lastAudioData != nil {
             alert.addButton(withTitle: "Try Again")
             alert.addButton(withTitle: "Open Settings")
             alert.addButton(withTitle: "Cancel")
-            
+
             let response = alert.runModal()
             switch response {
             case .alertFirstButtonReturn:
@@ -1155,24 +1175,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .alertSecondButtonReturn:
                 // Open settings
                 openSettings()
+                // US-034: Return to idle state after error is dismissed
+                statusBarController?.setRecordingState(.idle)
             default:
                 // Cancel - do nothing
-                break
+                // US-034: Return to idle state after error is dismissed
+                statusBarController?.setRecordingState(.idle)
             }
         } else if case .modelNotLoaded = error {
             alert.addButton(withTitle: "Open Settings")
             alert.addButton(withTitle: "OK")
-            
+
             if alert.runModal() == .alertFirstButtonReturn {
                 openSettings()
             }
+            // US-034: Return to idle state after error is dismissed
+            statusBarController?.setRecordingState(.idle)
         } else {
             alert.addButton(withTitle: "OK")
             alert.addButton(withTitle: "Open Settings")
-            
+
             if alert.runModal() == .alertSecondButtonReturn {
                 openSettings()
             }
+            // US-034: Return to idle state after error is dismissed
+            statusBarController?.setRecordingState(.idle)
         }
     }
     
@@ -1236,6 +1263,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await performTextInsertion(transcribedText)
             // US-633: Still record stats even without cleanup
             UsageStatsManager.shared.recordTranscription(text: transcribedText, durationSeconds: recordingDuration)
+            // US-034: Return to idle state
+            statusBarController?.setRecordingState(.idle)
             return
         }
         
@@ -1277,7 +1306,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Hide the indicator after insertion
         recordingIndicator?.hideWithAnimation()
-        
+
+        // US-034: Return to idle state after processing complete
+        statusBarController?.setRecordingState(.idle)
+
         // Reset cleanup status
         cleanup.resetStatus()
     }

@@ -14,7 +14,11 @@ final class StatusBarController: NSObject {
     // Animation timer for recording pulse effect
     private var pulseTimer: Timer?
     private var pulsePhase: CGFloat = 0
-    
+
+    // US-034: Animation timer for processing state
+    private var processingTimer: Timer?
+    private var processingPhase: CGFloat = 0
+
     // Callback for when recording state changes
     var onRecordingStateChanged: ((RecordingState) -> Void)?
     
@@ -54,6 +58,7 @@ final class StatusBarController: NSObject {
     
     deinit {
         stopPulseAnimation()
+        stopProcessingAnimation()
     }
     
     // MARK: - Setup
@@ -327,41 +332,62 @@ final class StatusBarController: NSObject {
     }
 
     // MARK: - Icon Management
-    
+
+    /// US-034: Update the menu bar icon to reflect different recording states
+    /// States: idle, recording, processing, error
     private func updateIcon() {
         guard let button = statusItem?.button else { return }
-        
+
         // Try to load custom menubar icon from bundle
         if let customIcon = loadMenubarIcon() {
-            // Use custom icon when not recording
-            if recordingState != .recording {
+            // Use custom icon only when idle and model is ready
+            if recordingState == .idle && currentModelStatus == .ready {
                 stopPulseAnimation()
+                stopProcessingAnimation()
                 button.image = customIcon
                 button.image?.isTemplate = true  // Allow system to tint for dark/light mode
                 button.toolTip = "Voxa - Ready"
                 return
             }
         }
-        
+
         let configuration = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        
+
         // Determine the icon based on recording state and model status
         let iconName: String
         let tooltip: String
         let iconTint: NSColor
-        
-        if recordingState == .recording {
-            // When recording, use recording icon with coral accent
+
+        switch recordingState {
+        case .recording:
+            // When recording, use recording icon with coral accent and pulse animation
             iconName = recordingState.iconName
             tooltip = recordingState.accessibilityLabel
             iconTint = NSColor.Voxa.accent
-            
-            // Start pulsing animation for recording state
+            stopProcessingAnimation()
             startPulseAnimation()
-        } else {
-            // Stop pulsing animation when not recording
+
+        case .processing:
+            // US-034: Processing state - show waveform circle with rotation animation
+            iconName = recordingState.iconName
+            tooltip = recordingState.accessibilityLabel
+            iconTint = NSColor.Voxa.accent
             stopPulseAnimation()
-            
+            startProcessingAnimation()
+
+        case .error:
+            // US-034: Error state - show error triangle with error color
+            iconName = recordingState.iconName
+            tooltip = recordingState.accessibilityLabel
+            iconTint = NSColor.Voxa.error
+            stopPulseAnimation()
+            stopProcessingAnimation()
+
+        case .idle:
+            // Stop all animations when idle
+            stopPulseAnimation()
+            stopProcessingAnimation()
+
             // When idle, show model status in icon
             switch currentModelStatus {
             case .notDownloaded, .downloaded:
@@ -391,7 +417,7 @@ final class StatusBarController: NSObject {
                 iconTint = NSColor.Voxa.error
             }
         }
-        
+
         // Create and apply the tinted icon
         if let image = NSImage(systemSymbolName: iconName, accessibilityDescription: tooltip) {
             button.image = createTintedStatusIcon(image: image, tint: iconTint, configuration: configuration)
@@ -506,7 +532,66 @@ final class StatusBarController: NSObject {
             button.image = createTintedStatusIcon(image: image, tint: pulseColor, configuration: configuration)
         }
     }
-    
+
+    // MARK: - US-034: Processing Animation
+
+    /// Start the processing animation (subtle opacity oscillation)
+    private func startProcessingAnimation() {
+        // Don't start if already running
+        guard processingTimer == nil else { return }
+
+        processingPhase = 0
+        processingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.updateProcessingEffect()
+        }
+    }
+
+    /// Stop the processing animation
+    private func stopProcessingAnimation() {
+        processingTimer?.invalidate()
+        processingTimer = nil
+        processingPhase = 0
+
+        // Reset button appearance
+        statusItem?.button?.alphaValue = 1.0
+    }
+
+    /// Update the processing effect (smooth opacity oscillation)
+    private func updateProcessingEffect() {
+        guard let button = statusItem?.button else { return }
+
+        // Increment phase for smooth sine wave animation (slower than recording pulse)
+        processingPhase += 0.08
+
+        // Calculate alpha value: oscillate between 0.6 and 1.0 for a breathing effect
+        let alpha = 0.8 + 0.2 * sin(processingPhase)
+        button.alphaValue = CGFloat(alpha)
+
+        // Re-tint the icon with varying intensity
+        updateProcessingIconWithAnimation(intensity: CGFloat(alpha))
+    }
+
+    /// Update the processing icon with animation intensity
+    private func updateProcessingIconWithAnimation(intensity: CGFloat) {
+        guard let button = statusItem?.button,
+              recordingState == .processing else { return }
+
+        let configuration = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        let iconName = recordingState.iconName
+
+        // Create accent color with varying brightness for breathing effect
+        let animatedColor = NSColor(
+            calibratedRed: NSColor.Voxa.accent.redComponent * intensity + 0.1 * (1 - intensity),
+            green: NSColor.Voxa.accent.greenComponent * intensity,
+            blue: NSColor.Voxa.accent.blueComponent * intensity,
+            alpha: 1.0
+        )
+
+        if let image = NSImage(systemSymbolName: iconName, accessibilityDescription: "Processing") {
+            button.image = createTintedStatusIcon(image: image, tint: animatedColor, configuration: configuration)
+        }
+    }
+
     /// Get human-readable text for model status
     private func modelStatusText(_ status: WhisperManager.ModelStatus) -> String {
         switch status {
