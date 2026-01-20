@@ -31,6 +31,43 @@ final class TextInserter: ObservableObject {
         case error(String)
     }
 
+    /// US-029: Insertion mode options for text insertion
+    /// Determines how transcribed text is inserted into applications
+    enum InsertionMode: String, CaseIterable, Identifiable {
+        case paste = "paste"
+        case type = "type"
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .paste: return "Paste (⌘V)"
+            case .type: return "Type (Keystrokes)"
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .paste: return "Copies text to clipboard and simulates Cmd+V paste. Works in all applications."
+            case .type: return "Simulates individual keystrokes. Better for apps that handle paste differently."
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .paste: return "doc.on.clipboard"
+            case .type: return "keyboard"
+            }
+        }
+
+        var features: [String] {
+            switch self {
+            case .paste: return ["Universal compatibility", "Fast insertion", "Reliable"]
+            case .type: return ["Character-by-character", "Native input feel", "No clipboard use"]
+            }
+        }
+    }
+
     /// US-028: Paste format options for text insertion
     /// Determines how transcribed text is formatted when pasted
     enum PasteFormat: String, CaseIterable, Identifiable {
@@ -72,8 +109,11 @@ final class TextInserter: ObservableObject {
         static let clipboardRestoreDelayKey = "clipboardRestoreDelay"
         // US-028: Paste format preference key
         static let pasteFormatKey = "pasteFormat"
+        // US-029: Insertion mode preference key
+        static let insertionModeKey = "insertionMode"
         static let defaultRestoreDelay: Double = 0.8  // US-513: 800ms as per acceptance criteria
         static let keystrokeDelay: UInt32 = 10_000    // US-514: 10ms in microseconds between key down and key up
+        static let typeKeystrokeDelay: UInt32 = 5_000 // US-029: 5ms between keystrokes in type mode
         static let pasteboardReadyDelay: UInt32 = 50_000  // 50ms to ensure pasteboard is ready before paste
         static let permissionPollingInterval: TimeInterval = 1.0  // 1 second polling
     }
@@ -99,6 +139,14 @@ final class TextInserter: ObservableObject {
     @Published var selectedPasteFormat: PasteFormat {
         didSet {
             UserDefaults.standard.set(selectedPasteFormat.rawValue, forKey: Constants.pasteFormatKey)
+        }
+    }
+
+    /// US-029: Selected insertion mode (paste or type)
+    /// Determines how transcribed text is inserted into applications
+    @Published var selectedInsertionMode: InsertionMode {
+        didSet {
+            UserDefaults.standard.set(selectedInsertionMode.rawValue, forKey: Constants.insertionModeKey)
         }
     }
 
@@ -148,6 +196,14 @@ final class TextInserter: ObservableObject {
             selectedPasteFormat = .plainText
         }
 
+        // US-029: Load saved insertion mode preference (default to paste)
+        if let savedMode = UserDefaults.standard.string(forKey: Constants.insertionModeKey),
+           let mode = InsertionMode(rawValue: savedMode) {
+            selectedInsertionMode = mode
+        } else {
+            selectedInsertionMode = .paste
+        }
+
         // Check initial permission status
         hasAccessibilityPermission = AXIsProcessTrusted()
 
@@ -160,7 +216,7 @@ final class TextInserter: ObservableObject {
         //     startPermissionPolling()
         // }
 
-        print("TextInserter initialized (preserveClipboard: \(preserveClipboard), restoreDelay: \(clipboardRestoreDelay)s, pasteFormat: \(selectedPasteFormat.rawValue), permission: \(hasAccessibilityPermission))")
+        print("TextInserter initialized (preserveClipboard: \(preserveClipboard), restoreDelay: \(clipboardRestoreDelay)s, pasteFormat: \(selectedPasteFormat.rawValue), insertionMode: \(selectedInsertionMode.rawValue), permission: \(hasAccessibilityPermission))")
     }
     
     deinit {
@@ -295,28 +351,15 @@ final class TextInserter: ObservableObject {
         insertionStatus = .inserting
         statusMessage = "Inserting text..."
 
-        // Save current clipboard if needed
-        if preserveClipboard {
-            saveClipboardContents()
-        }
+        // US-029: Route to appropriate insertion method based on selected mode
+        let simulationResult: InsertionResult
 
-        // US-028: Copy text to pasteboard using selected format
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        let success = setPasteboardContent(text, pasteboard: pasteboard)
-
-        guard success else {
-            insertionStatus = .error("Failed to copy to clipboard")
-            statusMessage = "Failed to copy text to clipboard"
-            onError?("Failed to copy text to clipboard")
-            return .insertionFailed("Failed to copy text to clipboard")
+        switch selectedInsertionMode {
+        case .paste:
+            simulationResult = await insertTextViaPaste(text)
+        case .type:
+            simulationResult = simulateTyping(text)
         }
-        
-        // Small delay to ensure pasteboard is ready before simulating paste
-        usleep(Constants.pasteboardReadyDelay)
-        
-        // Simulate Cmd+V keystroke
-        let simulationResult = simulatePaste()
         
         switch simulationResult {
         case .success:
@@ -324,39 +367,52 @@ final class TextInserter: ObservableObject {
             statusMessage = "Text inserted successfully"
             print("TextInserter: Text inserted successfully")
             onInsertionComplete?()
-            
-            // Restore clipboard if needed (with delay)
-            if preserveClipboard {
+
+            // Restore clipboard if needed (with delay) - only applies to paste mode
+            if selectedInsertionMode == .paste && preserveClipboard {
                 scheduleClipboardRestore()
             }
             return .success
-            
+
         case .insertionFailed(let message):
-            // US-515: Fallback - text is already on clipboard, show toast for manual paste
-            print("TextInserter: [US-515] Paste simulation failed, falling back to manual paste")
-            print("TextInserter: [US-515] Error details: \(message)")
-            
-            // Log detailed error
-            logSimulationError(message, phase: "pasteSimulation")
-            
-            // Update status to indicate fallback
-            insertionStatus = .error("Paste failed - use Cmd+V manually")
-            statusMessage = "Text copied - press Cmd+V to paste"
-            
-            // US-515: Show toast notification to user
-            // Text is already on clipboard from the earlier setString call
-            DispatchQueue.main.async {
-                ToastManager.shared.showManualPasteRequired()
+            // US-029: Handle failure differently based on insertion mode
+            if selectedInsertionMode == .paste {
+                // US-515: Fallback - text is already on clipboard, show toast for manual paste
+                print("TextInserter: [US-515] Paste simulation failed, falling back to manual paste")
+                print("TextInserter: [US-515] Error details: \(message)")
+
+                // Log detailed error
+                logSimulationError(message, phase: "pasteSimulation")
+
+                // Update status to indicate fallback
+                insertionStatus = .error("Paste failed - use Cmd+V manually")
+                statusMessage = "Text copied - press Cmd+V to paste"
+
+                // US-515: Show toast notification to user
+                // Text is already on clipboard from the earlier setString call
+                DispatchQueue.main.async {
+                    ToastManager.shared.showManualPasteRequired()
+                }
+
+                // US-515: Do NOT restore original clipboard - user needs to paste manually
+                // Clear the saved items so they don't get restored
+                savedClipboardItems = nil
+
+                // Notify error handler but with context that fallback is in effect
+                onError?("Paste simulation failed - text copied to clipboard for manual paste")
+
+                return .fallbackToManualPaste(message)
+            } else {
+                // US-029: Type mode failure - no clipboard fallback available
+                print("TextInserter: [US-029] Type mode insertion failed: \(message)")
+                logSimulationError(message, phase: "typeSimulation")
+
+                insertionStatus = .error("Typing failed")
+                statusMessage = "Failed to type text"
+                onError?("Type simulation failed: \(message)")
+
+                return .insertionFailed(message)
             }
-            
-            // US-515: Do NOT restore original clipboard - user needs to paste manually
-            // Clear the saved items so they don't get restored
-            savedClipboardItems = nil
-            
-            // Notify error handler but with context that fallback is in effect
-            onError?("Paste simulation failed - text copied to clipboard for manual paste")
-            
-            return .fallbackToManualPaste(message)
             
         case .noAccessibilityPermission:
             // Should not happen since we checked above
@@ -426,7 +482,89 @@ final class TextInserter: ObservableObject {
         print("TextInserter: [US-514] Cmd+V simulated successfully via CGEvent at .cghidEventTap")
         return .success
     }
-    
+
+    // MARK: - US-029: Paste Mode Insertion
+
+    /// US-029: Insert text using paste mode (clipboard + Cmd+V)
+    /// This is the original insertion method, now wrapped for mode selection
+    private func insertTextViaPaste(_ text: String) async -> InsertionResult {
+        print("TextInserter: [US-029] Using paste mode insertion")
+
+        // Save current clipboard if needed
+        if preserveClipboard {
+            saveClipboardContents()
+        }
+
+        // US-028: Copy text to pasteboard using selected format
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        let success = setPasteboardContent(text, pasteboard: pasteboard)
+
+        guard success else {
+            return .insertionFailed("Failed to copy text to clipboard")
+        }
+
+        // Small delay to ensure pasteboard is ready before simulating paste
+        usleep(Constants.pasteboardReadyDelay)
+
+        // Simulate Cmd+V keystroke
+        return simulatePaste()
+    }
+
+    // MARK: - US-029: Type Mode Insertion
+
+    /// US-029: Insert text using type mode (simulated keystrokes)
+    /// Simulates individual key presses for each character in the text
+    /// This method doesn't use the clipboard at all
+    private func simulateTyping(_ text: String) -> InsertionResult {
+        print("TextInserter: [US-029] Using type mode insertion for \(text.count) characters")
+
+        for (index, character) in text.enumerated() {
+            let result = simulateCharacterKeystroke(character)
+            if case .insertionFailed(let message) = result {
+                print("TextInserter: [US-029] Type mode failed at character \(index): \(message)")
+                return result
+            }
+
+            // Small delay between keystrokes for reliability
+            if index < text.count - 1 {
+                usleep(Constants.typeKeystrokeDelay)
+            }
+        }
+
+        print("TextInserter: [US-029] Type mode insertion completed successfully")
+        return .success
+    }
+
+    /// US-029: Simulate a single character keystroke using CGEvent
+    /// Uses Unicode input method for reliable character insertion
+    private func simulateCharacterKeystroke(_ character: Character) -> InsertionResult {
+        let string = String(character)
+
+        // Get the UTF-16 code units for the character
+        let utf16Array = Array(string.utf16)
+
+        // Create a key down event with the Unicode character
+        guard let keyDownEvent = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) else {
+            return .insertionFailed("Failed to create key down event for character")
+        }
+
+        // Set the Unicode string on the event
+        keyDownEvent.keyboardSetUnicodeString(stringLength: utf16Array.count, unicodeString: utf16Array)
+
+        // Create a key up event
+        guard let keyUpEvent = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else {
+            return .insertionFailed("Failed to create key up event for character")
+        }
+
+        // Post the events
+        keyDownEvent.post(tap: .cghidEventTap)
+        usleep(1000) // 1ms delay between key down and key up
+        keyUpEvent.post(tap: .cghidEventTap)
+
+        return .success
+    }
+
     /// US-515: Log detailed error information when keyboard simulation fails
     private func logSimulationError(_ message: String, phase: String) {
         print("""

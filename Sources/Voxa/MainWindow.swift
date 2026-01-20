@@ -9067,30 +9067,33 @@ struct TextInsertionSettingsSummary: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
-            // MARK: - Insertion Method Section (US-706 Task 1)
+            // MARK: - Insertion Method Section (US-029)
             insertionMethodSection
 
             Divider()
                 .background(Color.Voxa.border)
 
             // MARK: - Paste Format Section (US-028)
-            pasteFormatSection
-
-            Divider()
-                .background(Color.Voxa.border)
-
-            // MARK: - Clipboard Preservation Section (US-706 Task 2)
-            clipboardPreservationSection
-            
-            Divider()
-                .background(Color.Voxa.border)
-            
-            // MARK: - Timing Options Section (US-706 Task 3)
-            if textInserter.preserveClipboard {
-                timingOptionsSection
+            // US-029: Only show paste format when in paste mode
+            if textInserter.selectedInsertionMode == .paste {
+                pasteFormatSection
 
                 Divider()
                     .background(Color.Voxa.border)
+
+                // MARK: - Clipboard Preservation Section (US-706 Task 2)
+                clipboardPreservationSection
+
+                Divider()
+                    .background(Color.Voxa.border)
+
+                // MARK: - Timing Options Section (US-706 Task 3)
+                if textInserter.preserveClipboard {
+                    timingOptionsSection
+
+                    Divider()
+                        .background(Color.Voxa.border)
+                }
             }
 
             // MARK: - Undo History Section (US-027)
@@ -9125,8 +9128,8 @@ struct TextInsertionSettingsSummary: View {
     }
     
     // MARK: - Insertion Method Section
-    
-    /// US-706 Task 1: Show text insertion method options
+
+    /// US-029: Show text insertion method options (paste vs type)
     private var insertionMethodSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             // Section Header
@@ -9138,32 +9141,59 @@ struct TextInsertionSettingsSummary: View {
                     .font(Font.Voxa.headline)
                     .foregroundColor(Color.Voxa.textPrimary)
             }
-            
+
             Text("Choose how transcribed text is inserted into your applications.")
                 .font(Font.Voxa.caption)
                 .foregroundColor(Color.Voxa.textSecondary)
-            
-            // Method selection card
-            TextInsertionMethodCard(
-                isSelected: true, // Only paste method is currently supported
-                icon: "doc.on.clipboard",
-                title: "Paste (⌘V)",
-                description: "Copies text to clipboard and simulates Cmd+V paste. Works in all applications.",
-                features: ["Universal compatibility", "Works in all apps", "Reliable insertion"]
-            )
-            
-            // Note about other methods
+
+            // US-029: Method selection cards for all available modes
+            VStack(spacing: Spacing.sm) {
+                ForEach(TextInserter.InsertionMode.allCases, id: \.id) { mode in
+                    InsertionModeCard(
+                        mode: mode,
+                        isSelected: textInserter.selectedInsertionMode == mode,
+                        onSelect: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                textInserter.selectedInsertionMode = mode
+                            }
+                            print("[US-029] Insertion mode selected: \(mode.rawValue)")
+                        }
+                    )
+                }
+            }
+
+            // US-029: Mode description based on current selection
             HStack(spacing: Spacing.sm) {
-                Image(systemName: "info.circle.fill")
+                Image(systemName: insertionModeDescriptionIcon)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color.Voxa.info)
-                Text("The paste method is the most reliable and works across all applications.")
+                Text(insertionModeDescriptionText)
                     .font(Font.Voxa.small)
                     .foregroundColor(Color.Voxa.textSecondary)
             }
             .padding(Spacing.sm)
             .background(Color.Voxa.infoLight.opacity(0.3))
             .cornerRadius(CornerRadius.small)
+        }
+    }
+
+    /// US-029: Helper property for insertion mode description icon
+    private var insertionModeDescriptionIcon: String {
+        switch textInserter.selectedInsertionMode {
+        case .paste:
+            return "info.circle.fill"
+        case .type:
+            return "lightbulb.fill"
+        }
+    }
+
+    /// US-029: Helper property for insertion mode description text
+    private var insertionModeDescriptionText: String {
+        switch textInserter.selectedInsertionMode {
+        case .paste:
+            return "Paste mode is recommended for most applications and provides the fastest insertion."
+        case .type:
+            return "Type mode is useful for applications that don't support standard paste or handle clipboard differently."
         }
     }
 
@@ -9690,6 +9720,97 @@ struct TextInsertionMethodCard: View {
             RoundedRectangle(cornerRadius: CornerRadius.medium)
                 .stroke(isSelected ? Color.Voxa.accent.opacity(0.5) : Color.Voxa.border, lineWidth: isSelected ? 2 : 1)
         )
+        .scaleEffect(isHovering ? 1.01 : 1.0)
+        .animation(VoxaAnimation.quick, value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+}
+
+// MARK: - Insertion Mode Card (US-029)
+
+/// Card component for displaying an insertion mode option
+/// US-029: Configurable insertion behavior (paste vs type)
+struct InsertionModeCard: View {
+    let mode: TextInserter.InsertionMode
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                // Selection indicator
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.Voxa.accent : Color.Voxa.border, lineWidth: 2)
+                        .frame(width: 20, height: 20)
+
+                    if isSelected {
+                        Circle()
+                            .fill(Color.Voxa.accent)
+                            .frame(width: 12, height: 12)
+                    }
+                }
+                .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    // Icon and title
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: mode.icon)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(isSelected ? Color.Voxa.accent : Color.Voxa.textSecondary)
+
+                        Text(mode.displayName)
+                            .font(Font.Voxa.body)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Color.Voxa.textPrimary)
+
+                        if isSelected {
+                            Text("Active")
+                                .font(Font.Voxa.small)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color.Voxa.success)
+                                .padding(.horizontal, Spacing.sm)
+                                .padding(.vertical, Spacing.xs - 2)
+                                .background(Color.Voxa.successLight)
+                                .cornerRadius(CornerRadius.small)
+                        }
+                    }
+
+                    Text(mode.description)
+                        .font(Font.Voxa.caption)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                        .multilineTextAlignment(.leading)
+
+                    // Features list
+                    HStack(spacing: Spacing.md) {
+                        ForEach(mode.features, id: \.self) { feature in
+                            HStack(spacing: Spacing.xs) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(Color.Voxa.success)
+                                Text(feature)
+                                    .font(Font.Voxa.small)
+                                    .foregroundColor(Color.Voxa.textSecondary)
+                            }
+                        }
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(Spacing.md)
+            .background(isSelected ? Color.Voxa.accentLight.opacity(0.3) : Color.Voxa.surface)
+            .cornerRadius(CornerRadius.medium)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(isSelected ? Color.Voxa.accent.opacity(0.5) : Color.Voxa.border, lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
         .scaleEffect(isHovering ? 1.01 : 1.0)
         .animation(VoxaAnimation.quick, value: isHovering)
         .onHover { hovering in
@@ -10412,6 +10533,7 @@ struct DebugSettingsSummary: View {
         TextInserter.shared.preserveClipboard = true
         TextInserter.shared.clipboardRestoreDelay = 0.8
         TextInserter.shared.selectedPasteFormat = .plainText  // US-028
+        TextInserter.shared.selectedInsertionMode = .paste  // US-029
 
         // US-027: Reset undo history settings
         UndoStackManager.shared.resetToDefaults()
