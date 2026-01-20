@@ -10937,9 +10937,9 @@ struct DebugSettingsSummary: View {
         }
     }
     
-    // MARK: - Debug Actions Section (US-707 Tasks 2, 3)
-    
-    /// Export logs and open recordings folder buttons
+    // MARK: - Debug Actions Section (US-707 Tasks 2, 3, US-048)
+
+    /// Export logs, diagnostic report, and open recordings folder buttons
     private var debugActionsSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(spacing: Spacing.sm) {
@@ -10950,7 +10950,25 @@ struct DebugSettingsSummary: View {
                     .font(Font.Voxa.headline)
                     .foregroundColor(Color.Voxa.textPrimary)
             }
-            
+
+            // US-048: Diagnostic Report - One-click generation (always available)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Button(action: exportDiagnosticReport) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "doc.badge.gearshape")
+                        Text("Export Diagnostic Report")
+                    }
+                }
+                .buttonStyle(VoxaButtonStyle.primary)
+
+                Text("Generate a comprehensive report for support. Includes system info, settings, and logs. Does not include audio or transcriptions.")
+                    .font(Font.Voxa.caption)
+                    .foregroundColor(Color.Voxa.textSecondary)
+            }
+
+            Divider()
+                .background(Color.Voxa.border)
+
             // Action buttons row
             HStack(spacing: Spacing.md) {
                 // Export Logs button (US-707 Task 2)
@@ -10962,7 +10980,7 @@ struct DebugSettingsSummary: View {
                 }
                 .buttonStyle(VoxaButtonStyle.secondary)
                 .disabled(!debugManager.isDebugModeEnabled || debugManager.logEntries.isEmpty)
-                
+
                 // Open Recordings Folder button (US-707 Task 3)
                 Button(action: {
                     AudioExporter.shared.openDebugRecordingsFolder()
@@ -11261,7 +11279,30 @@ struct DebugSettingsSummary: View {
         let timestamp = formatter.string(from: Date())
         return "Voxa_Logs_\(timestamp).txt"
     }
-    
+
+    /// US-048: Export comprehensive diagnostic report for support
+    /// Includes: system info, app config, device info, recent logs
+    /// Excludes: audio data, transcription content
+    private func exportDiagnosticReport() {
+        print("[US-048] Export Diagnostic Report button clicked")
+
+        debugManager.exportDiagnosticReport { result in
+            switch result {
+            case .success(let url):
+                self.exportMessage = "Diagnostic report exported successfully to:\n\(url.path)"
+                self.exportedFilePath = url.path
+                print("[US-048] Diagnostic report exported to: \(url.path)")
+            case .failure(let error):
+                if case .cancelled = error {
+                    // User cancelled - no message needed
+                    return
+                }
+                self.exportMessage = "Failed to export diagnostic report: \(error.localizedDescription)"
+            }
+            self.showExportSuccess = true
+        }
+    }
+
     /// Reset all settings to defaults (US-707 Task 5)
     private func resetAllSettings() {
         print("[US-707] Resetting all settings to defaults...")

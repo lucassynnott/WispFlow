@@ -829,9 +829,341 @@ final class DebugManager: ObservableObject {
     }
     
     // MARK: - US-707: Get System Info
-    
+
     /// Get current system information
     func getSystemInfo() -> SystemInfo {
         return SystemInfo.current()
+    }
+
+    // MARK: - US-048: Diagnostic Report Export
+
+    /// Export a comprehensive diagnostic report for support
+    /// Includes: system info, app configuration, recent logs, device info
+    /// Explicitly EXCLUDES: audio data, transcription content
+    /// - Parameter completion: Called with the result (file URL or error)
+    func exportDiagnosticReport(completion: @escaping (Result<URL, ExportError>) -> Void) {
+        let reportContent = generateDiagnosticReportContent()
+
+        DispatchQueue.main.async {
+            let savePanel = NSSavePanel()
+            savePanel.title = "Export Diagnostic Report"
+            savePanel.nameFieldStringValue = self.generateDiagnosticFilename()
+            savePanel.allowedContentTypes = [.plainText]
+            savePanel.canCreateDirectories = true
+            savePanel.message = "Choose a location to save the diagnostic report"
+
+            savePanel.begin { response in
+                if response == .OK, let url = savePanel.url {
+                    do {
+                        try reportContent.write(to: url, atomically: true, encoding: .utf8)
+                        print("[US-048] Diagnostic report exported to: \(url.path)")
+                        self.addLogEntry(category: .system, level: .info, message: "Diagnostic report exported")
+                        completion(.success(url))
+                    } catch {
+                        print("[US-048] Failed to export diagnostic report: \(error.localizedDescription)")
+                        completion(.failure(.writeFailed(error.localizedDescription)))
+                    }
+                } else {
+                    completion(.failure(.cancelled))
+                }
+            }
+        }
+    }
+
+    /// Generate diagnostic report filename with timestamp
+    private func generateDiagnosticFilename() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = formatter.string(from: Date())
+        return "Voxa_Diagnostic_\(timestamp).txt"
+    }
+
+    /// Generate comprehensive diagnostic report content
+    /// NOTE: This explicitly excludes audio data and transcription content for privacy
+    private func generateDiagnosticReportContent() -> String {
+        let systemInfo = SystemInfo.current()
+        let deviceCapability = DeviceCapabilityManager.shared.deviceCapability
+
+        var report = """
+        ═══════════════════════════════════════════════════════════════
+                         VOXA DIAGNOSTIC REPORT
+        ═══════════════════════════════════════════════════════════════
+        Report Generated: \(DateFormatter.localizedString(from: Date(), dateStyle: .full, timeStyle: .medium))
+
+        This report contains diagnostic information for troubleshooting.
+        It does NOT include any audio recordings or transcription content.
+
+        ───────────────────────────────────────────────────────────────
+                              SYSTEM INFORMATION
+        ───────────────────────────────────────────────────────────────
+        \(systemInfo.formattedString)
+
+        ───────────────────────────────────────────────────────────────
+                            DEVICE CAPABILITIES
+        ───────────────────────────────────────────────────────────────
+        RAM: \(deviceCapability.ramGB) GB
+        Processor: \(deviceCapability.processorName)
+        Chip Tier: \(String(describing: deviceCapability.chipTier))
+        Pro/Max/Ultra: \(deviceCapability.isProMaxUltra ? "Yes" : "No")
+        Capability Score: \(deviceCapability.capabilityScore)/100
+        Recommended Model: \(DeviceCapabilityManager.shared.recommendedModel.rawValue)
+
+        """
+
+        // Add audio device information
+        report += generateAudioDeviceInfo()
+
+        // Add app configuration (without sensitive data)
+        report += generateAppConfigurationInfo()
+
+        // Add model status
+        report += generateModelStatusInfo()
+
+        // Add recent logs from file (with transcription content redacted)
+        report += generateRecentLogsInfo()
+
+        // Add recent error logs
+        report += generateRecentErrorLogsInfo()
+
+        return report
+    }
+
+    /// Generate audio device information section
+    private func generateAudioDeviceInfo() -> String {
+        let audioManager = AudioManager.shared
+
+        var section = """
+
+        ───────────────────────────────────────────────────────────────
+                           AUDIO DEVICE INFORMATION
+        ───────────────────────────────────────────────────────────────
+
+        """
+
+        if let currentDevice = audioManager.currentDevice {
+            section += """
+            Current Device: \(currentDevice.name)
+            Device UID: \(redactSensitiveData(currentDevice.uid))
+            Sample Rate: \(Int(currentDevice.sampleRate)) Hz
+            Is Default: \(currentDevice.isDefault ? "Yes" : "No")
+
+            """
+        } else {
+            section += "Current Device: None selected\n\n"
+        }
+
+        section += "Available Devices:\n"
+        for device in audioManager.inputDevices {
+            let isSelected = device.uid == audioManager.currentDevice?.uid
+            section += "  \(isSelected ? "→ " : "  ")\(device.name) (\(Int(device.sampleRate)) Hz)\(device.isDefault ? " [System Default]" : "")\n"
+        }
+
+        // Add calibration status
+        if audioManager.isCurrentDeviceCalibrated {
+            section += "\nCalibration: Device is calibrated\n"
+            section += "Effective Silence Threshold: \(String(format: "%.1f", audioManager.effectiveSilenceThreshold)) dB\n"
+        } else {
+            section += "\nCalibration: Not calibrated (using default threshold)\n"
+        }
+
+        return section
+    }
+
+    /// Generate app configuration section (excluding sensitive data)
+    private func generateAppConfigurationInfo() -> String {
+        var section = """
+
+        ───────────────────────────────────────────────────────────────
+                            APP CONFIGURATION
+        ───────────────────────────────────────────────────────────────
+
+        """
+
+        // Debug settings
+        section += "Debug Settings:\n"
+        section += "  Debug Mode: \(isDebugModeEnabled ? "Enabled" : "Disabled")\n"
+        section += "  Log Level: \(selectedLogLevel.rawValue)\n"
+        section += "  File Logging: \(isFileLoggingEnabled ? "Enabled" : "Disabled")\n"
+        section += "  Silence Detection Override: \(isSilenceDetectionDisabled ? "Yes" : "No")\n"
+        section += "  Auto-Save Recordings: \(isAutoSaveEnabled ? "Enabled" : "Disabled")\n"
+
+        // Model settings
+        section += "\nWhisper Model Settings:\n"
+        let selectedModel = UserDefaults.standard.string(forKey: "selectedWhisperModel") ?? "base"
+        let selectedLanguage = UserDefaults.standard.string(forKey: "selectedTranscriptionLanguage") ?? "auto"
+        section += "  Selected Model: \(selectedModel)\n"
+        section += "  Language: \(selectedLanguage)\n"
+
+        // Text cleanup settings
+        section += "\nText Cleanup Settings:\n"
+        let cleanupEnabled = UserDefaults.standard.bool(forKey: "cleanupEnabled")
+        let cleanupMode = UserDefaults.standard.string(forKey: "cleanupMode") ?? "basic"
+        let autoCapitalize = UserDefaults.standard.bool(forKey: "autoCapitalizeFirstLetter")
+        let addPeriod = UserDefaults.standard.bool(forKey: "addPeriodAtEnd")
+        let trimWhitespace = UserDefaults.standard.bool(forKey: "trimWhitespace")
+        section += "  Cleanup Enabled: \(cleanupEnabled ? "Yes" : "No")\n"
+        section += "  Cleanup Mode: \(cleanupMode)\n"
+        section += "  Auto-Capitalize: \(autoCapitalize ? "Yes" : "No")\n"
+        section += "  Add Period: \(addPeriod ? "Yes" : "No")\n"
+        section += "  Trim Whitespace: \(trimWhitespace ? "Yes" : "No")\n"
+
+        // LLM settings
+        section += "\nLLM Settings:\n"
+        let llmModel = UserDefaults.standard.string(forKey: "selectedLLMModel") ?? "none"
+        let useCustomPath = UserDefaults.standard.bool(forKey: "useCustomModelPath")
+        section += "  Selected LLM: \(llmModel)\n"
+        section += "  Custom Model Path: \(useCustomPath ? "Yes" : "No")\n"
+
+        // Text insertion settings
+        section += "\nText Insertion Settings:\n"
+        let preserveClipboard = UserDefaults.standard.bool(forKey: "preserveClipboard")
+        let clipboardDelay = UserDefaults.standard.double(forKey: "clipboardRestoreDelay")
+        section += "  Preserve Clipboard: \(preserveClipboard ? "Yes" : "No")\n"
+        if preserveClipboard {
+            section += "  Restore Delay: \(String(format: "%.1f", clipboardDelay))s\n"
+        }
+
+        // Audio settings
+        section += "\nAudio Settings:\n"
+        let maxDuration = UserDefaults.standard.double(forKey: "maxRecordingDuration")
+        section += "  Max Recording Duration: \(maxDuration > 0 ? "\(Int(maxDuration))s" : "Unlimited")\n"
+
+        // Hotkey configuration (just show if configured, not the actual keys for privacy)
+        let hotkeyConfigured = UserDefaults.standard.data(forKey: "hotkeyConfiguration") != nil
+        section += "\nHotkey: \(hotkeyConfigured ? "Configured" : "Not configured")\n"
+
+        // Onboarding status
+        let completedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        section += "Onboarding Completed: \(completedOnboarding ? "Yes" : "No")\n"
+
+        return section
+    }
+
+    /// Generate model status section
+    private func generateModelStatusInfo() -> String {
+        let whisperManager = WhisperManager.shared
+
+        var section = """
+
+        ───────────────────────────────────────────────────────────────
+                              MODEL STATUS
+        ───────────────────────────────────────────────────────────────
+
+        """
+
+        section += "Current Whisper Model: \(whisperManager.selectedModel.rawValue)\n"
+        section += "Model Status: \(formatModelStatus(whisperManager.modelStatus))\n"
+        section += "Is Ready: \(whisperManager.isReady ? "Yes" : "No")\n"
+
+        if let pendingModel = whisperManager.pendingModel {
+            section += "Pending Model Switch: \(pendingModel.rawValue)\n"
+        }
+
+        // List downloaded models
+        section += "\nDownloaded Models:\n"
+        for model in WhisperManager.ModelSize.allCases {
+            let isDownloaded = whisperManager.isModelDownloaded(model)
+            section += "  \(model.rawValue): \(isDownloaded ? "Downloaded" : "Not downloaded")\n"
+        }
+
+        return section
+    }
+
+    /// Format model status enum to human-readable string
+    private func formatModelStatus(_ status: WhisperManager.ModelStatus) -> String {
+        switch status {
+        case .notDownloaded:
+            return "Not Downloaded"
+        case .downloading(let progress):
+            return "Downloading (\(Int(progress * 100))%)"
+        case .downloaded:
+            return "Downloaded"
+        case .loading:
+            return "Loading"
+        case .ready:
+            return "Ready"
+        case .error(let message):
+            return "Error: \(message)"
+        case .switching(let toModel, let progress):
+            return "Switching to \(toModel) (\(Int(progress * 100))%)"
+        }
+    }
+
+    /// Generate recent logs section (with transcription content redacted)
+    private func generateRecentLogsInfo() -> String {
+        var section = """
+
+        ───────────────────────────────────────────────────────────────
+                              RECENT DEBUG LOGS
+        ───────────────────────────────────────────────────────────────
+
+        """
+
+        // Read recent entries from debug.log file
+        if let logContent = try? String(contentsOf: logFileURL, encoding: .utf8) {
+            let lines = logContent.components(separatedBy: "\n")
+            // Get last 100 lines (or all if fewer)
+            let recentLines = lines.suffix(100)
+
+            // Redact any transcription text content for privacy
+            let redactedLines = recentLines.map { line -> String in
+                // Redact patterns that might contain transcription content
+                var redactedLine = line
+
+                // Redact "Raw:" and "Text:" patterns that contain transcription
+                if let range = redactedLine.range(of: "Raw: ") {
+                    let afterRaw = redactedLine[range.upperBound...]
+                    redactedLine = String(redactedLine[..<range.upperBound]) + "[TRANSCRIPTION_REDACTED]"
+                    _ = afterRaw // suppress warning
+                }
+                if let range = redactedLine.range(of: "Text: ") {
+                    redactedLine = String(redactedLine[..<range.upperBound]) + "[TRANSCRIPTION_REDACTED]"
+                }
+                if let range = redactedLine.range(of: "Cleaned: ") {
+                    redactedLine = String(redactedLine[..<range.upperBound]) + "[TRANSCRIPTION_REDACTED]"
+                }
+
+                return redactSensitiveData(redactedLine)
+            }
+
+            section += redactedLines.joined(separator: "\n")
+        } else {
+            section += "No debug log file found at \(logFileURL.path)\n"
+        }
+
+        return section
+    }
+
+    /// Generate recent error logs section
+    private func generateRecentErrorLogsInfo() -> String {
+        var section = """
+
+        ───────────────────────────────────────────────────────────────
+                              RECENT ERROR LOGS
+        ───────────────────────────────────────────────────────────────
+
+        """
+
+        // Get recent error log entries
+        let errorEntries = ErrorLogger.shared.recentEntries(count: 50)
+
+        if errorEntries.isEmpty {
+            section += "No recent errors logged.\n"
+        } else {
+            for entry in errorEntries {
+                // Redact sensitive data
+                let redactedEntry = redactSensitiveData(entry)
+                section += redactedEntry + "\n\n"
+            }
+        }
+
+        section += """
+
+        ═══════════════════════════════════════════════════════════════
+                           END OF DIAGNOSTIC REPORT
+        ═══════════════════════════════════════════════════════════════
+        """
+
+        return section
     }
 }
