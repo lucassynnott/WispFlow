@@ -515,6 +515,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // US-027: Handle redo transcription hotkey
+        hotkeyManager?.onRedoHotkeyPressed = { [weak self] in
+            print("AppDelegate: [US-027] Redo hotkey pressed")
+            DispatchQueue.main.async {
+                self?.redoLastTranscription()
+            }
+        }
+
         // US-020: Handle push-to-talk key release to stop recording
         hotkeyManager?.onHotkeyReleased = { [weak self] in
             print("AppDelegate: [US-020] Push-to-talk hotkey released")
@@ -834,6 +842,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "Undo Failed",
                 message: "Could not remove the text",
                 icon: "exclamationmark.triangle"
+            )
+        }
+
+        // Reset inserter status
+        inserter.resetStatus()
+    }
+
+    /// US-027: Redo last undone transcription
+    @MainActor
+    private func redoLastTranscription() {
+        // Check if there's anything to redo
+        guard UndoStackManager.shared.canRedo else {
+            print("AppDelegate: [US-027] No transcription to redo")
+            ToastManager.shared.showWarning(
+                "Nothing to Redo",
+                message: "No undone transcription to redo"
+            )
+            return
+        }
+
+        guard let entry = UndoStackManager.shared.topRedoEntry else {
+            return
+        }
+
+        print("AppDelegate: [US-027] Redoing transcription (\(entry.characterCount) characters)")
+
+        // Perform the redo (re-insert the text)
+        Task {
+            await performRedo(entry: entry)
+        }
+    }
+
+    /// US-027: Perform the actual redo operation (re-insert text)
+    @MainActor
+    private func performRedo(entry: UndoEntry) async {
+        guard let inserter = textInserter else {
+            print("AppDelegate: [US-027] TextInserter not available")
+            return
+        }
+
+        let result = await inserter.insertText(entry.text)
+
+        switch result {
+        case .success:
+            // Move entry from redo stack back to undo stack
+            UndoStackManager.shared.popRedoEntry()
+
+            // Show success feedback
+            ToastManager.shared.showSuccess(
+                "Redo Complete",
+                message: "\(entry.characterCount) characters restored",
+                icon: "arrow.uturn.forward"
+            )
+            print("AppDelegate: [US-027] Redo successful")
+
+        case .noAccessibilityPermission:
+            print("AppDelegate: [US-027] Redo failed - no accessibility permission")
+            showAccessibilityPermissionAlert()
+
+        case .insertionFailed(let message):
+            print("AppDelegate: [US-027] Redo failed: \(message)")
+            ToastManager.shared.showError(
+                "Redo Failed",
+                message: "Could not restore the text",
+                icon: "exclamationmark.triangle"
+            )
+
+        case .fallbackToManualPaste(let message):
+            // Text is on clipboard, user can paste manually
+            // Still move entry from redo to undo since text will be inserted
+            UndoStackManager.shared.popRedoEntry()
+            print("AppDelegate: [US-027] Redo fallback to manual paste: \(message)")
+            ToastManager.shared.showWarning(
+                "Manual Paste Required",
+                message: "Press ⌘V to paste the text",
+                icon: "doc.on.clipboard"
             )
         }
 

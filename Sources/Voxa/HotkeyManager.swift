@@ -33,6 +33,10 @@ final class HotkeyManager: ObservableObject {
         static let undoHotkeyKeyCodeKey = "undoHotkeyKeyCode"
         static let undoHotkeyModifiersKey = "undoHotkeyModifiers"
         static let undoHotkeyEnabledKey = "undoHotkeyEnabled"
+        // US-027: Redo transcription hotkey configuration keys
+        static let redoHotkeyKeyCodeKey = "redoHotkeyKeyCode"
+        static let redoHotkeyModifiersKey = "redoHotkeyModifiers"
+        static let redoHotkeyEnabledKey = "redoHotkeyEnabled"
     }
     
     // MARK: - US-512: System Shortcut Conflicts
@@ -314,6 +318,12 @@ final class HotkeyManager: ObservableObject {
             keyCode: UInt16(kVK_ANSI_Z),
             modifierFlags: [.command]
         )
+
+        /// US-027: Default redo transcription hotkey is Command+Shift+Z (⇧⌘Z)
+        static let defaultRedoHotkey = HotkeyConfiguration(
+            keyCode: UInt16(kVK_ANSI_Z),
+            modifierFlags: [.command, .shift]
+        )
         
         /// Human-readable string for the hotkey
         var displayString: String {
@@ -385,6 +395,17 @@ final class HotkeyManager: ObservableObject {
         }
     }
 
+    /// US-027: Redo transcription hotkey configuration
+    @Published private(set) var redoConfiguration: HotkeyConfiguration
+
+    /// US-027: Whether redo transcription hotkey is enabled
+    @Published var redoHotkeyEnabled: Bool {
+        didSet {
+            saveRedoConfiguration()
+            print("HotkeyManager: [US-027] redoHotkeyEnabled set to \(redoHotkeyEnabled)")
+        }
+    }
+
     /// US-015: Whether to use the same hotkey for both start and stop (toggle behavior)
     @Published var useSameHotkeyForStop: Bool {
         didSet {
@@ -420,6 +441,9 @@ final class HotkeyManager: ObservableObject {
     /// US-026: Callback triggered when the undo transcription hotkey is pressed
     var onUndoHotkeyPressed: (() -> Void)?
 
+    /// US-027: Callback triggered when the redo transcription hotkey is pressed
+    var onRedoHotkeyPressed: (() -> Void)?
+
     /// US-020: Callback triggered when the start hotkey is released (for push-to-talk mode)
     var onHotkeyReleased: (() -> Void)?
 
@@ -454,6 +478,10 @@ final class HotkeyManager: ObservableObject {
         let (undoConfig, undoEnabled) = Self.loadUndoConfiguration()
         self.undoConfiguration = undoConfig
         self.undoHotkeyEnabled = undoEnabled
+        // US-027: Load redo transcription hotkey configuration
+        let (redoConfig, redoEnabled) = Self.loadRedoConfiguration()
+        self.redoConfiguration = redoConfig
+        self.redoHotkeyEnabled = redoEnabled
         // US-020: Load push-to-talk setting
         self.pushToTalkEnabled = Self.loadPushToTalkSetting()
         print("HotkeyManager: [US-510] Initialized with start hotkey: \(self.configuration.displayString)")
@@ -461,6 +489,7 @@ final class HotkeyManager: ObservableObject {
         print("HotkeyManager: [US-016] Cancel hotkey: \(self.cancelConfiguration.displayString)")
         print("HotkeyManager: [US-017] Insert hotkey: \(self.insertConfiguration.displayString)")
         print("HotkeyManager: [US-026] Undo hotkey: \(undoEnabled ? self.undoConfiguration.displayString : "disabled")")
+        print("HotkeyManager: [US-027] Redo hotkey: \(redoEnabled ? self.redoConfiguration.displayString : "disabled")")
         print("HotkeyManager: [US-020] Push-to-talk mode: \(self.pushToTalkEnabled ? "enabled" : "disabled")")
     }
     
@@ -613,6 +642,40 @@ final class HotkeyManager: ObservableObject {
         defaults.set(Int(undoConfiguration.modifierFlags), forKey: Constants.undoHotkeyModifiersKey)
         defaults.set(undoHotkeyEnabled, forKey: Constants.undoHotkeyEnabledKey)
         print("HotkeyManager: [US-026] Saved undo hotkey configuration: \(undoConfiguration.displayString), enabled: \(undoHotkeyEnabled)")
+    }
+
+    // MARK: - US-027: Redo Hotkey Persistence
+
+    /// Load redo hotkey configuration from UserDefaults
+    private static func loadRedoConfiguration() -> (HotkeyConfiguration, Bool) {
+        let defaults = UserDefaults.standard
+
+        // Check if redo hotkey is enabled (defaults to true)
+        let enabled = defaults.object(forKey: Constants.redoHotkeyEnabledKey) == nil
+            ? true
+            : defaults.bool(forKey: Constants.redoHotkeyEnabledKey)
+
+        // Check if we have saved redo hotkey values
+        if defaults.object(forKey: Constants.redoHotkeyKeyCodeKey) != nil {
+            let keyCode = UInt16(defaults.integer(forKey: Constants.redoHotkeyKeyCodeKey))
+            let modifiers = UInt(defaults.integer(forKey: Constants.redoHotkeyModifiersKey))
+            let config = HotkeyConfiguration(keyCode: keyCode, modifierFlags: modifiers)
+            print("HotkeyManager: [US-027] Loaded saved redo hotkey configuration: \(config.displayString)")
+            return (config, enabled)
+        }
+
+        // Default redo hotkey is Command+Shift+Z
+        print("HotkeyManager: [US-027] Using default redo hotkey configuration (Cmd+Shift+Z)")
+        return (.defaultRedoHotkey, enabled)
+    }
+
+    /// Save redo hotkey configuration to UserDefaults
+    private func saveRedoConfiguration() {
+        let defaults = UserDefaults.standard
+        defaults.set(Int(redoConfiguration.keyCode), forKey: Constants.redoHotkeyKeyCodeKey)
+        defaults.set(Int(redoConfiguration.modifierFlags), forKey: Constants.redoHotkeyModifiersKey)
+        defaults.set(redoHotkeyEnabled, forKey: Constants.redoHotkeyEnabledKey)
+        print("HotkeyManager: [US-027] Saved redo hotkey configuration: \(redoConfiguration.displayString), enabled: \(redoHotkeyEnabled)")
     }
 
     // MARK: - US-020: Push-to-Talk Persistence
@@ -795,6 +858,19 @@ final class HotkeyManager: ObservableObject {
         undoHotkeyEnabled = true
     }
 
+    /// US-027: Update the redo hotkey configuration and save to UserDefaults
+    func updateRedoConfiguration(_ newConfig: HotkeyConfiguration) {
+        redoConfiguration = newConfig
+        saveRedoConfiguration()
+        print("HotkeyManager: [US-027] Redo hotkey updated to \(newConfig.displayString)")
+    }
+
+    /// US-027: Reset redo hotkey to default (Command+Shift+Z) and save
+    func resetRedoToDefault() {
+        updateRedoConfiguration(.defaultRedoHotkey)
+        redoHotkeyEnabled = true
+    }
+
     /// Get current hotkey display string
     var hotkeyDisplayString: String {
         return configuration.displayString
@@ -818,6 +894,11 @@ final class HotkeyManager: ObservableObject {
     /// US-026: Get current undo hotkey display string
     var undoHotkeyDisplayString: String {
         return undoConfiguration.displayString
+    }
+
+    /// US-027: Get current redo hotkey display string
+    var redoHotkeyDisplayString: String {
+        return redoConfiguration.displayString
     }
 
     /// US-015: Get the effective stop configuration (either same as start or separate)
@@ -997,6 +1078,25 @@ final class HotkeyManager: ObservableObject {
             }
 
             return Unmanaged.passUnretained(event)
+        }
+
+        // US-027: Check for redo transcription hotkey match FIRST (more specific: Cmd+Shift+Z)
+        // This must come before undo check since redo has more modifiers
+        if manager.redoHotkeyEnabled {
+            let redoKeyCode = Int64(manager.redoConfiguration.keyCode)
+            let redoModifiers = manager.redoConfiguration.cgEventFlags.intersection(modifierMask)
+
+            if keyCode == redoKeyCode && eventModifiers == redoModifiers {
+                // Redo hotkey matched!
+                print("HotkeyManager: [US-027] Redo hotkey detected: \(manager.redoConfiguration.displayString)")
+
+                // Call the redo callback on the main thread
+                DispatchQueue.main.async {
+                    manager.onRedoHotkeyPressed?()
+                }
+
+                return Unmanaged.passUnretained(event)
+            }
         }
 
         // US-026: Check for undo transcription hotkey match (only if enabled)

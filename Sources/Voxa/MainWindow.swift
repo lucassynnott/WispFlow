@@ -9062,6 +9062,7 @@ struct TextCleanupPreviewText: View {
 struct TextInsertionSettingsSummary: View {
     @StateObject private var textInserter = TextInserter.shared
     @StateObject private var permissionManager = PermissionManager.shared
+    @StateObject private var undoStackManager = UndoStackManager.shared
     @State private var showPermissionGrantedMessage = false
     
     var body: some View {
@@ -9081,11 +9082,17 @@ struct TextInsertionSettingsSummary: View {
             // MARK: - Timing Options Section (US-706 Task 3)
             if textInserter.preserveClipboard {
                 timingOptionsSection
-                
+
                 Divider()
                     .background(Color.Voxa.border)
             }
-            
+
+            // MARK: - Undo History Section (US-027)
+            undoHistorySection
+
+            Divider()
+                .background(Color.Voxa.border)
+
             // MARK: - Accessibility Permission Section
             accessibilityPermissionSection
             
@@ -9268,9 +9275,137 @@ struct TextInsertionSettingsSummary: View {
             .cornerRadius(CornerRadius.small)
         }
     }
-    
+
+    // MARK: - Undo History Section (US-027)
+
+    /// US-027: Undo history settings with configurable depth
+    private var undoHistorySection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // Section Header
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "arrow.uturn.backward.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color.Voxa.accent)
+                Text("Undo History")
+                    .font(Font.Voxa.headline)
+                    .foregroundColor(Color.Voxa.textPrimary)
+            }
+
+            Text("Configure how many transcriptions can be undone/redone.")
+                .font(Font.Voxa.caption)
+                .foregroundColor(Color.Voxa.textSecondary)
+
+            // Max undo levels slider
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack {
+                    Text("History Depth")
+                        .font(Font.Voxa.body)
+                        .foregroundColor(Color.Voxa.textPrimary)
+
+                    Spacer()
+
+                    // Formatted value badge
+                    Text("\(undoStackManager.maxUndoLevels) levels")
+                        .font(Font.Voxa.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color.Voxa.accent)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xs)
+                        .background(Color.Voxa.accentLight)
+                        .cornerRadius(CornerRadius.small)
+                }
+
+                // Slider for max undo levels
+                Slider(
+                    value: Binding(
+                        get: { Double(undoStackManager.maxUndoLevels) },
+                        set: { undoStackManager.maxUndoLevels = Int($0) }
+                    ),
+                    in: Double(UndoStackManager.undoLevelsRange.lowerBound)...Double(UndoStackManager.undoLevelsRange.upperBound),
+                    step: 5
+                )
+                .accentColor(Color.Voxa.accent)
+
+                // Slider labels
+                HStack {
+                    Text("\(UndoStackManager.undoLevelsRange.lowerBound)")
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textTertiary)
+                    Spacer()
+                    Text("\(UndoStackManager.undoLevelsRange.upperBound)")
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textTertiary)
+                }
+            }
+            .padding(Spacing.md)
+            .background(Color.Voxa.surface)
+            .cornerRadius(CornerRadius.medium)
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(Color.Voxa.border, lineWidth: 1)
+            )
+
+            // Current status
+            HStack(spacing: Spacing.md) {
+                // Undo stack status
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.Voxa.textSecondary)
+                    Text("Undo: \(undoStackManager.undoStack.count)")
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                }
+
+                // Redo stack status
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "arrow.uturn.forward")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.Voxa.textSecondary)
+                    Text("Redo: \(undoStackManager.redoStack.count)")
+                        .font(Font.Voxa.small)
+                        .foregroundColor(Color.Voxa.textSecondary)
+                }
+
+                Spacer()
+
+                // Clear button
+                if !undoStackManager.undoStack.isEmpty || !undoStackManager.redoStack.isEmpty {
+                    Button(action: {
+                        undoStackManager.clearStack()
+                    }) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 11, weight: .medium))
+                            Text("Clear")
+                                .font(Font.Voxa.small)
+                        }
+                        .foregroundColor(Color.Voxa.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(Spacing.sm)
+            .background(Color.Voxa.surface.opacity(0.5))
+            .cornerRadius(CornerRadius.small)
+
+            // Info note
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color.Voxa.info)
+                Text("Use ⌘Z to undo and ⇧⌘Z to redo transcriptions.")
+                    .font(Font.Voxa.small)
+                    .foregroundColor(Color.Voxa.textSecondary)
+            }
+            .padding(Spacing.sm)
+            .background(Color.Voxa.infoLight.opacity(0.3))
+            .cornerRadius(CornerRadius.small)
+        }
+    }
+
     // MARK: - Accessibility Permission Section
-    
+
     private var accessibilityPermissionSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             // Section Header
@@ -10141,7 +10276,10 @@ struct DebugSettingsSummary: View {
         // Reset text insertion settings
         TextInserter.shared.preserveClipboard = true
         TextInserter.shared.clipboardRestoreDelay = 0.8
-        
+
+        // US-027: Reset undo history settings
+        UndoStackManager.shared.resetToDefaults()
+
         // Reset hotkey to default
         HotkeyManager.shared.resetToDefault()
         
