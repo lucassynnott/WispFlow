@@ -56,7 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Initialize and start the hotkey manager
         setupHotkeyManager()
-        
+
+        // US-022: Provide hotkey manager to status bar controller for mode indicator
+        statusBarController?.hotkeyManager = hotkeyManager
+
         // Initialize the recording indicator (but don't show it yet)
         setupRecordingIndicator()
         

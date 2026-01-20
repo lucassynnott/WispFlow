@@ -5053,6 +5053,11 @@ struct GeneralSettingsSummary: View {
                 Text("Global Hotkeys")
                     .font(Font.Voxa.headline)
                     .foregroundColor(Color.Voxa.textPrimary)
+
+                Spacer()
+
+                // US-022: Visual Hotkey Mode Indicator
+                hotkeyModeIndicator
             }
 
             Text("Configure keyboard shortcuts for recording control from any app.")
@@ -5283,8 +5288,39 @@ struct GeneralSettingsSummary: View {
         .animation(.easeInOut(duration: 0.2), value: isRecordingInsertHotkey)
     }
 
+    // MARK: - US-022: Hotkey Mode Indicator
+
+    /// Visual indicator showing current hotkey mode (push-to-talk vs toggle)
+    private var hotkeyModeIndicator: some View {
+        let modeName: String
+        let modeIcon: String
+
+        if hotkeyManager.pushToTalkEnabled {
+            modeName = "Push-to-Talk"
+            modeIcon = "hand.tap"
+        } else if hotkeyManager.useSameHotkeyForStop {
+            modeName = "Toggle"
+            modeIcon = "arrow.triangle.2.circlepath"
+        } else {
+            modeName = "Separate Keys"
+            modeIcon = "rectangle.split.2x1"
+        }
+
+        return HStack(spacing: Spacing.xs) {
+            Image(systemName: modeIcon)
+                .font(.system(size: 10, weight: .medium))
+            Text(modeName)
+                .font(Font.Voxa.caption)
+        }
+        .foregroundColor(Color.Voxa.textSecondary)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(Color.Voxa.border.opacity(0.5))
+        .cornerRadius(12)
+    }
+
     // MARK: - Startup Section
-    
+
     /// Launch at login toggle
     private var startupSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {

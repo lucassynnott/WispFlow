@@ -33,6 +33,16 @@ final class StatusBarController: NSObject {
             setupModelStatusObserver()
         }
     }
+
+    // US-022: Reference to hotkey manager for mode indicator
+    weak var hotkeyManager: HotkeyManager? {
+        didSet {
+            setupHotkeyModeObserver()
+        }
+    }
+
+    // US-022: Observer for hotkey mode changes
+    private var hotkeyModeObservers: [AnyCancellable] = []
     
     override init() {
         super.init()
@@ -77,7 +87,13 @@ final class StatusBarController: NSObject {
         modelStatusItem.tag = 100 // Tag to identify for updates
         modelStatusItem.isEnabled = false
         menu.addItem(modelStatusItem)
-        
+
+        // US-022: Hotkey mode indicator (non-clickable, just shows current mode)
+        let hotkeyModeItem = NSMenuItem(title: "Mode: Toggle", action: nil, keyEquivalent: "")
+        hotkeyModeItem.tag = 101 // Tag to identify for updates
+        hotkeyModeItem.isEnabled = false
+        menu.addItem(hotkeyModeItem)
+
         menu.addItem(NSMenuItem.separator())
         
         // US-632: Open Main Window item with app icon
@@ -247,7 +263,60 @@ final class StatusBarController: NSObject {
                 }
         }
     }
-    
+
+    // MARK: - US-022: Hotkey Mode Observation
+
+    private func setupHotkeyModeObserver() {
+        // Cancel any existing observers
+        hotkeyModeObservers.removeAll()
+
+        guard let hotkeyManager = hotkeyManager else { return }
+
+        // Observe pushToTalkEnabled changes
+        hotkeyModeObservers.append(
+            hotkeyManager.$pushToTalkEnabled
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.updateHotkeyModeMenuItem()
+                }
+        )
+
+        // Observe useSameHotkeyForStop changes
+        hotkeyModeObservers.append(
+            hotkeyManager.$useSameHotkeyForStop
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.updateHotkeyModeMenuItem()
+                }
+        )
+
+        // Initial update
+        updateHotkeyModeMenuItem()
+    }
+
+    /// Update the hotkey mode menu item to show current mode
+    private func updateHotkeyModeMenuItem() {
+        guard let menu = statusItem?.menu,
+              let hotkeyModeItem = menu.item(withTag: 101),
+              let hotkeyManager = hotkeyManager else { return }
+
+        let modeName: String
+        let modeIcon: String
+
+        if hotkeyManager.pushToTalkEnabled {
+            modeName = "Push-to-Talk"
+            modeIcon = "🎤"
+        } else if hotkeyManager.useSameHotkeyForStop {
+            modeName = "Toggle"
+            modeIcon = "🔄"
+        } else {
+            modeName = "Separate Keys"
+            modeIcon = "⌨️"
+        }
+
+        hotkeyModeItem.title = "\(modeIcon) Mode: \(modeName)"
+    }
+
     // MARK: - Icon Management
     
     private func updateIcon() {
