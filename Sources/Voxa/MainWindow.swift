@@ -453,12 +453,16 @@ struct NavigationItemRow: View {
 /// US-633: Dashboard Home View
 struct HomeContentView: View {
     @StateObject private var statsManager = UsageStatsManager.shared
+    /// US-039: Whisper model manager for model status display
+    @StateObject private var whisperManager = WhisperManager.shared
+    /// US-039: Audio manager for device status display
+    @StateObject private var audioManager = AudioManager.shared
     @State private var hoveredQuickAction: QuickAction?
     /// US-805: Hover state for Quick Tools buttons
     @State private var hoveredQuickTool: QuickToolAction?
     /// US-805: State for audio import file picker
     @State private var showAudioImportPicker = false
-    
+
     /// US-802: Recording state for Start Recording button
     @State private var isRecording = false
     /// US-802: Hover state for Start Recording button lift effect
@@ -561,27 +565,18 @@ struct HomeContentView: View {
                 
                 Spacer()
                 
-                // Date and System Active status
+                // US-039: Date and Model/Device status
                 HStack(spacing: Spacing.md) {
                     // Current date
                     Text(currentDateString)
                         .font(Font.Voxa.caption)
                         .foregroundColor(Color.Voxa.textSecondary)
-                    
-                    // System Active status indicator
-                    HStack(spacing: Spacing.xs) {
-                        Circle()
-                            .fill(Color.Voxa.success)
-                            .frame(width: 8, height: 8)
-                        
-                        Text("System Active")
-                            .font(Font.Voxa.small)
-                            .foregroundColor(Color.Voxa.textSecondary)
-                    }
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, Spacing.xs)
-                    .background(Color.Voxa.success.opacity(0.1))
-                    .cornerRadius(CornerRadius.small)
+
+                    // US-039: Model status indicator
+                    modelStatusIndicator
+
+                    // US-039: Device status indicator
+                    deviceStatusIndicator
                 }
             }
             
@@ -741,7 +736,115 @@ struct HomeContentView: View {
         formatter.dateFormat = "EEEE, MMMM d"
         return formatter.string(from: Date())
     }
-    
+
+    // MARK: - US-039: Model Status Indicator
+
+    /// US-039: Model status indicator showing current model and its status
+    private var modelStatusIndicator: some View {
+        HStack(spacing: Spacing.xs) {
+            // Status indicator dot
+            Circle()
+                .fill(modelStatusColor)
+                .frame(width: 8, height: 8)
+
+            // Model name and status
+            Text(modelStatusText)
+                .font(Font.Voxa.small)
+                .foregroundColor(Color.Voxa.textSecondary)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(modelStatusColor.opacity(0.1))
+        .cornerRadius(CornerRadius.small)
+    }
+
+    /// US-039: Color for model status indicator based on current model status
+    private var modelStatusColor: Color {
+        switch whisperManager.modelStatus {
+        case .ready:
+            return Color.Voxa.success
+        case .loading, .downloading, .switching:
+            return Color.Voxa.warning
+        case .error:
+            return Color.Voxa.error
+        case .notDownloaded, .downloaded:
+            return Color.Voxa.textTertiary
+        }
+    }
+
+    /// US-039: Text for model status indicator showing model name and status
+    private var modelStatusText: String {
+        let modelName = whisperManager.selectedModel.displayName
+        switch whisperManager.modelStatus {
+        case .ready:
+            return "\(modelName) Ready"
+        case .loading:
+            return "\(modelName) Loading..."
+        case .downloading(let progress):
+            return "\(modelName) \(Int(progress * 100))%"
+        case .switching(let toModel, let progress):
+            return "→ \(toModel) \(Int(progress * 100))%"
+        case .error:
+            return "\(modelName) Error"
+        case .notDownloaded:
+            return "\(modelName) Not Downloaded"
+        case .downloaded:
+            return "\(modelName) Downloaded"
+        }
+    }
+
+    // MARK: - US-039: Device Status Indicator
+
+    /// US-039: Device status indicator showing current audio input device
+    private var deviceStatusIndicator: some View {
+        HStack(spacing: Spacing.xs) {
+            // Microphone icon
+            Image(systemName: deviceIconName)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(Color.Voxa.textSecondary)
+
+            // Device name (truncated if needed)
+            Text(deviceDisplayName)
+                .font(Font.Voxa.small)
+                .foregroundColor(Color.Voxa.textSecondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(Color.Voxa.surfaceSecondary.opacity(0.5))
+        .cornerRadius(CornerRadius.small)
+    }
+
+    /// US-039: Icon name for device based on device type
+    private var deviceIconName: String {
+        guard let device = audioManager.currentDevice else {
+            return "mic.slash"
+        }
+        let name = device.name.lowercased()
+        if name.contains("airpods") || name.contains("headphone") || name.contains("beats") {
+            return "airpodspro"
+        } else if name.contains("bluetooth") {
+            return "wave.3.right"
+        } else if name.contains("usb") || name.contains("yeti") || name.contains("blue") {
+            return "mic.fill"
+        } else {
+            return "mic"
+        }
+    }
+
+    /// US-039: Display name for current audio device (truncated for UI)
+    private var deviceDisplayName: String {
+        guard let device = audioManager.currentDevice else {
+            return "No Device"
+        }
+        // Truncate long device names for compact display
+        let name = device.name
+        if name.count > 20 {
+            return String(name.prefix(17)) + "..."
+        }
+        return name
+    }
+
     /// Subtitle showing last session info (US-801)
     /// Format: "Ready to capture your thoughts? Your last session was X ago."
     /// Negative case: No previous session -> "Ready to capture your thoughts?"
