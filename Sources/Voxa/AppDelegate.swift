@@ -504,6 +504,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // US-020: Handle push-to-talk key release to stop recording
+        hotkeyManager?.onHotkeyReleased = { [weak self] in
+            print("AppDelegate: [US-020] Push-to-talk hotkey released")
+            DispatchQueue.main.async {
+                self?.stopRecordingFromPushToTalk()
+            }
+        }
+
         // Only start hotkey manager immediately if onboarding has been completed
         // Otherwise, it will be started after onboarding completes (in setupOnboarding completion callback)
         // This prevents permission prompts from appearing before the user reaches the accessibility step
@@ -714,6 +722,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             message: "Audio discarded",
             icon: "xmark.circle"
         )
+
+        // US-020: Reset push-to-talk state if enabled
+        hotkeyManager?.resetPushToTalkState()
+    }
+
+    /// US-020: Stop recording when push-to-talk key is released
+    private func stopRecordingFromPushToTalk() {
+        // Only stop if we're currently recording
+        guard statusBarController?.currentState == .recording else {
+            print("AppDelegate: [US-020] Push-to-talk release ignored - not currently recording")
+            return
+        }
+
+        print("AppDelegate: [US-020] Stopping recording from push-to-talk release")
+
+        // Set state to idle - this triggers the normal stop recording flow
+        // which will process transcription automatically
+        statusBarController?.setRecordingState(.idle)
     }
 
     /// US-017: Insert last transcription at cursor position

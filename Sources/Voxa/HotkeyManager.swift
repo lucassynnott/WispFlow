@@ -27,6 +27,8 @@ final class HotkeyManager: ObservableObject {
         // US-017: Insert last transcription hotkey configuration keys
         static let insertHotkeyKeyCodeKey = "insertHotkeyKeyCode"
         static let insertHotkeyModifiersKey = "insertHotkeyModifiers"
+        // US-020: Push-to-talk mode configuration key
+        static let pushToTalkEnabledKey = "pushToTalkEnabled"
     }
     
     // MARK: - US-512: System Shortcut Conflicts
@@ -370,6 +372,18 @@ final class HotkeyManager: ObservableObject {
         }
     }
 
+    /// US-020: Whether push-to-talk mode is enabled (hold to record, release to stop)
+    @Published var pushToTalkEnabled: Bool {
+        didSet {
+            savePushToTalkSetting()
+            print("HotkeyManager: [US-020] pushToTalkEnabled set to \(pushToTalkEnabled)")
+            // Restart event tap to add/remove key-up event handling
+            if isActive {
+                start()
+            }
+        }
+    }
+
     /// Callback triggered when the start hotkey is pressed
     var onHotkeyPressed: (() -> Void)?
 
@@ -382,12 +396,19 @@ final class HotkeyManager: ObservableObject {
     /// US-017: Callback triggered when the insert last transcription hotkey is pressed
     var onInsertHotkeyPressed: (() -> Void)?
 
+    /// US-020: Callback triggered when the start hotkey is released (for push-to-talk mode)
+    var onHotkeyReleased: (() -> Void)?
+
     /// Callback triggered when accessibility permission is needed (US-510)
     var onAccessibilityPermissionNeeded: (() -> Void)?
 
     /// Whether the event tap is currently active
     @Published private(set) var isActive: Bool = false
-    
+
+    /// US-020: Track if we're currently in a push-to-talk recording session
+    /// This is used to detect when the key is released to stop recording
+    private var isPushToTalkRecording: Bool = false
+
     // MARK: - Initialization
 
     init(configuration: HotkeyConfiguration? = nil) {
@@ -405,10 +426,13 @@ final class HotkeyManager: ObservableObject {
         self.cancelConfiguration = Self.loadCancelConfiguration()
         // US-017: Load insert last transcription hotkey configuration
         self.insertConfiguration = Self.loadInsertConfiguration()
+        // US-020: Load push-to-talk setting
+        self.pushToTalkEnabled = Self.loadPushToTalkSetting()
         print("HotkeyManager: [US-510] Initialized with start hotkey: \(self.configuration.displayString)")
         print("HotkeyManager: [US-015] Stop hotkey: \(useSame ? "same as start" : self.stopConfiguration.displayString)")
         print("HotkeyManager: [US-016] Cancel hotkey: \(self.cancelConfiguration.displayString)")
         print("HotkeyManager: [US-017] Insert hotkey: \(self.insertConfiguration.displayString)")
+        print("HotkeyManager: [US-020] Push-to-talk mode: \(self.pushToTalkEnabled ? "enabled" : "disabled")")
     }
     
     // MARK: - Persistence
@@ -528,6 +552,24 @@ final class HotkeyManager: ObservableObject {
         print("HotkeyManager: [US-017] Saved insert hotkey configuration: \(insertConfiguration.displayString)")
     }
 
+    // MARK: - US-020: Push-to-Talk Persistence
+
+    /// Load push-to-talk setting from UserDefaults
+    private static func loadPushToTalkSetting() -> Bool {
+        let defaults = UserDefaults.standard
+        // Default is false (toggle mode, not push-to-talk)
+        let enabled = defaults.bool(forKey: Constants.pushToTalkEnabledKey)
+        print("HotkeyManager: [US-020] Loaded push-to-talk setting: \(enabled)")
+        return enabled
+    }
+
+    /// Save push-to-talk setting to UserDefaults
+    private func savePushToTalkSetting() {
+        let defaults = UserDefaults.standard
+        defaults.set(pushToTalkEnabled, forKey: Constants.pushToTalkEnabledKey)
+        print("HotkeyManager: [US-020] Saved push-to-talk setting: \(pushToTalkEnabled)")
+    }
+
     deinit {
         stop()
     }
@@ -556,8 +598,14 @@ final class HotkeyManager: ObservableObject {
         
         // Create CGEvent tap at kCGSessionEventTap level (US-510)
         // This ensures hotkeys work regardless of which app is focused
-        let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
-        
+        // US-020: Include keyUp events when push-to-talk mode is enabled
+        var eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+        if pushToTalkEnabled {
+            eventMask |= (1 << CGEventType.keyUp.rawValue)
+            eventMask |= (1 << CGEventType.flagsChanged.rawValue) // For modifier key release detection
+            print("HotkeyManager: [US-020] Push-to-talk enabled - also listening for keyUp and flagsChanged events")
+        }
+
         // Create the event tap with callback
         // Use .listenOnly to avoid blocking other apps - we just want to observe the hotkey
         // .defaultTap can cause system-wide blocking issues
@@ -575,26 +623,29 @@ final class HotkeyManager: ObservableObject {
             }
             return
         }
-        
+
         eventTap = tap
-        
+
         // Create a run loop source and add it to the current run loop
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        
+
         guard let source = runLoopSource else {
             print("HotkeyManager: [US-510] Failed to create run loop source")
             stop()
             return
         }
-        
+
         CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
-        
+
         // Enable the event tap
         CGEvent.tapEnable(tap: tap, enable: true)
-        
+
         isActive = true
         print("HotkeyManager: [US-510] Started - listening for \(configuration.displayString) via CGEvent tap at kCGSessionEventTap level")
         print("HotkeyManager: [US-510] Hotkey works when any application is focused")
+        if pushToTalkEnabled {
+            print("HotkeyManager: [US-020] Push-to-talk mode active - hold to record, release to stop")
+        }
     }
     
     /// Stop listening for global hotkey events
@@ -699,9 +750,10 @@ final class HotkeyManager: ObservableObject {
     }
     
     // MARK: - CGEvent Tap Callback (US-510)
-    
+
     /// Static callback for CGEvent tap
-    /// This is called for every key down event when the tap is active
+    /// This is called for every key down/up event when the tap is active
+    /// US-020: Updated to handle key-up events for push-to-talk mode
     private static let eventTapCallback: CGEventTapCallBack = { proxy, type, event, userInfo in
         // Handle tap disabled events (system can disable taps if they take too long)
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
@@ -715,26 +767,69 @@ final class HotkeyManager: ObservableObject {
             }
             return Unmanaged.passUnretained(event)
         }
-        
-        // Only process key down events
-        guard type == .keyDown else {
-            return Unmanaged.passUnretained(event)
-        }
-        
+
         guard let userInfo = userInfo else {
             return Unmanaged.passUnretained(event)
         }
-        
+
         let manager = Unmanaged<HotkeyManager>.fromOpaque(userInfo).takeUnretainedValue()
-        
-        // Get key code from the event
-        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        
-        // Get modifier flags from the event (US-510: detect Command, Shift, Option, Control)
-        let eventFlags = event.flags
-        
+
         // Compare modifier flags (mask out non-modifier flags like caps lock indicator)
         let modifierMask: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
+
+        // US-020: Handle key-up and flagsChanged events for push-to-talk mode
+        if manager.pushToTalkEnabled && manager.isPushToTalkRecording {
+            if type == .keyUp || type == .flagsChanged {
+                // Get key code and modifiers from the event
+                let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+                let eventFlags = event.flags
+                let eventModifiers = eventFlags.intersection(modifierMask)
+
+                // Check if the start hotkey key was released or if modifiers no longer match
+                let startKeyCode = Int64(manager.configuration.keyCode)
+                let startModifiers = manager.configuration.cgEventFlags.intersection(modifierMask)
+
+                // For keyUp: check if it's the same key
+                // For flagsChanged: check if the required modifiers are no longer pressed
+                var shouldStopRecording = false
+
+                if type == .keyUp && keyCode == startKeyCode {
+                    // The main key was released
+                    shouldStopRecording = true
+                    print("HotkeyManager: [US-020] Push-to-talk key released (keyUp)")
+                } else if type == .flagsChanged {
+                    // Check if any required modifier is no longer pressed
+                    // A modifier is required if it's part of the hotkey configuration
+                    if !startModifiers.isEmpty && !eventModifiers.contains(startModifiers) {
+                        shouldStopRecording = true
+                        print("HotkeyManager: [US-020] Push-to-talk modifier released (flagsChanged)")
+                    }
+                }
+
+                if shouldStopRecording {
+                    manager.isPushToTalkRecording = false
+                    print("HotkeyManager: [US-020] Push-to-talk recording ended")
+
+                    // Call the release callback on the main thread
+                    DispatchQueue.main.async {
+                        manager.onHotkeyReleased?()
+                    }
+
+                    return Unmanaged.passUnretained(event)
+                }
+            }
+        }
+
+        // Only process key down events for starting actions
+        guard type == .keyDown else {
+            return Unmanaged.passUnretained(event)
+        }
+
+        // Get key code from the event
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+
+        // Get modifier flags from the event (US-510: detect Command, Shift, Option, Control)
+        let eventFlags = event.flags
         let eventModifiers = eventFlags.intersection(modifierMask)
 
         // US-015: Check for start hotkey match
@@ -745,16 +840,30 @@ final class HotkeyManager: ObservableObject {
             // Start hotkey matched!
             print("HotkeyManager: [US-510] Start hotkey detected: \(manager.configuration.displayString)")
 
-            // Call the callback on the main thread
-            DispatchQueue.main.async {
-                manager.onHotkeyPressed?()
+            // US-020: In push-to-talk mode, track that we're now recording
+            if manager.pushToTalkEnabled {
+                // Only start if not already recording (prevent key repeat triggers)
+                if !manager.isPushToTalkRecording {
+                    manager.isPushToTalkRecording = true
+                    print("HotkeyManager: [US-020] Push-to-talk recording started")
+
+                    // Call the callback on the main thread
+                    DispatchQueue.main.async {
+                        manager.onHotkeyPressed?()
+                    }
+                }
+            } else {
+                // Normal toggle mode
+                DispatchQueue.main.async {
+                    manager.onHotkeyPressed?()
+                }
             }
 
             return Unmanaged.passUnretained(event)
         }
 
-        // US-015: Check for stop hotkey match (only if using different hotkey)
-        if !manager.useSameHotkeyForStop {
+        // US-015: Check for stop hotkey match (only if using different hotkey and not in push-to-talk mode)
+        if !manager.useSameHotkeyForStop && !manager.pushToTalkEnabled {
             let stopKeyCode = Int64(manager.stopConfiguration.keyCode)
             let stopModifiers = manager.stopConfiguration.cgEventFlags.intersection(modifierMask)
 
@@ -778,6 +887,12 @@ final class HotkeyManager: ObservableObject {
         if keyCode == cancelKeyCode && eventModifiers == cancelModifiers {
             // Cancel hotkey matched!
             print("HotkeyManager: [US-016] Cancel hotkey detected: \(manager.cancelConfiguration.displayString)")
+
+            // US-020: If in push-to-talk mode and recording, also clear the recording state
+            if manager.pushToTalkEnabled && manager.isPushToTalkRecording {
+                manager.isPushToTalkRecording = false
+                print("HotkeyManager: [US-020] Push-to-talk recording cancelled")
+            }
 
             // Call the cancel callback on the main thread
             DispatchQueue.main.async {
@@ -806,5 +921,11 @@ final class HotkeyManager: ObservableObject {
         // Always pass the event through - we're using .listenOnly mode
         // so we can only observe events, not consume them
         return Unmanaged.passUnretained(event)
+    }
+
+    /// US-020: Reset push-to-talk recording state (called when recording is cancelled externally)
+    func resetPushToTalkState() {
+        isPushToTalkRecording = false
+        print("HotkeyManager: [US-020] Push-to-talk state reset")
     }
 }

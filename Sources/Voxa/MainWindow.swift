@@ -5098,62 +5098,94 @@ struct GeneralSettingsSummary: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            Divider()
-                .background(Color.Voxa.border)
-                .padding(.vertical, Spacing.xs)
-
-            // US-015: Stop Recording Hotkey
+            // US-020: Push-to-Talk Mode Toggle
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("Stop Recording")
+                Toggle("Push-to-talk mode", isOn: $hotkeyManager.pushToTalkEnabled)
+                    .toggleStyle(VoxaToggleStyle())
                     .font(Font.Voxa.body)
                     .foregroundColor(Color.Voxa.textPrimary)
 
-                // Toggle for using same hotkey
-                Toggle("Use same hotkey (toggle behavior)", isOn: $hotkeyManager.useSameHotkeyForStop)
-                    .toggleStyle(VoxaToggleStyle())
+                Text("Hold hotkey to record, release to stop and transcribe.")
                     .font(Font.Voxa.caption)
                     .foregroundColor(Color.Voxa.textSecondary)
 
-                if !hotkeyManager.useSameHotkeyForStop {
-                    HStack(spacing: Spacing.md) {
-                        GeneralSettingsHotkeyRecorder(
-                            hotkeyManager: hotkeyManager,
-                            isRecording: $isRecordingStopHotkey,
-                            isForStopHotkey: true
-                        )
-
-                        Button(action: {
-                            print("[US-015] Button action: Reset Stop Hotkey to Default")
-                            hotkeyManager.updateStopConfiguration(.defaultHotkey)
-                        }) {
-                            HStack(spacing: Spacing.xs) {
-                                Image(systemName: "arrow.counterclockwise")
-                                Text("Reset")
-                            }
-                        }
-                        .buttonStyle(VoxaButtonStyle.secondary)
-                        .disabled(hotkeyManager.stopConfiguration == .defaultHotkey)
-                    }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-
-                if isRecordingStopHotkey {
-                    HStack(spacing: Spacing.sm) {
-                        ProgressView()
-                            .scaleEffect(0.6)
-                            .frame(width: 12, height: 12)
-                        Text("Press your desired key combination...")
+                if hotkeyManager.pushToTalkEnabled {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "hand.tap")
+                            .foregroundColor(Color.Voxa.accent)
+                            .font(.system(size: 12))
+                        Text("Recording starts on press, stops on release")
                             .font(Font.Voxa.caption)
                             .foregroundColor(Color.Voxa.accent)
                     }
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background(Color.Voxa.accent.opacity(0.1))
+                    .cornerRadius(6)
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .animation(.easeInOut(duration: 0.2), value: hotkeyManager.useSameHotkeyForStop)
+            .padding(.top, Spacing.sm)
+            .animation(.easeInOut(duration: 0.2), value: hotkeyManager.pushToTalkEnabled)
 
             Divider()
                 .background(Color.Voxa.border)
                 .padding(.vertical, Spacing.xs)
+
+            // US-015: Stop Recording Hotkey (hidden when push-to-talk is enabled)
+            if !hotkeyManager.pushToTalkEnabled {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text("Stop Recording")
+                        .font(Font.Voxa.body)
+                        .foregroundColor(Color.Voxa.textPrimary)
+
+                    // Toggle for using same hotkey
+                    Toggle("Use same hotkey (toggle behavior)", isOn: $hotkeyManager.useSameHotkeyForStop)
+                        .toggleStyle(VoxaToggleStyle())
+                        .font(Font.Voxa.caption)
+                        .foregroundColor(Color.Voxa.textSecondary)
+
+                    if !hotkeyManager.useSameHotkeyForStop {
+                        HStack(spacing: Spacing.md) {
+                            GeneralSettingsHotkeyRecorder(
+                                hotkeyManager: hotkeyManager,
+                                isRecording: $isRecordingStopHotkey,
+                                isForStopHotkey: true
+                            )
+
+                            Button(action: {
+                                print("[US-015] Button action: Reset Stop Hotkey to Default")
+                                hotkeyManager.updateStopConfiguration(.defaultHotkey)
+                            }) {
+                                HStack(spacing: Spacing.xs) {
+                                    Image(systemName: "arrow.counterclockwise")
+                                    Text("Reset")
+                                }
+                            }
+                            .buttonStyle(VoxaButtonStyle.secondary)
+                            .disabled(hotkeyManager.stopConfiguration == .defaultHotkey)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    if isRecordingStopHotkey {
+                        HStack(spacing: Spacing.sm) {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .frame(width: 12, height: 12)
+                            Text("Press your desired key combination...")
+                                .font(Font.Voxa.caption)
+                                .foregroundColor(Color.Voxa.accent)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .animation(.easeInOut(duration: 0.2), value: hotkeyManager.useSameHotkeyForStop)
+
+                Divider()
+                    .background(Color.Voxa.border)
+                    .padding(.vertical, Spacing.xs)
+            }
 
             // US-016: Cancel Recording Hotkey
             VStack(alignment: .leading, spacing: Spacing.sm) {
