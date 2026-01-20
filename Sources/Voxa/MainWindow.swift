@@ -6586,7 +6586,9 @@ struct AudioSettingsMetric: View {
 /// US-704: Migrate Transcription Settings Section to integrated settings view
 struct TranscriptionSettingsSummary: View {
     @StateObject private var whisperManager = WhisperManager.shared
-    
+    /// US-013: Device capability manager for model recommendations
+    @StateObject private var deviceCapabilityManager = DeviceCapabilityManager.shared
+
     /// Loading state for model operations
     @State private var isLoadingModel = false
     
@@ -6666,6 +6668,8 @@ struct TranscriptionSettingsSummary: View {
                         isActive: model == whisperManager.selectedModel && whisperManager.modelStatus == .ready,
                         // US-008: Show switching indicator when this model is being hot-swapped to
                         isSwitchingTo: whisperManager.pendingModel == model,
+                        // US-013: Show recommended badge for optimal model
+                        isRecommended: deviceCapabilityManager.isModelRecommended(model),
                         onSelect: {
                             Task {
                                 print("[US-704] Model selected: \(model.rawValue)")
@@ -7009,6 +7013,8 @@ struct TranscriptionModelCard: View {
     let isActive: Bool
     /// US-008: Whether this model is currently being switched to (hot-swap in progress)
     var isSwitchingTo: Bool = false
+    /// US-013: Whether this model is recommended for the user's device
+    var isRecommended: Bool = false
     let onSelect: () -> Void
 
     @State private var isHovering = false
@@ -7051,7 +7057,12 @@ struct TranscriptionModelCard: View {
                             .font(Font.Voxa.body)
                             .fontWeight(.medium)
                             .foregroundColor(Color.Voxa.textPrimary)
-                        
+
+                        // US-013: Recommended badge (shown independently of status)
+                        if isRecommended {
+                            TranscriptionModelBadge(text: "Recommended", color: Color.Voxa.warning)
+                        }
+
                         // Status badge
                         // US-008: Show switching indicator during hot-swap
                         if isSwitchingTo {
