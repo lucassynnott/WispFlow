@@ -262,7 +262,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ToastManager.shared.showPreferredDeviceReconnected(deviceName: deviceName)
             }
         }
-        
+
+        // US-003: Handle new device connected with options to switch or continue
+        audioManager?.onNewDeviceConnected = { [weak self] newDeviceUID, newDeviceName, currentDeviceName in
+            print("AppDelegate: [US-003] New device connected: \(newDeviceName) (current: \(currentDeviceName))")
+            ErrorLogger.shared.log(
+                "New audio device connected",
+                category: .audio,
+                severity: .info,
+                context: [
+                    "newDevice": newDeviceName,
+                    "currentDevice": currentDeviceName
+                ]
+            )
+            DispatchQueue.main.async {
+                ToastManager.shared.showNewDeviceConnected(
+                    newDeviceName: newDeviceName,
+                    currentDeviceName: currentDeviceName,
+                    onSwitch: {
+                        print("AppDelegate: [US-003] User chose to switch to \(newDeviceName)")
+                        ErrorLogger.shared.log(
+                            "User switched to new audio device",
+                            category: .audio,
+                            severity: .info,
+                            context: ["device": newDeviceName]
+                        )
+                        self?.audioManager?.selectDevice(uid: newDeviceUID)
+                    },
+                    onKeepCurrent: {
+                        print("AppDelegate: [US-003] User chose to keep current device: \(currentDeviceName)")
+                        ErrorLogger.shared.log(
+                            "User kept current audio device",
+                            category: .audio,
+                            severity: .info,
+                            context: ["device": currentDeviceName]
+                        )
+                        // No action needed - just dismiss the toast
+                    }
+                )
+            }
+        }
+
         // US-603: Handle recording timeout warning (shown at 4 minutes by default)
         audioManager?.onRecordingTimeoutWarning = { remainingSeconds in
             print("AppDelegate: [US-603] Recording timeout warning - \(remainingSeconds) seconds remaining")

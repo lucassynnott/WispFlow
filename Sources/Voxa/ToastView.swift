@@ -64,8 +64,11 @@ struct ToastItem: Identifiable, Equatable {
     let icon: String?
     let actionTitle: String?
     let action: (() -> Void)?
+    /// US-003: Secondary action for toasts with two options
+    let secondaryActionTitle: String?
+    let secondaryAction: (() -> Void)?
     let duration: TimeInterval
-    
+
     init(
         id: UUID = UUID(),
         type: ToastType,
@@ -74,6 +77,8 @@ struct ToastItem: Identifiable, Equatable {
         icon: String? = nil,
         actionTitle: String? = nil,
         action: (() -> Void)? = nil,
+        secondaryActionTitle: String? = nil,
+        secondaryAction: (() -> Void)? = nil,
         duration: TimeInterval = 3.0
     ) {
         self.id = id
@@ -83,9 +88,11 @@ struct ToastItem: Identifiable, Equatable {
         self.icon = icon
         self.actionTitle = actionTitle
         self.action = action
+        self.secondaryActionTitle = secondaryActionTitle
+        self.secondaryAction = secondaryAction
         self.duration = duration
     }
-    
+
     static func == (lhs: ToastItem, rhs: ToastItem) -> Bool {
         lhs.id == rhs.id
     }
@@ -327,25 +334,48 @@ struct VoxaToast: View {
             }
             
             Spacer(minLength: Spacing.sm)
-            
-            // Action button (optional)
-            if let actionTitle = toast.actionTitle, let action = toast.action {
-                Button(action: {
-                    action()
-                    onDismiss()
-                }) {
-                    Text(actionTitle)
-                        .font(Font.Voxa.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(toast.type.backgroundColor)
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, Spacing.xs)
-                        .background(toast.type.backgroundColor.opacity(0.15))
-                        .cornerRadius(CornerRadius.small / 2)
+
+            // US-003: Action buttons (primary and optional secondary)
+            if toast.actionTitle != nil || toast.secondaryActionTitle != nil {
+                HStack(spacing: Spacing.xs) {
+                    // Secondary action button (shown first, typically "Keep Current")
+                    if let secondaryTitle = toast.secondaryActionTitle, let secondaryAction = toast.secondaryAction {
+                        Button(action: {
+                            secondaryAction()
+                            onDismiss()
+                        }) {
+                            Text(secondaryTitle)
+                                .font(Font.Voxa.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(Color.Voxa.textSecondary)
+                                .padding(.horizontal, Spacing.sm)
+                                .padding(.vertical, Spacing.xs)
+                                .background(Color.Voxa.border.opacity(0.5))
+                                .cornerRadius(CornerRadius.small / 2)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Primary action button (typically "Switch")
+                    if let actionTitle = toast.actionTitle, let action = toast.action {
+                        Button(action: {
+                            action()
+                            onDismiss()
+                        }) {
+                            Text(actionTitle)
+                                .font(Font.Voxa.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(toast.type.backgroundColor)
+                                .padding(.horizontal, Spacing.sm)
+                                .padding(.vertical, Spacing.xs)
+                                .background(toast.type.backgroundColor.opacity(0.15))
+                                .cornerRadius(CornerRadius.small / 2)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
             }
-            
+
             // Dismiss button
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
@@ -670,7 +700,35 @@ extension ToastManager {
             duration: 4.0
         )
     }
-    
+
+    // MARK: - US-003: Device Change Notification with Options
+
+    /// Show toast when a new audio device is connected, offering options to switch or continue
+    /// - Parameters:
+    ///   - newDeviceName: Name of the newly connected device
+    ///   - currentDeviceName: Name of the currently active device
+    ///   - onSwitch: Callback when user chooses to switch to the new device
+    ///   - onKeepCurrent: Callback when user chooses to keep using current device
+    func showNewDeviceConnected(
+        newDeviceName: String,
+        currentDeviceName: String,
+        onSwitch: @escaping () -> Void,
+        onKeepCurrent: @escaping () -> Void
+    ) {
+        let toast = ToastItem(
+            type: .info,
+            title: "New Audio Device",
+            message: "\(newDeviceName) connected",
+            icon: "mic.badge.plus",
+            actionTitle: "Switch",
+            action: onSwitch,
+            secondaryActionTitle: "Keep Current",
+            secondaryAction: onKeepCurrent,
+            duration: 8.0  // Longer duration to give user time to decide
+        )
+        show(toast)
+    }
+
     // MARK: - US-603: Recording Timeout Toast Notifications
     
     /// Show warning toast when recording approaches the maximum duration

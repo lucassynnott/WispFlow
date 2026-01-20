@@ -292,7 +292,11 @@ final class AudioManager: NSObject, ObservableObject {
     /// Called when the user's preferred device is reconnected
     /// Parameter: (deviceName: String)
     var onPreferredDeviceReconnected: ((String) -> Void)?
-    
+
+    /// US-003: Called when a new audio device is connected, offering switch option
+    /// Parameters: (newDeviceUID: String, newDeviceName: String, currentDeviceName: String)
+    var onNewDeviceConnected: ((String, String, String) -> Void)?
+
     /// The user's preferred device UID - stored separately from selected device
     /// This allows us to detect when the preferred device is reconnected
     private var preferredDeviceUID: String?
@@ -513,7 +517,23 @@ final class AudioManager: NSObject, ObservableObject {
             print("AudioManager: [US-601] ✓ Preferred device reconnected: \(preferredDevice.name)")
             handlePreferredDeviceReconnected(preferredDevice)
         }
-        
+
+        // US-003: Notify about newly connected devices (except preferred device which is handled above)
+        // Only notify when not recording and there's a current device to compare against
+        if !isCapturing, !connectedUIDs.isEmpty {
+            let currentDeviceName = currentDevice?.name ?? "System Default"
+            for uid in connectedUIDs {
+                // Skip preferred device - it's handled by handlePreferredDeviceReconnected
+                if uid == preferredDeviceUID { continue }
+                if let newDevice = availableInputDevices.first(where: { $0.uid == uid }) {
+                    print("AudioManager: [US-003] New device connected: \(newDevice.name)")
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onNewDeviceConnected?(uid, newDevice.name, currentDeviceName)
+                    }
+                }
+            }
+        }
+
         // Validate selected device still exists
         if let selectedUID = selectedDeviceUID,
            !availableInputDevices.contains(where: { $0.uid == selectedUID }) {
