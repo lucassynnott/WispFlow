@@ -43,6 +43,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // US-051: Start timing app startup
         startupStartTime = CFAbsoluteTimeGetCurrent()
 
+        // Apply saved appearance mode
+        AppearanceManager.shared.applyAppearance()
+
         // Initialize audio manager
         setupAudioManager()
         
@@ -292,8 +295,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // US-003: Handle new device connected with options to switch or continue
-        audioManager?.onNewDeviceConnected = { [weak self] newDeviceUID, newDeviceName, currentDeviceName in
+        // US-003: Handle new device connected - disabled toast notifications per user request
+        // Device changes are still logged but no longer show intrusive toasts
+        audioManager?.onNewDeviceConnected = { _, newDeviceName, currentDeviceName in
             print("AppDelegate: [US-003] New device connected: \(newDeviceName) (current: \(currentDeviceName))")
             ErrorLogger.shared.log(
                 "New audio device connected",
@@ -304,32 +308,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     "currentDevice": currentDeviceName
                 ]
             )
-            DispatchQueue.main.async {
-                ToastManager.shared.showNewDeviceConnected(
-                    newDeviceName: newDeviceName,
-                    currentDeviceName: currentDeviceName,
-                    onSwitch: {
-                        print("AppDelegate: [US-003] User chose to switch to \(newDeviceName)")
-                        ErrorLogger.shared.log(
-                            "User switched to new audio device",
-                            category: .audio,
-                            severity: .info,
-                            context: ["device": newDeviceName]
-                        )
-                        self?.audioManager?.selectDevice(uid: newDeviceUID)
-                    },
-                    onKeepCurrent: {
-                        print("AppDelegate: [US-003] User chose to keep current device: \(currentDeviceName)")
-                        ErrorLogger.shared.log(
-                            "User kept current audio device",
-                            category: .audio,
-                            severity: .info,
-                            context: ["device": currentDeviceName]
-                        )
-                        // No action needed - just dismiss the toast
-                    }
-                )
-            }
+            // Toast notification disabled - users can change devices via Settings > Audio
         }
 
         // US-603: Handle recording timeout warning (shown at 4 minutes by default)
@@ -603,9 +582,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize the toast window controller for displaying toasts
         toastWindowController = ToastWindowController.shared
 
-        // Observe openSettings notification from toast actions
+        // Observe requestOpenSettings notification from toast actions and external sources
+        // Note: .openSettings is for internal MainWindowView navigation only (avoids recursive loops)
         NotificationCenter.default.addObserver(
-            forName: .openSettings,
+            forName: .requestOpenSettings,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -710,12 +690,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Onboarding is now integrated into the main window
         // Just open the main window - it will show onboarding overlay if first launch
         let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
-        
+
         if !hasCompletedOnboarding {
             print("AppDelegate: [US-517] First launch - opening main window with onboarding")
+            // App starts as .regular for permission dialogs to work
             openMainWindow()
         } else {
             print("AppDelegate: [US-517] Onboarding already completed")
+            // Switch to accessory mode (menu bar only, no dock icon)
+            NSApp.setActivationPolicy(.accessory)
             // Start hotkey manager since onboarding is done
             hotkeyManager?.start()
         }
@@ -1072,19 +1055,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             // Disconnect audio level meter
             recordingIndicator?.disconnectAudioManager()
-            
-            // Hide the recording indicator
-            recordingIndicator?.hideWithAnimation()
-            
+
+            // Switch to processing state (shows loading animation)
+            recordingIndicator?.showProcessing()
+
             // Stop audio capture and get result
             if let result = audioManager?.stopCapturing() {
                 // Show recording duration info
                 print("Stopped recording - Duration: \(String(format: "%.2f", result.duration))s, Data: \(result.audioData.count) bytes, Peak: \(String(format: "%.1f", result.peakLevel))dB, Samples: \(result.sampleCount)")
-                
+
                 // Store audio data in debug manager for visualization
                 Task { @MainActor in
                     debugManager?.storeAudioData(result.audioData, sampleRate: result.sampleRate)
-                    
+
                     // US-306: Auto-save recording if enabled in debug mode
                     if DebugManager.shared.isDebugModeEnabled && DebugManager.shared.isAutoSaveEnabled {
                         let exportResult = AudioExporter.shared.exportToDocuments(
@@ -1112,10 +1095,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                     }
                 }
-                
-                // Update indicator to show duration briefly
-                recordingIndicator?.updateStatus(String(format: "%.1fs", result.duration))
-                recordingIndicator?.showWithAnimation()
                 
                 // US-633: Store recording duration for stats tracking
                 self.lastRecordingDuration = result.duration

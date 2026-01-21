@@ -563,11 +563,11 @@ final class StatusBarController: NSObject {
             image = NSImage(contentsOf: iconPath)
         }
         
-        // Resize for menu bar (18px width as requested)
+        // Resize for menu bar (20px height for better visibility)
         if let img = image {
-            let targetWidth: CGFloat = 18
-            let aspectRatio = img.size.height / img.size.width
-            let targetHeight = targetWidth * aspectRatio
+            let targetHeight: CGFloat = 20
+            let aspectRatio = img.size.width / img.size.height
+            let targetWidth = targetHeight * aspectRatio
             img.size = NSSize(width: targetWidth, height: targetHeight)
         }
         

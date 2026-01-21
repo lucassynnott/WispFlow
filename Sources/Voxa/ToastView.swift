@@ -356,6 +356,7 @@ struct VoxaToast: View {
                                 .font(Font.Voxa.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(Color.Voxa.textSecondary)
+                                .fixedSize(horizontal: true, vertical: false)
                                 .padding(.horizontal, Spacing.sm)
                                 .padding(.vertical, Spacing.xs)
                                 .background(Color.Voxa.border.opacity(0.5))
@@ -583,7 +584,7 @@ extension ToastManager {
             actionTitle: "Settings",
             action: {
                 // This will be connected to open settings in integration
-                NotificationCenter.default.post(name: .openSettings, object: nil)
+                NotificationCenter.default.post(name: .requestOpenSettings, object: nil)
             }
         )
     }
@@ -653,7 +654,7 @@ extension ToastManager {
             icon: "mic.badge.exclamationmark",
             actionTitle: "Settings",
             action: {
-                NotificationCenter.default.post(name: .openSettings, object: nil)
+                NotificationCenter.default.post(name: .requestOpenSettings, object: nil)
             },
             duration: 5.0
         )
@@ -779,7 +780,7 @@ extension ToastManager {
             icon: "mic.slash",
             actionTitle: "Settings",
             action: {
-                NotificationCenter.default.post(name: .openSettings, object: nil)
+                NotificationCenter.default.post(name: .requestOpenSettings, object: nil)
             },
             secondaryActionTitle: "Dismiss",
             secondaryAction: nil,  // Just dismisses the toast
@@ -792,7 +793,10 @@ extension ToastManager {
 // MARK: - Notification Names
 
 extension Notification.Name {
+    /// Internal navigation notification - used to navigate to settings within an already-visible MainWindowView
     static let openSettings = Notification.Name("Voxa.openSettings")
+    /// External request to open settings - used by toasts and other sources to open the main window with settings tab
+    static let requestOpenSettings = Notification.Name("Voxa.requestOpenSettings")
     /// US-802: Notification to toggle recording from Start Recording button
     static let toggleRecording = Notification.Name("Voxa.toggleRecording")
     /// US-802: Notification posted when recording state changes (object: RecordingState)

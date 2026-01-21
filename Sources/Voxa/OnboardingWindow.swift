@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 
 // MARK: - Onboarding Step Enum
 
@@ -156,26 +157,26 @@ struct WelcomeView: View {
                 title: "Record with a Hotkey",
                 description: "Press ⌥⌘R to start recording anywhere"
             )
-            
+
             FeatureRow(
                 icon: "text.bubble.fill",
                 title: "Instant Transcription",
                 description: "Your voice becomes text in seconds"
             )
-            
+
             FeatureRow(
                 icon: "wand.and.stars",
                 title: "Smart Text Cleanup",
                 description: "Automatic punctuation and formatting"
             )
-            
+
             FeatureRow(
                 icon: "lock.shield.fill",
                 title: "Private & Local",
                 description: "All processing happens on your Mac"
             )
         }
-        .padding(.horizontal, Spacing.xxl)
+        .frame(maxWidth: 320)  // Fixed width to center the list
     }
 }
 
@@ -326,6 +327,11 @@ struct MicrophonePermissionView: View {
             permissionManager.refreshMicrophoneStatus()
             print("OnboardingWindow: [US-518] Microphone permission view appeared, status: \(permissionManager.microphoneStatus.rawValue)")
         }
+        // Refresh permission status when app becomes active (user returns from System Settings)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            permissionManager.refreshMicrophoneStatus()
+            print("OnboardingWindow: [US-518] App became active, refreshed mic status: \(permissionManager.microphoneStatus.rawValue)")
+        }
     }
     
     // MARK: - Microphone Illustration
@@ -413,15 +419,30 @@ struct MicrophonePermissionView: View {
     /// Request microphone permission
     private func requestPermission() {
         isRequestingPermission = true
-        print("OnboardingWindow: [US-518] Requesting microphone permission")
-        
-        Task {
-            let granted = await permissionManager.requestMicrophonePermission()
-            print("OnboardingWindow: [US-518] Microphone permission result: \(granted)")
-            
-            await MainActor.run {
-                isRequestingPermission = false
-                // Status updates after permission granted (PermissionManager already updates)
+        print("🎤 OnboardingWindow: BUTTON CLICKED - Requesting microphone permission")
+        print("🎤 Current authorization status: \(AVCaptureDevice.authorizationStatus(for: .audio).rawValue)")
+        print("🎤 App activation policy: \(NSApp.activationPolicy().rawValue)")
+        print("🎤 Is frontmost app: \(NSApp.isActive)")
+        print("🎤 Bundle ID: \(Bundle.main.bundleIdentifier ?? "unknown")")
+
+        // CRITICAL: Ensure Voxa is the frontmost application before requesting permission
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Longer delay to ensure activation fully completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            print("🎤 After activation - Is frontmost: \(NSApp.isActive)")
+            print("🎤 Key window: \(NSApp.keyWindow?.title ?? "none")")
+            print("🎤 Calling AVCaptureDevice.requestAccess...")
+
+            Task {
+                let granted = await AVCaptureDevice.requestAccess(for: .audio)
+                print("🎤 AVCaptureDevice.requestAccess completed - Result: \(granted)")
+
+                await MainActor.run {
+                    self.isRequestingPermission = false
+                    self.permissionManager.refreshMicrophoneStatus()
+                    print("🎤 Permission manager refreshed - Status: \(self.permissionManager.microphoneStatus.rawValue)")
+                }
             }
         }
     }
@@ -1204,49 +1225,53 @@ struct HotkeyIntroductionView: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-                .frame(height: Spacing.xl)
-            
-            // Illustration showing keyboard/hotkey
-            hotkeyIllustration
-            
-            Spacer()
-                .frame(height: Spacing.lg)
-            
+                .frame(height: isCustomizing ? Spacing.md : Spacing.xl)
+
+            // Illustration showing keyboard/hotkey (hide when customizing to save space)
+            if !isCustomizing {
+                hotkeyIllustration
+
+                Spacer()
+                    .frame(height: Spacing.lg)
+            }
+
             // Title
             Text("Your Recording Hotkey")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(Color.Voxa.textPrimary)
-            
+
             Spacer()
                 .frame(height: Spacing.sm)
-            
+
             // Description
             Text("Press this shortcut anywhere to start recording.\nIt works in any app, anytime.")
                 .font(Font.Voxa.body)
                 .foregroundColor(Color.Voxa.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
-            
+
             Spacer()
-                .frame(height: Spacing.xxl)
-            
+                .frame(height: isCustomizing ? Spacing.md : Spacing.xxl)
+
             // Current hotkey displayed prominently
             hotkeyDisplayCard
-            
+
             Spacer()
                 .frame(height: Spacing.lg)
-            
-            // "Try it now" prompt
-            if !hotkeyPressed {
-                tryItNowPrompt
-            } else {
-                // Visual feedback when hotkey pressed
-                hotkeySuccessFeedback
+
+            // "Try it now" prompt (hide when customizing to save space)
+            if !isCustomizing {
+                if !hotkeyPressed {
+                    tryItNowPrompt
+                } else {
+                    // Visual feedback when hotkey pressed
+                    hotkeySuccessFeedback
+                }
+
+                Spacer()
+                    .frame(height: Spacing.lg)
             }
-            
-            Spacer()
-                .frame(height: Spacing.lg)
-            
+
             // "Change Hotkey" option for customization
             if isCustomizing {
                 hotkeyCustomizationView
@@ -1266,15 +1291,17 @@ struct HotkeyIntroductionView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            
+
             Spacer()
-                .frame(height: Spacing.lg)
-            
+                .frame(height: Spacing.md)
+
             // Default hotkey recommendation
-            defaultHotkeyNote
-            
+            if !isCustomizing {
+                defaultHotkeyNote
+            }
+
             Spacer()
-                .frame(height: Spacing.xxl)
+                .frame(height: isCustomizing ? Spacing.md : Spacing.xxl)
             
             // Continue button
             Button(action: onContinue) {
@@ -1569,43 +1596,43 @@ struct OnboardingCompletionView: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-                .frame(height: Spacing.xl)
-            
+                .frame(height: Spacing.md)
+
             // Success illustration with animated checkmark
             successIllustration
-            
+
             Spacer()
-                .frame(height: Spacing.lg)
-            
+                .frame(height: Spacing.md)
+
             // Title
             Text("You're All Set!")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(Color.Voxa.textPrimary)
-            
+
             Spacer()
-                .frame(height: Spacing.sm)
-            
+                .frame(height: Spacing.xs)
+
             // Brief description
             Text("Voxa is ready to transcribe your voice.")
                 .font(Font.Voxa.body)
                 .foregroundColor(Color.Voxa.textSecondary)
                 .multilineTextAlignment(.center)
-            
+
             Spacer()
-                .frame(height: Spacing.xxl)
-            
+                .frame(height: Spacing.lg)
+
             // Success screen with checkmarks for completed steps
             completedStepsCard
-            
+
             Spacer()
-                .frame(height: Spacing.xl)
-            
+                .frame(height: Spacing.md)
+
             // Brief recap of how to use: "Press ⌥⌘R to start recording"
             hotkeyRecapCard
-            
+
             Spacer()
-                .frame(height: Spacing.xxl)
-            
+                .frame(height: Spacing.lg)
+
             // "Start Using Voxa" button closes wizard
             Button(action: onStartUsingApp) {
                 HStack(spacing: Spacing.sm) {
@@ -1621,8 +1648,9 @@ struct OnboardingCompletionView: View {
                 .cornerRadius(CornerRadius.small)
             }
             .buttonStyle(InteractiveScaleStyle())
-            
+
             Spacer()
+                .frame(height: Spacing.md)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.Voxa.background)
@@ -1649,17 +1677,17 @@ struct OnboardingCompletionView: View {
         ZStack {
             // Outer celebration ring
             Circle()
-                .stroke(Color.Voxa.success.opacity(0.2), lineWidth: 4)
-                .frame(width: 130, height: 130)
+                .stroke(Color.Voxa.success.opacity(0.2), lineWidth: 3)
+                .frame(width: 100, height: 100)
                 .scaleEffect(showSuccessIcon ? 1.0 : 0.5)
                 .opacity(showSuccessIcon ? 1.0 : 0.0)
-            
+
             // Outer glow circle
             Circle()
                 .fill(Color.Voxa.success.opacity(0.15))
-                .frame(width: 120, height: 120)
+                .frame(width: 90, height: 90)
                 .scaleEffect(showSuccessIcon ? 1.0 : 0.7)
-            
+
             // Inner circle with gradient
             Circle()
                 .fill(
@@ -1669,13 +1697,13 @@ struct OnboardingCompletionView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 90, height: 90)
-                .shadow(color: Color.Voxa.success.opacity(0.3), radius: 10, x: 0, y: 5)
+                .frame(width: 70, height: 70)
+                .shadow(color: Color.Voxa.success.opacity(0.3), radius: 8, x: 0, y: 4)
                 .scaleEffect(showSuccessIcon ? 1.0 : 0.5)
-            
+
             // Checkmark icon
             Image(systemName: "checkmark")
-                .font(.system(size: 44, weight: .bold))
+                .font(.system(size: 34, weight: .bold))
                 .foregroundColor(.white)
                 .scaleEffect(showSuccessIcon ? 1.0 : 0.3)
                 .opacity(showSuccessIcon ? 1.0 : 0.0)
@@ -1728,13 +1756,13 @@ struct OnboardingCompletionView: View {
                 )
             }
         }
-        .padding(Spacing.lg)
+        .padding(Spacing.md)
         .background(Color.Voxa.surface)
         .cornerRadius(CornerRadius.medium)
         .voxaShadow(.card)
         .padding(.horizontal, Spacing.xxl)
     }
-    
+
     // MARK: - Hotkey Recap Card
     
     /// Brief recap of how to use: "Press ⌥⌘R to start recording"
@@ -1757,7 +1785,7 @@ struct OnboardingCompletionView: View {
                 .font(Font.Voxa.caption)
                 .foregroundColor(Color.Voxa.textSecondary)
         }
-        .padding(Spacing.xl)
+        .padding(Spacing.md)
         .background(Color.Voxa.accentLight.opacity(0.5))
         .cornerRadius(CornerRadius.medium)
         .overlay(
@@ -1969,19 +1997,15 @@ struct OnboardingHotkeyRecorder: View {
             stopRecording()
             return
         }
-        
-        // Check for valid modifiers
+
+        // Allow both single keys and keys with modifiers
         let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
-        guard !modifiers.isEmpty else {
-            // Need at least one modifier
-            return
-        }
-        
+
         let newConfig = HotkeyManager.HotkeyConfiguration(
             keyCode: event.keyCode,
             modifierFlags: modifiers
         )
-        
+
         // Check for conflicts (US-512)
         let conflicts = HotkeyManager.checkForConflicts(newConfig)
         if !conflicts.isEmpty {
@@ -1991,7 +2015,7 @@ struct OnboardingHotkeyRecorder: View {
         } else {
             hotkeyManager.updateConfiguration(newConfig)
         }
-        
+
         stopRecording()
     }
 }
@@ -2190,22 +2214,34 @@ final class OnboardingWindowController: NSObject {
         window.setContentSize(NSSize(width: 520, height: 620))
         window.center()
         window.isReleasedWhenClosed = false
-        
+
         // Prevent window from being resized
         window.styleMask.remove(.resizable)
-        
+
+        // CRITICAL: Set activation policy to regular so permission dialogs work
+        NSApp.setActivationPolicy(.regular)
+
         // Handle window close via delegate
         window.delegate = self
-        
+
         onboardingWindow = window
+
+        // Force window to be key and front BEFORE showing
         window.makeKeyAndOrderFront(nil)
+        window.makeKey()
         NSApp.activate(ignoringOtherApps: true)
+
+        print("🪟 Onboarding window shown - isKeyWindow: \(window.isKeyWindow), isMainWindow: \(window.isMainWindow)")
     }
     
     /// Close the onboarding window
     private func closeOnboarding() {
         onboardingWindow?.close()
         onboardingWindow = nil
+
+        // Revert to accessory mode to become menu bar-only app
+        NSApp.setActivationPolicy(.accessory)
+
         onComplete?()
     }
 }

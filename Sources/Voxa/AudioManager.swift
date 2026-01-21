@@ -271,6 +271,10 @@ final class AudioManager: NSObject, ObservableObject {
     // Device tracking
     private var availableInputDevices: [AudioInputDevice] = []
     private var selectedDeviceUID: String?
+
+    /// Flag to track if initial device scan has completed
+    /// Prevents "new device connected" notifications on app launch
+    private var hasCompletedInitialScan: Bool = false
     
     // Callbacks
     var onPermissionDenied: (() -> Void)?
@@ -535,8 +539,9 @@ final class AudioManager: NSObject, ObservableObject {
         }
 
         // US-003: Notify about newly connected devices (except preferred device which is handled above)
-        // Only notify when not recording and there's a current device to compare against
-        if !isCapturing, !connectedUIDs.isEmpty {
+        // Only notify when not recording, there's a current device to compare against,
+        // AND this is not the initial device scan (to avoid notifications on app launch)
+        if !isCapturing, !connectedUIDs.isEmpty, hasCompletedInitialScan {
             let currentDeviceName = currentDevice?.name ?? "System Default"
             for uid in connectedUIDs {
                 // Skip preferred device - it's handled by handlePreferredDeviceReconnected
@@ -581,7 +586,13 @@ final class AudioManager: NSObject, ObservableObject {
             let isSelected = device.uid == selectedDeviceUID ? " [SELECTED]" : ""
             print("  - \(device.name) (default: \(device.isDefault), rate: \(device.sampleRate)Hz, quality: \(quality))\(isPreferred)\(isSelected)")
         }
-        
+
+        // Mark initial scan as complete (prevents spurious "new device" notifications on launch)
+        if !hasCompletedInitialScan {
+            hasCompletedInitialScan = true
+            print("AudioManager: Initial device scan completed")
+        }
+
         onDevicesChanged?(availableInputDevices)
     }
     

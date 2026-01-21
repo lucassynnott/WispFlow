@@ -101,7 +101,10 @@ struct MainWindowView: View {
     
     /// Hotkey manager for onboarding
     @EnvironmentObject private var hotkeyManager: HotkeyManager
-    
+
+    /// Current color scheme for dynamic logo selection
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ZStack {
             // Main app content
@@ -250,26 +253,45 @@ struct MainWindowView: View {
     // MARK: - Sidebar Header
     
     /// App branding/logo area at top of sidebar
-    /// US-806: Updated sidebar header with minimalist styling
+    /// US-806: Updated sidebar header with adaptive logo for light/dark mode
     private var sidebarHeader: some View {
-        HStack(spacing: Spacing.md) {
-            // US-806: App icon - simple monochrome style that inverts in dark mode
-            Image(systemName: "v.circle.fill")
-                .font(.system(size: 32, weight: .medium))
-                .foregroundColor(Color.Voxa.textPrimary)
-            
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: Spacing.sm) {
+                // Adaptive logo - white for dark mode, black for light mode
+                let logoName = colorScheme == .dark ? "logo_white.png" : "logo_black.png"
+                if let logoImage = NSImage(contentsOfFile: Bundle.main.resourcePath! + "/" + logoName) {
+                    Image(nsImage: logoImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(height: 36)
+                } else {
+                    // Fallback to system icon
+                    Image(systemName: "waveform")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Color.Voxa.textPrimary)
+                }
+
+                if !isSidebarCollapsed {
+                    // App name
+                    Text("Voxa")
+                        .font(.system(size: 20, weight: .semibold, design: .default))
+                        .tracking(0.5)
+                        .foregroundColor(Color.Voxa.textPrimary)
+                        .transition(.opacity.combined(with: .move(edge: .leading)))
+                }
+
+                Spacer()
+            }
+
+            // "By Client Ascension" tagline - aligned so "B" is under middle of logo
             if !isSidebarCollapsed {
-                // US-806: App name with larger display font
-                Text("Voxa")
-                    .font(.system(size: 20, weight: .semibold, design: .default))
-                    .tracking(0.5)
-                    .foregroundColor(Color.Voxa.textPrimary)
+                Text("By Client Ascension")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color.red)
+                    .padding(.leading, 16)  // Align "B" with middle of logo
                     .transition(.opacity.combined(with: .move(edge: .leading)))
             }
-            
-            Spacer()
         }
-        // US-035: Reduced header height for minimal chrome (was 96px, now 72px)
         .frame(height: 72)
         .padding(.horizontal, isSidebarCollapsed ? Spacing.lg : Spacing.xl)
         .animation(VoxaAnimation.smooth, value: isSidebarCollapsed)
@@ -309,9 +331,8 @@ struct MainWindowView: View {
     
     /// Main content area that displays the selected view
     private var contentView: some View {
-        // US-055: Use ZStack with id-based switching for smoother content transitions
-        // This prevents flicker by ensuring views are properly keyed and transitioned
-        ZStack {
+        // Content view with smooth transitions between navigation items
+        Group {
             switch selectedItem {
             case .home:
                 HomeContentView()
@@ -332,8 +353,6 @@ struct MainWindowView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(VoxaAnimation.tabTransition, value: selectedItem)
-        // US-055: Use drawingGroup for GPU-accelerated rendering to prevent flicker
-        .drawingGroup(opaque: false)
     }
     
     // MARK: - US-805: Audio Import Picker
@@ -467,6 +486,8 @@ struct HomeContentView: View {
     @StateObject private var whisperManager = WhisperManager.shared
     /// US-039: Audio manager for device status display
     @StateObject private var audioManager = AudioManager.shared
+    /// Hotkey manager for displaying user's configured hotkey
+    @StateObject private var hotkeyManager = HotkeyManager.shared
     @State private var hoveredQuickAction: QuickAction?
     /// US-805: Hover state for Quick Tools buttons
     @State private var hoveredQuickTool: QuickToolAction?
@@ -704,10 +725,10 @@ struct HomeContentView: View {
         .accessibleRecordingButton(isRecording: isRecording)
     }
 
-    /// US-802: Keyboard shortcut badge showing ⌥⌘R
+    /// US-802: Keyboard shortcut badge showing user's configured hotkey
     private var shortcutBadge: some View {
         HStack(spacing: 2) {
-            Text("⌥⌘R")
+            Text(hotkeyManager.hotkeyDisplayString)
                 .font(Font.Voxa.monoSmall)
                 .foregroundColor(.white.opacity(0.8))
         }
@@ -965,7 +986,7 @@ struct HomeContentView: View {
                         .fontWeight(.medium)
                         .foregroundColor(Color.Voxa.textPrimary)
                     
-                    Text("Press ⌥⌘R anywhere to start recording")
+                    Text("Press \(hotkeyManager.hotkeyDisplayString) anywhere to start recording")
                         .font(Font.Voxa.caption)
                         .foregroundColor(Color.Voxa.textSecondary)
                 }
@@ -1152,7 +1173,7 @@ struct HomeContentView: View {
                         .fontWeight(.medium)
                         .foregroundColor(Color.Voxa.textSecondary)
                     
-                    Text("Press ⌥⌘R to start your first recording")
+                    Text("Press \(hotkeyManager.hotkeyDisplayString) to start your first recording")
                         .font(Font.Voxa.caption)
                         .foregroundColor(Color.Voxa.textTertiary)
                 }
@@ -2048,7 +2069,9 @@ struct ActivityTimelineEntry: View {
 /// US-634: Browse and search transcription history
 struct HistoryContentView: View {
     @StateObject private var statsManager = UsageStatsManager.shared
-    
+    /// Hotkey manager for displaying user's configured hotkey
+    @StateObject private var hotkeyManager = HotkeyManager.shared
+
     /// Search query for filtering entries
     @State private var searchQuery: String = ""
     
@@ -2190,7 +2213,7 @@ struct HistoryContentView: View {
                     .font(Font.Voxa.headline)
                     .foregroundColor(Color.Voxa.textPrimary)
                 
-                Text("Your transcriptions will appear here after you record them.\nPress ⌥⌘R to start recording.")
+                Text("Your transcriptions will appear here after you record them.\nPress \(hotkeyManager.hotkeyDisplayString) to start recording.")
                     .font(Font.Voxa.body)
                     .foregroundColor(Color.Voxa.textSecondary)
                     .multilineTextAlignment(.center)
@@ -4676,6 +4699,7 @@ struct DictionaryExampleRow: View {
 /// US-709: Settings Section Navigation
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general = "general"
+    case appearance = "appearance"
     case audio = "audio"
     case transcription = "transcription"
     case modelManagement = "modelManagement"  // US-012
@@ -4691,6 +4715,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general:
             return "General"
+        case .appearance:
+            return "Appearance"
         case .audio:
             return "Audio"
         case .transcription:
@@ -4713,6 +4739,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general:
             return "gear"
+        case .appearance:
+            return "paintbrush"
         case .audio:
             return "speaker.wave.2"
         case .transcription:
@@ -4735,6 +4763,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general:
             return "App information, global hotkey, startup options, and permissions"
+        case .appearance:
+            return "Switch between light, dark, or system appearance"
         case .audio:
             return "Input device selection, audio preview, and sensitivity settings"
         case .transcription:
@@ -4791,6 +4821,16 @@ struct SettingsContentView: View {
                             GeneralSettingsSummary()
                         }
                         .id(SettingsSection.general)
+
+                        // MARK: - Appearance Section
+                        SettingsSectionView(
+                            title: SettingsSection.appearance.displayName,
+                            icon: SettingsSection.appearance.icon,
+                            description: SettingsSection.appearance.description
+                        ) {
+                            AppearanceSettingsSummary()
+                        }
+                        .id(SettingsSection.appearance)
 
                         // MARK: - Audio Section
                         SettingsSectionView(
@@ -5796,13 +5836,8 @@ struct GeneralSettingsHotkeyRecorder: View {
         let relevantFlags: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
         let modifiers = event.modifierFlags.intersection(relevantFlags)
 
-        guard !modifiers.isEmpty else {
-            let hotkeyType = isForStopHotkey ? "Stop" : "Start"
-            print("[US-015] \(hotkeyType) hotkey must include at least one modifier")
-            return
-        }
-
-        // Ignore Escape key (cancel)
+        // Allow single keys without modifiers (user preference)
+        // Escape key cancels the recording
         if event.keyCode == 53 {
             stopRecording()
             return
@@ -6180,13 +6215,8 @@ struct GeneralSettingsInsertHotkeyRecorder: View {
         let relevantFlags: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
         let modifiers = event.modifierFlags.intersection(relevantFlags)
 
-        // US-017: Insert hotkey requires at least one modifier
-        guard !modifiers.isEmpty else {
-            print("[US-017] Insert hotkey must include at least one modifier")
-            return
-        }
-
-        // Ignore Escape key (cancel)
+        // Allow single keys without modifiers (user preference)
+        // Escape key cancels the recording
         if event.keyCode == 53 {
             stopRecording()
             return
@@ -10775,6 +10805,158 @@ struct ClipboardHistoryEntryCard: View {
             }
         }
         .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Appearance Mode
+
+/// User appearance preference
+enum AppearanceMode: String, CaseIterable {
+    case system = "system"
+    case light = "light"
+    case dark = "dark"
+
+    var displayName: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
+/// Manager for appearance preferences
+class AppearanceManager: ObservableObject {
+    static let shared = AppearanceManager()
+
+    private let appearanceModeKey = "voxa.appearanceMode"
+
+    @Published var appearanceMode: AppearanceMode {
+        didSet {
+            UserDefaults.standard.set(appearanceMode.rawValue, forKey: appearanceModeKey)
+            applyAppearance()
+        }
+    }
+
+    private init() {
+        if let savedMode = UserDefaults.standard.string(forKey: appearanceModeKey),
+           let mode = AppearanceMode(rawValue: savedMode) {
+            self.appearanceMode = mode
+        } else {
+            self.appearanceMode = .system
+        }
+    }
+
+    /// Apply the appearance to the app
+    func applyAppearance() {
+        DispatchQueue.main.async {
+            switch self.appearanceMode {
+            case .system:
+                NSApp.appearance = nil
+            case .light:
+                NSApp.appearance = NSAppearance(named: .aqua)
+            case .dark:
+                NSApp.appearance = NSAppearance(named: .darkAqua)
+            }
+        }
+    }
+}
+
+// MARK: - Appearance Settings Summary
+
+/// Appearance settings section for light/dark mode toggle
+struct AppearanceSettingsSummary: View {
+    @StateObject private var appearanceManager = AppearanceManager.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            // MARK: - Appearance Mode Selection
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text("Theme")
+                    .font(Font.Voxa.headline)
+                    .foregroundColor(Color.Voxa.textPrimary)
+
+                Text("Choose your preferred appearance for Voxa")
+                    .font(Font.Voxa.body)
+                    .foregroundColor(Color.Voxa.textSecondary)
+
+                HStack(spacing: Spacing.md) {
+                    ForEach(AppearanceMode.allCases, id: \.rawValue) { mode in
+                        AppearanceModeButton(
+                            mode: mode,
+                            isSelected: appearanceManager.appearanceMode == mode
+                        ) {
+                            withAnimation(VoxaAnimation.smooth) {
+                                appearanceManager.appearanceMode = mode
+                            }
+                        }
+                    }
+                }
+                .padding(.top, Spacing.sm)
+            }
+        }
+        .onAppear {
+            // Apply saved appearance on view appear
+            appearanceManager.applyAppearance()
+        }
+    }
+}
+
+/// Button for selecting appearance mode
+struct AppearanceModeButton: View {
+    let mode: AppearanceMode
+    let isSelected: Bool
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: Spacing.sm) {
+                // Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: CornerRadius.medium)
+                        .fill(isSelected ? Color.Voxa.accent.opacity(0.15) : Color.Voxa.surfaceSecondary)
+                        .frame(width: 80, height: 60)
+
+                    Image(systemName: mode.icon)
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(isSelected ? Color.Voxa.accent : Color.Voxa.textSecondary)
+                }
+
+                // Label
+                Text(mode.displayName)
+                    .font(Font.Voxa.caption)
+                    .foregroundColor(isSelected ? Color.Voxa.textPrimary : Color.Voxa.textSecondary)
+            }
+            .padding(Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.medium)
+                    .stroke(isSelected ? Color.Voxa.accent : (isHovered ? Color.Voxa.border : Color.clear), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(VoxaAnimation.quick) {
+                isHovered = hovering
+            }
+        }
     }
 }
 

@@ -2,7 +2,7 @@
 # All paths are relative to repo root unless absolute.
 # Uncomment and edit as needed.
 
-# PRD_PATH=".agents/tasks/prd.md"
+PRD_PATH="tasks/prd-wispflow-improvements-v2.json"
 # PLAN_PATH=".ralph/IMPLEMENTATION_PLAN.md"
 # PROGRESS_PATH=".ralph/progress.md"
 # GUARDRAILS_PATH=".ralph/guardrails.md"

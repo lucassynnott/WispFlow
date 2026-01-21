@@ -20,3 +20,16 @@ Package.resolved
 
 # VSCode (optional - keep launch configs if useful)
 # .vscode/
+
+# Agent temp files
+.ralph-tui/
+tasks/
+
+# Certificates (sensitive)
+*.cer
+*.p12
+
+# Temporary design files
+voxa_black.png
+voxa_white.png
+VoxaAI.svg

@@ -619,27 +619,64 @@ final class WhisperManager: ObservableObject {
             if !isDownloaded {
                 // US-304: Show intermediate status messages during download
                 // Note: WhisperKit doesn't expose progress callbacks directly,
-                // so we show status stages during the download
-                modelStatus = .downloading(progress: 0.1)
-                downloadProgress = 0.1
-                statusMessage = "Downloading model files from Hugging Face..."
-                
-                // Update status message after a brief delay to show progress
+                // so we simulate progress stages during the download
+                modelStatus = .downloading(progress: 0.05)
+                downloadProgress = 0.05
+                statusMessage = "Connecting to Hugging Face..."
+
+                // Progressive status updates to show activity during long downloads
+                // These stages are spread over time to give user feedback
                 Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s
                     if case .downloading = self.modelStatus {
-                        self.modelStatus = .downloading(progress: 0.3)
-                        self.downloadProgress = 0.3
+                        self.modelStatus = .downloading(progress: 0.1)
+                        self.downloadProgress = 0.1
                         self.statusMessage = "Downloading \(self.selectedModel.displayName) (~\(self.getEstimatedSize()))..."
                     }
                 }
-                
+
                 Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                    try? await Task.sleep(nanoseconds: 8_000_000_000) // 8s
                     if case .downloading = self.modelStatus {
-                        self.modelStatus = .downloading(progress: 0.5)
-                        self.downloadProgress = 0.5
-                        self.statusMessage = "Still downloading... this may take a few minutes"
+                        self.modelStatus = .downloading(progress: 0.25)
+                        self.downloadProgress = 0.25
+                        self.statusMessage = "Downloading model files..."
+                    }
+                }
+
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 20_000_000_000) // 20s
+                    if case .downloading = self.modelStatus {
+                        self.modelStatus = .downloading(progress: 0.4)
+                        self.downloadProgress = 0.4
+                        self.statusMessage = "Still downloading... large models may take several minutes"
+                    }
+                }
+
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 45_000_000_000) // 45s
+                    if case .downloading = self.modelStatus {
+                        self.modelStatus = .downloading(progress: 0.55)
+                        self.downloadProgress = 0.55
+                        self.statusMessage = "Download in progress... please wait"
+                    }
+                }
+
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 90_000_000_000) // 90s
+                    if case .downloading = self.modelStatus {
+                        self.modelStatus = .downloading(progress: 0.7)
+                        self.downloadProgress = 0.7
+                        self.statusMessage = "Almost there... finalizing download"
+                    }
+                }
+
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 150_000_000_000) // 2.5 min
+                    if case .downloading = self.modelStatus {
+                        self.modelStatus = .downloading(progress: 0.85)
+                        self.downloadProgress = 0.85
+                        self.statusMessage = "Download taking longer than expected... still working"
                     }
                 }
             }

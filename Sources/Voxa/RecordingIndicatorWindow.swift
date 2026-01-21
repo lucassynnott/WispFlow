@@ -1,57 +1,46 @@
 import AppKit
 import Combine
 
-/// Floating recording indicator window that shows when recording is active
-/// Displays an elegant pill-shaped overlay with recording status, waveform visualization, and cancel button
-/// Features frosted glass effect, warm colors, and smooth animations
+/// Minimal floating recording indicator - black pill with orange dot and waveform bars
+/// Shows recording state and processing state with loading animation
 final class RecordingIndicatorWindow: NSPanel {
-    
+
     // MARK: - UI Components
-    
+
     private let containerView = NSView()
+    private let backgroundLayer = CALayer()
     private let recordingDot = NSView()
-    private let waveformView = LiveWaveformView()
-    private let statusLabel = NSTextField()
-    private let durationLabel = NSTextField()
-    private let cancelButton = HoverGlowButton()
-    private var trackingArea: NSTrackingArea?
-    
-    /// Callback when cancel button is clicked
+    private let waveformView = BarWaveformView()
+    private let loadingView = LoadingDotsView()
+
+    /// Callback when indicator is clicked
     var onCancel: (() -> Void)?
-    
+
     /// Audio level subscription
     private var audioLevelCancellable: AnyCancellable?
-    
-    /// Recording duration timer
-    private var durationTimer: Timer?
-    private var recordingStartTime: Date?
 
     /// Pulse animation for recording dot
     private var pulseTimer: Timer?
     private var pulsePhase: CGFloat = 0
 
-    // US-054: Battery optimization observer
-    private var batteryOptimizationObserver: NSObjectProtocol?
-    
+    /// Current state
+    private var isProcessing = false
+
     // MARK: - Configuration
-    
+
     private struct Constants {
-        static let windowWidth: CGFloat = 240
-        static let windowHeight: CGFloat = 52
-        static let cornerRadius: CGFloat = 26
-        static let padding: CGFloat = 16
-        static let dotSize: CGFloat = 12
-        static let waveformWidth: CGFloat = 60
-        static let waveformHeight: CGFloat = 24
-        static let cancelButtonSize: CGFloat = 22
-        static let animationDuration: TimeInterval = 0.35
-        static let slideOffset: CGFloat = 60
+        static let windowWidth: CGFloat = 100
+        static let windowHeight: CGFloat = 32
+        static let cornerRadius: CGFloat = 16  // Half of height for perfect pill
+        static let horizontalPadding: CGFloat = 12
+        static let dotSize: CGFloat = 8
+        static let animationDuration: TimeInterval = 0.3
+        static let slideOffset: CGFloat = 50
     }
-    
+
     // MARK: - Initialization
-    
+
     init() {
-        // Create a borderless, floating window
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: Constants.windowWidth, height: Constants.windowHeight),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -61,313 +50,211 @@ final class RecordingIndicatorWindow: NSPanel {
 
         setupWindow()
         setupUI()
-        setupBatteryOptimizationObserver()
     }
 
-    // MARK: - US-054: Battery Optimization
-
-    private func setupBatteryOptimizationObserver() {
-        batteryOptimizationObserver = NotificationCenter.default.addObserver(
-            forName: .batteryOptimizationStateChanged,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            // Restart active animations with new intervals when battery state changes
-            self?.restartActiveAnimationsWithNewIntervals()
-        }
-    }
-
-    /// Restart any active animations with updated intervals based on battery state
-    private func restartActiveAnimationsWithNewIntervals() {
-        // If pulse animation is running, restart it with new interval
-        if pulseTimer != nil {
-            stopPulsingAnimation()
-            startPulsingAnimation()
-        }
-    }
-    
     // MARK: - Setup
-    
+
     private func setupWindow() {
-        // Window behavior
         isFloatingPanel = true
         level = .floating
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         isMovableByWindowBackground = true
-        
-        // Appearance
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
-        
-        // Don't show in mission control or expose
-        collectionBehavior.insert(.stationary)
-        
-        // Position window at top center of main screen (with offset for slide animation)
+        hasShadow = false
+
+        // Make content view fully transparent
+        contentView?.wantsLayer = true
+        contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+
         positionWindow(withSlideOffset: true)
     }
-    
+
     private func setupUI() {
         guard let contentView = self.contentView else { return }
-        
-        // Container view with pill shape
+
+        // Ensure content view is fully transparent with no border
+        contentView.wantsLayer = true
+        contentView.layer?.backgroundColor = NSColor.clear.cgColor
+        contentView.layer?.borderWidth = 0
+        contentView.layer?.shadowOpacity = 0
+
+        // Container view - transparent, holds subviews
         containerView.wantsLayer = true
-        containerView.layer?.cornerRadius = Constants.cornerRadius
-        containerView.layer?.masksToBounds = true
-        
-        // Use visual effect view for frosted glass background with warm tint
-        let visualEffect = NSVisualEffectView()
-        visualEffect.material = .hudWindow
-        visualEffect.state = .active
-        visualEffect.blendingMode = .behindWindow
-        visualEffect.wantsLayer = true
-        visualEffect.layer?.cornerRadius = Constants.cornerRadius
-        visualEffect.layer?.masksToBounds = true
-        
-        // Apply warm ivory tint overlay for warmth
-        let warmOverlay = NSView()
-        warmOverlay.wantsLayer = true
-        warmOverlay.layer?.backgroundColor = NSColor.Voxa.background.withAlphaComponent(0.3).cgColor
-        warmOverlay.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Add drop shadow layer for floating effect
-        let shadowView = NSView()
-        shadowView.wantsLayer = true
-        shadowView.layer?.cornerRadius = Constants.cornerRadius
-        shadowView.layer?.shadowColor = NSColor.Voxa.textPrimary.withAlphaComponent(0.2).cgColor
-        shadowView.layer?.shadowOpacity = 1.0
-        shadowView.layer?.shadowOffset = CGSize(width: 0, height: -4)
-        shadowView.layer?.shadowRadius = 16
-        shadowView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.01).cgColor
-        shadowView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(shadowView)
-        
-        visualEffect.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(visualEffect)
-        
-        // Add warm overlay inside visual effect
-        visualEffect.addSubview(warmOverlay)
-        
-        // Container inside visual effect
+        containerView.layer?.backgroundColor = NSColor.clear.cgColor
+        containerView.layer?.borderWidth = 0
+        containerView.layer?.shadowOpacity = 0
         containerView.translatesAutoresizingMaskIntoConstraints = false
-        visualEffect.addSubview(containerView)
-        
-        // Recording dot (warm coral pulsing circle)
+        contentView.addSubview(containerView)
+
+        // Background layer - simple dark pill, no shadow for clean look
+        backgroundLayer.backgroundColor = NSColor(red: 0.12, green: 0.12, blue: 0.12, alpha: 1.0).cgColor
+        backgroundLayer.cornerRadius = Constants.cornerRadius
+        backgroundLayer.masksToBounds = true
+        backgroundLayer.borderWidth = 0
+        containerView.layer?.addSublayer(backgroundLayer)
+
+        // Recording dot - orange circle
         recordingDot.wantsLayer = true
         recordingDot.layer?.cornerRadius = Constants.dotSize / 2
-        recordingDot.layer?.backgroundColor = NSColor.Voxa.accent.cgColor
+        recordingDot.layer?.backgroundColor = NSColor(red: 0.92, green: 0.35, blue: 0.2, alpha: 1.0).cgColor
         recordingDot.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(recordingDot)
-        
-        // Audio waveform visualization (smooth wave, not bars)
+
+        // Waveform bars (visible during recording)
         waveformView.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(waveformView)
-        
-        // Status label with elegant typography
-        statusLabel.stringValue = "Recording"
-        statusLabel.font = NSFont.Voxa.caption
-        statusLabel.textColor = NSColor.Voxa.textSecondary
-        statusLabel.backgroundColor = .clear
-        statusLabel.isBordered = false
-        statusLabel.isEditable = false
-        statusLabel.isSelectable = false
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(statusLabel)
-        
-        // Duration label with elegant typography
-        durationLabel.stringValue = "0:00"
-        durationLabel.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
-        durationLabel.textColor = NSColor.Voxa.textPrimary
-        durationLabel.backgroundColor = .clear
-        durationLabel.isBordered = false
-        durationLabel.isEditable = false
-        durationLabel.isSelectable = false
-        durationLabel.alignment = .left
-        durationLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(durationLabel)
-        
-        // Cancel button with hover glow
-        cancelButton.target = self
-        cancelButton.action = #selector(cancelButtonClicked)
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(cancelButton)
-        
-        // Layout constraints
+
+        // Loading dots (visible during processing)
+        loadingView.translatesAutoresizingMaskIntoConstraints = false
+        loadingView.isHidden = true
+        containerView.addSubview(loadingView)
+
+        // Layout
         NSLayoutConstraint.activate([
-            // Shadow view fills content view
-            shadowView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            shadowView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            shadowView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            shadowView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            
-            // Visual effect fills content view
-            visualEffect.topAnchor.constraint(equalTo: contentView.topAnchor),
-            visualEffect.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            visualEffect.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            visualEffect.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            
-            // Warm overlay fills visual effect
-            warmOverlay.topAnchor.constraint(equalTo: visualEffect.topAnchor),
-            warmOverlay.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor),
-            warmOverlay.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor),
-            warmOverlay.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
-            
-            // Container fills visual effect
-            containerView.topAnchor.constraint(equalTo: visualEffect.topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor),
-            containerView.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
-            
-            // Recording dot on the left
-            recordingDot.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Constants.padding),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+
+            recordingDot.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: Constants.horizontalPadding),
             recordingDot.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             recordingDot.widthAnchor.constraint(equalToConstant: Constants.dotSize),
             recordingDot.heightAnchor.constraint(equalToConstant: Constants.dotSize),
-            
-            // Audio waveform next to recording dot
-            waveformView.leadingAnchor.constraint(equalTo: recordingDot.trailingAnchor, constant: 10),
+
+            waveformView.leadingAnchor.constraint(equalTo: recordingDot.trailingAnchor, constant: 8),
+            waveformView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -Constants.horizontalPadding),
             waveformView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            waveformView.widthAnchor.constraint(equalToConstant: Constants.waveformWidth),
-            waveformView.heightAnchor.constraint(equalToConstant: Constants.waveformHeight),
-            
-            // Status label and duration stacked vertically
-            statusLabel.leadingAnchor.constraint(equalTo: waveformView.trailingAnchor, constant: 10),
-            statusLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 10),
-            
-            durationLabel.leadingAnchor.constraint(equalTo: waveformView.trailingAnchor, constant: 10),
-            durationLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -10),
-            
-            // Cancel button on the right
-            cancelButton.leadingAnchor.constraint(greaterThanOrEqualTo: statusLabel.trailingAnchor, constant: 8),
-            cancelButton.leadingAnchor.constraint(greaterThanOrEqualTo: durationLabel.trailingAnchor, constant: 8),
-            cancelButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -Constants.padding),
-            cancelButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            cancelButton.widthAnchor.constraint(equalToConstant: Constants.cancelButtonSize),
-            cancelButton.heightAnchor.constraint(equalToConstant: Constants.cancelButtonSize)
+            waveformView.heightAnchor.constraint(equalToConstant: 16),
+
+            loadingView.leadingAnchor.constraint(equalTo: recordingDot.trailingAnchor, constant: 8),
+            loadingView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -Constants.horizontalPadding),
+            loadingView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            loadingView.heightAnchor.constraint(equalToConstant: 16),
         ])
+
+        // Update background layer frame when container resizes
+        containerView.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification,
+            object: containerView,
+            queue: .main
+        ) { [weak self] _ in
+            self?.backgroundLayer.frame = self?.containerView.bounds ?? .zero
+        }
     }
-    
+
+    private func updateBackgroundFrame() {
+        backgroundLayer.frame = containerView.bounds
+        // Update shadow path to match rounded rect
+        backgroundLayer.shadowPath = CGPath(roundedRect: containerView.bounds, cornerWidth: Constants.cornerRadius, cornerHeight: Constants.cornerRadius, transform: nil)
+    }
+
     private func positionWindow(withSlideOffset: Bool = false) {
         guard let screen = NSScreen.main else { return }
-        
+
         let screenFrame = screen.visibleFrame
         let windowX = screenFrame.midX - (Constants.windowWidth / 2)
-        let baseY = screenFrame.maxY - Constants.windowHeight - 20 // 20px from top
+        let baseY = screenFrame.maxY - Constants.windowHeight - 20
         let windowY = withSlideOffset ? baseY + Constants.slideOffset : baseY
-        
+
         setFrameOrigin(NSPoint(x: windowX, y: windowY))
     }
-    
+
     // MARK: - Animations
-    
+
     private func startPulsingAnimation() {
-        // Stop any existing animation
         stopPulsingAnimation()
 
-        // US-054: Use battery-efficient pulse animation interval
-        let interval = BatteryEfficiencyManager.shared.pulseAnimationInterval
-        // Gentle pulse animation using timer for smooth coral dot pulsing
-        pulseTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        pulseTimer = Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            // US-054: Adjust phase increment based on interval to maintain consistent animation speed
-            let phaseIncrement = 0.05 * (0.03 / interval)
-            self.pulsePhase += phaseIncrement
+            self.pulsePhase += 0.1
             if self.pulsePhase > CGFloat.pi * 2 {
                 self.pulsePhase -= CGFloat.pi * 2
             }
 
-            // Pulse opacity between 0.6 and 1.0
-            let opacity = 0.8 + 0.2 * sin(self.pulsePhase)
-
-            // Pulse scale between 0.9 and 1.1
-            let scale = 1.0 + 0.1 * sin(self.pulsePhase)
+            let opacity = 0.6 + 0.4 * sin(self.pulsePhase)
 
             DispatchQueue.main.async {
                 self.recordingDot.layer?.opacity = Float(opacity)
-                self.recordingDot.layer?.transform = CATransform3DMakeScale(scale, scale, 1.0)
             }
         }
-        // US-054: Allow timer coalescing for better battery efficiency
-        pulseTimer?.tolerance = interval * 0.2
+        pulseTimer?.tolerance = 0.01
     }
-    
+
     private func stopPulsingAnimation() {
         pulseTimer?.invalidate()
         pulseTimer = nil
         recordingDot.layer?.opacity = 1.0
-        recordingDot.layer?.transform = CATransform3DIdentity
     }
-    
-    private func startDurationTimer() {
-        recordingStartTime = Date()
-        durationTimer?.invalidate()
-        durationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.updateDurationDisplay()
-        }
-        updateDurationDisplay()
-    }
-    
-    private func stopDurationTimer() {
-        durationTimer?.invalidate()
-        durationTimer = nil
-        recordingStartTime = nil
-        durationLabel.stringValue = "0:00"
-    }
-    
-    private func updateDurationDisplay() {
-        guard let startTime = recordingStartTime else { return }
-        let elapsed = Int(Date().timeIntervalSince(startTime))
-        let minutes = elapsed / 60
-        let seconds = elapsed % 60
-        durationLabel.stringValue = String(format: "%d:%02d", minutes, seconds)
-    }
-    
-    // MARK: - Actions
-    
-    @objc private func cancelButtonClicked() {
-        print("Cancel button clicked on recording indicator")
-        onCancel?()
-    }
-    
+
     // MARK: - Public API
-    
-    /// Show the indicator with smooth slide-down animation
+
     func showWithAnimation() {
-        // Start with window above screen (for slide-down effect)
+        isProcessing = false
+        waveformView.isHidden = false
+        loadingView.isHidden = true
+        loadingView.stopAnimating()
+
         positionWindow(withSlideOffset: true)
         alphaValue = 0
         orderFrontRegardless()
-        
-        // Animate slide down and fade in
+
+        // Force layout update
+        containerView.needsLayout = true
+        containerView.layoutSubtreeIfNeeded()
+        updateBackgroundFrame()
+
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Constants.animationDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             self.animator().alphaValue = 1
         }
-        
-        // Animate position separately for smooth slide
+
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
         let targetY = screenFrame.maxY - Constants.windowHeight - 20
-        
+
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Constants.animationDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             let currentFrame = self.frame
             self.animator().setFrameOrigin(NSPoint(x: currentFrame.origin.x, y: targetY))
         }
-        
+
         startPulsingAnimation()
-        startDurationTimer()
-        print("Recording indicator shown with slide-down animation")
+        waveformView.startAnimating()
     }
-    
-    /// Hide the indicator with smooth slide-up animation
+
+    /// Switch to processing/loading state
+    func showProcessing() {
+        isProcessing = true
+        stopPulsingAnimation()
+        recordingDot.layer?.opacity = 1.0
+
+        // Fade transition between waveform and loading
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.2
+            self.waveformView.animator().alphaValue = 0
+        }, completionHandler: {
+            self.waveformView.isHidden = true
+            self.waveformView.stopAnimating()
+            self.loadingView.isHidden = false
+            self.loadingView.alphaValue = 0
+            self.loadingView.startAnimating()
+
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                self.loadingView.animator().alphaValue = 1
+            }
+        })
+    }
+
     func hideWithAnimation(completion: (() -> Void)? = nil) {
         stopPulsingAnimation()
-        stopDurationTimer()
-        
-        // Calculate slide-up target position
+        waveformView.stopAnimating()
+        loadingView.stopAnimating()
+
         guard let screen = NSScreen.main else {
             orderOut(nil)
             completion?()
@@ -375,8 +262,7 @@ final class RecordingIndicatorWindow: NSPanel {
         }
         let screenFrame = screen.visibleFrame
         let targetY = screenFrame.maxY + Constants.slideOffset
-        
-        // Animate slide up and fade out
+
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = Constants.animationDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
@@ -385,25 +271,30 @@ final class RecordingIndicatorWindow: NSPanel {
             self.animator().setFrameOrigin(NSPoint(x: currentFrame.origin.x, y: targetY))
         }, completionHandler: { [weak self] in
             self?.orderOut(nil)
-            // Reset position for next show
             self?.positionWindow(withSlideOffset: true)
+            self?.resetState()
             completion?()
         })
-        
-        print("Recording indicator hidden with slide-up animation")
     }
-    
-    /// Update the status text
+
+    private func resetState() {
+        isProcessing = false
+        waveformView.isHidden = false
+        waveformView.alphaValue = 1
+        loadingView.isHidden = true
+        loadingView.alphaValue = 1
+    }
+
     func updateStatus(_ text: String) {
-        statusLabel.stringValue = text
+        // No status label in minimal design
     }
-    
-    /// Update audio waveform with current level (value in dB, typically -60 to 0)
+
     func updateAudioLevel(_ level: Float) {
-        waveformView.updateLevel(level)
+        if !isProcessing {
+            waveformView.updateLevel(level)
+        }
     }
-    
-    /// Connect to AudioManager for real-time level updates
+
     func connectAudioManager(_ audioManager: AudioManager) {
         audioLevelCancellable = audioManager.$currentAudioLevel
             .receive(on: DispatchQueue.main)
@@ -411,352 +302,241 @@ final class RecordingIndicatorWindow: NSPanel {
                 self?.waveformView.updateLevel(level)
             }
     }
-    
-    /// Disconnect from AudioManager
+
     func disconnectAudioManager() {
         audioLevelCancellable?.cancel()
         audioLevelCancellable = nil
         waveformView.updateLevel(-60.0)
     }
-    
+
     deinit {
         stopPulsingAnimation()
-        stopDurationTimer()
         audioLevelCancellable?.cancel()
-        // US-054: Remove battery optimization observer
-        if let observer = batteryOptimizationObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
     }
-    
-    // MARK: - Window Behavior Overrides
-    
-    override var canBecomeKey: Bool {
-        return true
-    }
-    
-    override var canBecomeMain: Bool {
-        return false
-    }
+
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }
 
-// MARK: - Live Waveform View
+// MARK: - Bar Waveform View
 
-/// Smooth, animated waveform visualization that responds to audio level in real-time
-/// Creates an elegant, flowing wave effect instead of harsh bars
-final class LiveWaveformView: NSView {
+/// Simple vertical bar waveform that responds to audio levels
+final class BarWaveformView: NSView {
 
-    /// Number of wave points to render
-    private let wavePointCount = 20
-
-    /// Current audio level (0-1)
+    private let barCount = 7
+    private var barLayers: [CALayer] = []
     private var currentLevel: CGFloat = 0
-
-    /// Wave phase for animation
-    private var wavePhase: CGFloat = 0
-
-    /// Animation timer
     private var animationTimer: Timer?
-
-    /// Wave shape layer
-    private let waveLayer = CAShapeLayer()
-
-    // US-054: Battery optimization observer
-    private var batteryOptimizationObserver: NSObjectProtocol?
+    private var barHeights: [CGFloat] = []
 
     private struct Constants {
+        static let barWidth: CGFloat = 2
+        static let barSpacing: CGFloat = 2
+        static let minBarHeight: CGFloat = 3
+        static let maxBarHeight: CGFloat = 14
         static let minDB: Float = -60.0
         static let maxDB: Float = 0.0
-        static let silenceThreshold: Float = -55.0
     }
-    
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupView()
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupView()
     }
-    
+
     private func setupView() {
         wantsLayer = true
-        layer?.masksToBounds = true
 
-        // Configure wave layer
-        waveLayer.fillColor = NSColor.Voxa.accent.withAlphaComponent(0.4).cgColor
-        waveLayer.strokeColor = NSColor.Voxa.accent.cgColor
-        waveLayer.lineWidth = 2.0
-        waveLayer.lineCap = .round
-        waveLayer.lineJoin = .round
-        layer?.addSublayer(waveLayer)
+        barHeights = Array(repeating: Constants.minBarHeight, count: barCount)
 
-        // Start animation loop
-        startAnimation()
-
-        // US-054: Set up battery optimization observer
-        setupBatteryOptimizationObserver()
-    }
-
-    // MARK: - US-054: Battery Optimization
-
-    private func setupBatteryOptimizationObserver() {
-        batteryOptimizationObserver = NotificationCenter.default.addObserver(
-            forName: .batteryOptimizationStateChanged,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            // Restart animation with new interval when battery state changes
-            self?.restartAnimationWithNewInterval()
+        for _ in 0..<barCount {
+            let bar = CALayer()
+            bar.backgroundColor = NSColor.white.cgColor
+            bar.cornerRadius = Constants.barWidth / 2
+            layer?.addSublayer(bar)
+            barLayers.append(bar)
         }
     }
 
-    private func restartAnimationWithNewInterval() {
-        if animationTimer != nil {
-            stopAnimation()
-            startAnimation()
+    func startAnimating() {
+        stopAnimating()
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { [weak self] _ in
+            self?.updateBars()
         }
+        animationTimer?.tolerance = 0.005
     }
-    
-    private func startAnimation() {
-        // US-054: Use battery-efficient waveform animation interval
-        let interval = BatteryEfficiencyManager.shared.waveformAnimationInterval
-        animationTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            self?.updateWave()
-        }
-        // US-054: Allow timer coalescing for better battery efficiency
-        animationTimer?.tolerance = interval * 0.2
-    }
-    
-    private func stopAnimation() {
+
+    func stopAnimating() {
         animationTimer?.invalidate()
         animationTimer = nil
     }
-    
-    private func updateWave() {
-        wavePhase += 0.15
-        if wavePhase > CGFloat.pi * 2 {
-            wavePhase -= CGFloat.pi * 2
+
+    private func updateBars() {
+        let centerIndex = barCount / 2
+
+        for i in 0..<barCount {
+            let distanceFromCenter = abs(i - centerIndex)
+            let centerFactor = 1.0 - (CGFloat(distanceFromCenter) / CGFloat(centerIndex + 1)) * 0.4
+
+            let baseHeight = Constants.minBarHeight + (Constants.maxBarHeight - Constants.minBarHeight) * currentLevel * centerFactor
+            let randomFactor = CGFloat.random(in: 0.75...1.0)
+            let targetHeight = max(Constants.minBarHeight, baseHeight * randomFactor)
+
+            barHeights[i] = barHeights[i] * 0.65 + targetHeight * 0.35
         }
-        
-        // Update the wave path
-        let path = createWavePath()
-        
+
+        layoutBars()
+    }
+
+    private func layoutBars() {
+        let totalWidth = CGFloat(barCount) * Constants.barWidth + CGFloat(barCount - 1) * Constants.barSpacing
+        let startX = (bounds.width - totalWidth) / 2
+        let centerY = bounds.height / 2
+
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        waveLayer.path = path.cgPath
+
+        for (i, bar) in barLayers.enumerated() {
+            let x = startX + CGFloat(i) * (Constants.barWidth + Constants.barSpacing)
+            let height = barHeights[i]
+            let y = centerY - height / 2
+
+            bar.frame = CGRect(x: x, y: y, width: Constants.barWidth, height: height)
+        }
+
         CATransaction.commit()
     }
-    
-    private func createWavePath() -> NSBezierPath {
-        let path = NSBezierPath()
-        let width = bounds.width
-        let height = bounds.height
-        let midY = height / 2
-        
-        // Base amplitude varies with audio level
-        let baseAmplitude = height * 0.4 * currentLevel
-        
-        // Start at left middle
-        path.move(to: NSPoint(x: 0, y: midY))
-        
-        // Create smooth wave using bezier curves
-        let segmentWidth = width / CGFloat(wavePointCount - 1)
-        
-        for i in 0..<wavePointCount {
-            let x = CGFloat(i) * segmentWidth
-            
-            // Multiple sine waves for organic feel
-            let wave1 = sin(wavePhase + CGFloat(i) * 0.5) * baseAmplitude
-            let wave2 = sin(wavePhase * 1.5 + CGFloat(i) * 0.3) * baseAmplitude * 0.5
-            let wave3 = sin(wavePhase * 0.7 + CGFloat(i) * 0.7) * baseAmplitude * 0.3
-            
-            let y = midY + wave1 + wave2 + wave3
-            
-            if i == 0 {
-                path.move(to: NSPoint(x: x, y: y))
-            } else {
-                // Use smooth curve to point
-                let prevX = CGFloat(i - 1) * segmentWidth
-                let controlX = (prevX + x) / 2
-                path.curve(
-                    to: NSPoint(x: x, y: y),
-                    controlPoint1: NSPoint(x: controlX, y: path.currentPoint.y),
-                    controlPoint2: NSPoint(x: controlX, y: y)
-                )
-            }
-        }
-        
-        // Close the path to create fill
-        path.line(to: NSPoint(x: width, y: midY))
-        path.line(to: NSPoint(x: width, y: height))
-        path.line(to: NSPoint(x: 0, y: height))
-        path.close()
-        
-        return path
-    }
-    
+
     override func layout() {
         super.layout()
-        waveLayer.frame = bounds
+        layoutBars()
     }
-    
-    /// Update the waveform with current audio level (in dB)
+
     func updateLevel(_ level: Float) {
-        // Clamp level to valid range
         let clampedLevel = max(Constants.minDB, min(Constants.maxDB, level))
-        
-        // Convert dB to linear percentage (0 to 1)
-        var percentage = (clampedLevel - Constants.minDB) / (Constants.maxDB - Constants.minDB)
-        
-        // Apply some smoothing
-        if clampedLevel < Constants.silenceThreshold {
-            percentage *= 0.3 // Reduce visual when quiet
-        }
-        
-        // Smooth transition to new level
-        let targetLevel = CGFloat(percentage)
-        currentLevel = currentLevel * 0.7 + targetLevel * 0.3
-        
-        // Update wave color based on level
-        let color: NSColor
-        if clampedLevel < Constants.silenceThreshold {
-            color = NSColor.Voxa.textSecondary.withAlphaComponent(0.3)
-        } else if clampedLevel < -20 {
-            color = NSColor.Voxa.success
-        } else if clampedLevel < -6 {
-            color = NSColor.Voxa.accent
-        } else {
-            color = NSColor.Voxa.accent
-        }
-        
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        waveLayer.strokeColor = color.cgColor
-        waveLayer.fillColor = color.withAlphaComponent(0.3).cgColor
-        CATransaction.commit()
+        let percentage = (clampedLevel - Constants.minDB) / (Constants.maxDB - Constants.minDB)
+        let curved = pow(CGFloat(percentage), 0.6)
+        currentLevel = currentLevel * 0.4 + curved * 0.6
     }
-    
+
     deinit {
-        stopAnimation()
-        // US-054: Remove battery optimization observer
-        if let observer = batteryOptimizationObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
+        stopAnimating()
     }
 }
 
-// MARK: - Hover Glow Button
+// MARK: - Loading Dots View
 
-/// Cancel button with elegant hover glow effect
-final class HoverGlowButton: NSButton {
-    
-    /// Glow layer for hover effect
-    private let glowLayer = CALayer()
-    
-    /// Tracking area for hover
-    private var hoverTrackingArea: NSTrackingArea?
-    
-    /// Whether button is hovered
-    private var isHovered = false
-    
+/// Animated loading dots for processing state
+final class LoadingDotsView: NSView {
+
+    private let dotCount = 3
+    private var dotLayers: [CALayer] = []
+    private var animationTimer: Timer?
+    private var phase: CGFloat = 0
+
+    private struct Constants {
+        static let dotSize: CGFloat = 4
+        static let dotSpacing: CGFloat = 5
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        setupButton()
+        setupView()
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupButton()
+        setupView()
     }
-    
-    private func setupButton() {
+
+    private func setupView() {
         wantsLayer = true
-        isBordered = false
-        
-        // Configure button appearance
-        let xImage = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Cancel recording")
-        image = xImage
-        imagePosition = .imageOnly
-        contentTintColor = NSColor.Voxa.textSecondary
-        
-        // Configure glow layer
-        glowLayer.backgroundColor = NSColor.Voxa.accent.withAlphaComponent(0.0).cgColor
-        glowLayer.cornerRadius = 11
-        layer?.insertSublayer(glowLayer, at: 0)
-        
-        updateTrackingAreas()
+
+        for _ in 0..<dotCount {
+            let dot = CALayer()
+            dot.backgroundColor = NSColor.white.cgColor
+            dot.cornerRadius = Constants.dotSize / 2
+            layer?.addSublayer(dot)
+            dotLayers.append(dot)
+        }
+
+        layoutDots()
     }
-    
+
+    func startAnimating() {
+        stopAnimating()
+        phase = 0
+
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.updateAnimation()
+        }
+        animationTimer?.tolerance = 0.01
+    }
+
+    func stopAnimating() {
+        animationTimer?.invalidate()
+        animationTimer = nil
+
+        // Reset dots to default state
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for dot in dotLayers {
+            dot.opacity = 0.4
+            dot.transform = CATransform3DIdentity
+        }
+        CATransaction.commit()
+    }
+
+    private func updateAnimation() {
+        phase += 0.15
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        for (i, dot) in dotLayers.enumerated() {
+            // Staggered wave animation
+            let offset = CGFloat(i) * 0.8
+            let wave = sin(phase - offset)
+
+            // Opacity pulses between 0.3 and 1.0
+            let opacity = 0.3 + 0.7 * max(0, wave)
+            dot.opacity = Float(opacity)
+
+            // Scale pulses between 0.8 and 1.2
+            let scale = 0.8 + 0.4 * max(0, wave)
+            dot.transform = CATransform3DMakeScale(scale, scale, 1)
+        }
+
+        CATransaction.commit()
+    }
+
+    private func layoutDots() {
+        let totalWidth = CGFloat(dotCount) * Constants.dotSize + CGFloat(dotCount - 1) * Constants.dotSpacing
+        let startX = (bounds.width - totalWidth) / 2
+        let centerY = bounds.height / 2
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        for (i, dot) in dotLayers.enumerated() {
+            let x = startX + CGFloat(i) * (Constants.dotSize + Constants.dotSpacing)
+            let y = centerY - Constants.dotSize / 2
+            dot.frame = CGRect(x: x, y: y, width: Constants.dotSize, height: Constants.dotSize)
+        }
+
+        CATransaction.commit()
+    }
+
     override func layout() {
         super.layout()
-        glowLayer.frame = bounds.insetBy(dx: -4, dy: -4)
-        glowLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        layoutDots()
     }
-    
-    override func updateTrackingAreas() {
-        if let area = hoverTrackingArea {
-            removeTrackingArea(area)
-        }
-        
-        hoverTrackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways],
-            owner: self,
-            userInfo: nil
-        )
-        
-        if let area = hoverTrackingArea {
-            addTrackingArea(area)
-        }
-    }
-    
-    override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-        animateHover(true)
-    }
-    
-    override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        animateHover(false)
-    }
-    
-    private func animateHover(_ hover: Bool) {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            context.allowsImplicitAnimation = true
-            
-            if hover {
-                contentTintColor = NSColor.Voxa.accent
-                glowLayer.backgroundColor = NSColor.Voxa.accent.withAlphaComponent(0.2).cgColor
-                glowLayer.shadowColor = NSColor.Voxa.accent.cgColor
-                glowLayer.shadowOpacity = 0.5
-                glowLayer.shadowRadius = 8
-                glowLayer.shadowOffset = .zero
-            } else {
-                contentTintColor = NSColor.Voxa.textSecondary
-                glowLayer.backgroundColor = NSColor.Voxa.accent.withAlphaComponent(0.0).cgColor
-                glowLayer.shadowOpacity = 0
-            }
-        }
-    }
-    
-    override func mouseDown(with event: NSEvent) {
-        // Scale down on press
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.1
-            self.layer?.setAffineTransform(CGAffineTransform(scaleX: 0.9, y: 0.9))
-        }
-        super.mouseDown(with: event)
-    }
-    
-    override func mouseUp(with event: NSEvent) {
-        // Scale back to normal
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.1
-            self.layer?.setAffineTransform(.identity)
-        }
-        super.mouseUp(with: event)
+
+    deinit {
+        stopAnimating()
     }
 }

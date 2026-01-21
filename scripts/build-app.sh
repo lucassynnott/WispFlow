@@ -45,6 +45,15 @@ if [ -f "${ROOT_DIR}/Resources/menubar.png" ]; then
     echo "Copied menubar icon"
 fi
 
+# Copy logo images for sidebar
+if [ -f "${ROOT_DIR}/Resources/logo_black.png" ]; then
+    cp "${ROOT_DIR}/Resources/logo_black.png" "${APP_BUNDLE}/Contents/Resources/"
+    cp "${ROOT_DIR}/Resources/logo_black@2x.png" "${APP_BUNDLE}/Contents/Resources/" 2>/dev/null || true
+    cp "${ROOT_DIR}/Resources/logo_white.png" "${APP_BUNDLE}/Contents/Resources/" 2>/dev/null || true
+    cp "${ROOT_DIR}/Resources/logo_white@2x.png" "${APP_BUNDLE}/Contents/Resources/" 2>/dev/null || true
+    echo "Copied logo images"
+fi
+
 # Create Frameworks directory and copy required frameworks
 mkdir -p "${APP_BUNDLE}/Contents/Frameworks"
 
@@ -77,9 +86,13 @@ install_name_tool -add_rpath "@executable_path/../Frameworks" "${APP_BUNDLE}/Con
 # Set executable permissions
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
-# Ad-hoc code sign the app
-echo "Code signing app bundle..."
-codesign --force --deep --sign - "${APP_BUNDLE}"
+# Code sign with Developer ID and entitlements
+echo "Code signing app bundle with Developer ID..."
+codesign --force --deep \
+    --sign "Developer ID Application: LUCAS GARRETT NOLAN SYNOTT (9785XZK34L)" \
+    --entitlements "${ROOT_DIR}/Resources/Voxa.entitlements" \
+    --options runtime \
+    "${APP_BUNDLE}"
 
 echo "App bundle created at: ${APP_BUNDLE}"
 echo ""
